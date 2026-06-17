@@ -188,9 +188,9 @@ flowchart TD
     D["D · Bound-variable renaming"]
     E["E · odd_noms homomorphism<br/>(structural refactor)"]:::crux
     F["F · Language extension<br/>(total_* + pf_extended)"]
-    G["G · Witnessed Lindenbaum<br/>(LindenbaumWitnessed, ExtendedLindenbaumLemma)"]
-    TL["Truth lemma (CompletedModel) — re-fit to compile"]
-    H["H · Existence lemma (l313')"]
+    G["G · Witnessed Lindenbaum<br/>(Pass)"]:::done
+    TL["TL · Completed-model truth lemma<br/>(partial: □← · ∀ free)"]
+    H["H · Existence lemma (l313')"]:::done
     I["I · Completeness:  Γ ⊨ φ → Γ ⊢ φ"]
 
     B --> PS
@@ -216,24 +216,26 @@ flowchart TD
     SND --> TL
 ```
 
-**Legend (node colors).** The diagram uses three node styles:
+**Legend (node colors).** Figure 1 uses three node styles on the *foundation* nodes:
 
 - **Green** — pre-existing foundations that already compiled before this work and are
   *not* deliverables of the completeness effort: Kripke semantics, the Hilbert proof
-  system, Soundness, Regular Lindenbaum, and Model Existence.
+  system, Soundness, Regular Lindenbaum, and Model Existence. **G** is also green now
+  that witnessed Lindenbaum is closed.
 - **Orange** — the single encoding *crux*, **E** (`odd_noms` homomorphism), discharged by
   reorganizing the representation rather than by proving the inherited `admit`s as stated
   (§1.3).
-- **Blue** — the new deliverables this work closes: **B, C, D, F, G, TL, H, I**.
+- **Blue** — the deliverables this work closes or is still closing: **B, C, D, F, TL, H, I**
+  ( **G** was blue while open; see above).
+
+The **TL** and **I** subdiagrams (Figures 1a–1d) add **yellow** = partial / wired but
+blocked on upstream admits, and **red** = open `sorry`/`admit` rows.
 
 The shading is a snapshot of the *incoming* state; live, per-deliverable status is tracked
 in the results table (§9).
 
-*Figure 1. Dependency blueprint of the completeness development. Shaded (green) nodes
-already compiled at the outset; the orange node (E) is the encoding "crux" that we
-discharge by reorganization rather than by proving the inherited obligations as stated
-(§1.3). The two fan-in points, **G** and **I**, are why the work is a tree rather than a
-chain.*
+*Figure 1. Dependency blueprint … The two fan-in points, **G** (now closed) and **I**, are
+why the work is a tree rather than a chain.*
 
 **Module-level snapshots.** Figure 1 is deliberately coarse. Four load-bearing modules
 each have their own internal order; the diagrams below are sized to fit a single column
@@ -243,18 +245,23 @@ and are meant to be read *inside* the corresponding deliverable.
 largely independent of **G**; **`pf_extended` ←** (conservativity) is what unlocks
 `consistent_total` in **I**, not `ExtendedLindenbaumLemma`.
 
+*Figure 1a · F · language extension.*
+
 ```mermaid
 flowchart LR
-  tot["Form.total / odd_noms"] --> fwd["pf_extended →<br/>⊢ φ ⇒ ⊢ φ.total"]
-  tot --> bax["backward axiom replay<br/>(6/7 cases done)"]
-  bax --> core["conservativity core<br/>ax_q2_nom · mp · general · necess"]
-  core --> back["pf_extended ←<br/>⊢ φ.total ⇒ ⊢ φ"]
-  back --> ct["I · consistent_total"]
-  sat["sat_total / Model.ofTotal"] --> pull["pull satisfaction<br/>TotalSet → Model N"]
+  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
+  classDef open fill:#f8d7da,stroke:#c33,color:#000
+
+  tot["Form.total / odd_noms"]:::pass --> fwd["pf_extended →<br/>⊢ φ ⇒ ⊢ φ.total"]:::pass
+  tot --> bax["backward axiom replay<br/>(6/7 axiom cases)"]:::pass
+  bax --> core["conservativity core<br/>ax_q2_nom · mp · general · necess"]:::open
+  core --> back["pf_extended ←<br/>⊢ φ.total ⇒ ⊢ φ"]:::open
+  back --> ct["I · consistent_total"]:::open
+  sat["sat_total / Model.ofTotal"]:::pass --> pull["pull satisfaction<br/>TotalSet → Model N"]:::pass
 ```
 
-*G · witnessed Lindenbaum (`Lindenbaum.lean`).* After **E** makes `odd_noms` structural,
-**G** is a finiteness argument: each stage adds only finitely many formulas, so some even
+*Figure 1b · G · witnessed Lindenbaum.*
+After **E** makes `odd_noms` structural, **G** is a finiteness argument: each stage adds only finitely many formulas, so some even
 nominal remains fresh.
 
 ```mermaid
@@ -264,37 +271,72 @@ flowchart TD
   fresh --> step["enough_noms_odd_step"]
   step --> wit["LindenbaumWitnessed"]
   wit --> ext["ExtendedLindenbaumLemma"]
+  wit --> wll["WitnessedLindenbaumLemma<br/>(enough_noms on seed)"]
 ```
 
-*TL · completed-model truth lemma (`CompletedModel.lean`).* Oltean's base cases compile
-again; **□** and **∀** were never in the upstream repo and must be proved here before the
-depth/`ex`-pattern assembly.
+*`WitnessedLindenbaumLemma`* (not `ExtendedLindenbaumLemma`) is what the **TL** diamond
+chain calls on the successor seed `{ψ} ∪ {□χ ∈ Δ}`.
+
+*Figure 1c · TL · completed-model truth lemma.*
+Oltean's base cases and `truth_ex` compile; **□** and **∀** are new. The **□ →** direction and the **∀**
+not-free case are closed; **□ ←** runs through the diamond-successor pipeline below
+(two seed lemmas still open). **TruthLemma** is a structural `cases` assembly (`bind`
+delegates to partial `truth_all`).
 
 ```mermaid
 flowchart TD
-  base["truth_bttm · prop · nom · svar"] --> impl["truth_impl"]
-  impl --> box["truth_box<br/>(new)"]
-  impl --> all["truth_all<br/>(new)"]
-  H["H · l313'"] --> box
-  setfam["diamond_extension_consistent<br/>(set_family base)"] --> box
-  witlift["diamond_succ_mcs<br/>(witnessed output)"] --> box
-  ex["truth_ex<br/>(ex-pattern)"] --> TLm["TruthLemma"]
+  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
+  classDef partial fill:#fff3cd,stroke:#d28,color:#000
+  classDef open fill:#f8d7da,stroke:#c33,color:#000
+
+  base["truth_bttm · prop · nom · svar · impl · ex"]:::pass
+  succ["mcs_in_witnessed_succ · completed_to_witnessed · mcs_in_completed_succ"]:::pass
+
+  cons["diamond_extension_consistent<br/>(set_family base)"]:::open
+  nom["enough_noms_diamond_seed"]:::open
+  WL["WitnessedLindenbaumLemma (G)"]:::pass
+  cons --> dsc["diamond_succ_mcs"]:::partial
+  nom --> dsc
+  WL --> dsc
+  dsc --> rcs["restrict_canonical_succ<br/>(witnessed Δ' input)"]:::pass
+  rcs --> dcs["diamond_completed_succ"]:::partial
+  nnd["not_nec_to_diamond"]:::pass
+
+  base --> box["truth_box"]:::partial
+  succ --> box
+  dcs --> box
+  nnd --> box
+
+  ainf["all_iff_notfree"]:::pass
+  base --> allNF["truth_all<br/>(x not free in ψ)"]:::pass
+  ainf --> allNF
+  allNF --> allF["truth_all<br/>(x free: rename / truth_ex pattern)"]:::open
+
+  base --> TLm["TruthLemma<br/>(structural cases)"]:::partial
   box --> TLm
-  all --> TLm
+  allNF --> TLm
+  allF -.->|"blocks full TL"| TLm
 ```
 
-*I · model existence (`Completeness.lean`).* `cons_sat` is fully wired; two upstream rows
-still block execution.
+*Figure 1d · I · model existence.*
+
+*I · model existence (`Completeness.lean`).* `cons_sat` is fully wired; execution still
+needs backward conservativity and the remaining TL rows below.
 
 ```mermaid
 flowchart TD
+  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
+  classDef partial fill:#fff3cd,stroke:#d28,color:#000
+  classDef open fill:#f8d7da,stroke:#c33,color:#000
+
   A["consistent Γ"] --> B["consistent_total<br/>(Set.total Γ)"]
-  B --> C["ExtendedLindenbaumLemma → Θ"]
-  C --> D["TruthLemma at root Θ"]
-  D --> E["sat_odd_noms' + sat_total"]
+  B --> C["ExtendedLindenbaumLemma → Θ"]:::pass
+  C --> D["TruthLemma at root Θ"]:::partial
+  D --> E["sat_odd_noms' + sat_total"]:::pass
   E --> F["satisfiable Γ"]
   B -.->|"BLOCKED"| G["F · pf_extended ←"]
-  D -.->|"BLOCKED"| H["TL · truth_box/all · TruthLemma"]
+  D -.->|"BLOCKED"| H1["diamond_extension_consistent<br/>· enough_noms_diamond_seed"]
+  D -.->|"BLOCKED"| H2["truth_all (x free in ψ)"]
 ```
 
 **The incoming state: where the holes are.** What Oltean left open is concentrated in the
@@ -408,9 +450,11 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
   `truth_ex`) and the supporting valuation lemmas to the current `simp` normal forms.
   **`truth_box` and `truth_all` are new** — Oltean's archived development stops before the
-  modal/binder cases. `TruthLemma` is then assembled by depth induction with a separate
-  `ex`-pattern branch (since `ex` is not a `Form` constructor). Depends on **B**, **D**,
-  **H** (and on Kripke semantics and Soundness).
+  modal/binder cases. `TruthLemma` is assembled by structural `cases` on `Form` (with a
+  separate `truth_ex` branch, since `ex` is not a `Form` constructor); the `bind` case
+  delegates to `truth_all`, which is closed when `x` is not free in `ψ` and still open
+  in the free case (rename / `truth_ex` pattern). Depends on **B**, **D**, **H** (and on
+  Kripke semantics and Soundness).
 - **I. Remove the final-completeness hole.** `Completeness`: `cons_sat` runs
   `consistent_total` → `ExtendedLindenbaumLemma (Set.total Γ)` → `TruthLemma` at the root
   witnessed MCS → `sat_odd_noms'` / `sat_total`; `Completeness` is then
@@ -643,8 +687,8 @@ while **F** awaits `pf_extended` ← for **I** only).
 | TL · `Proof.not_nec_to_diamond` | `∼(□φ) ⟶ ◇∼φ` for MCS maximality step | Pass |
 | TL · `CompletedModel.truth_box` | □ case wired; ← blocked on diamond chain | Partial |
 | TL · `Proof.all_iff_notfree` | `(all x, ψ) ⟷ ψ` when `x` not free (Q1 + `ax_q2`) | Pass |
-| TL · `CompletedModel.truth_all` | closed when `x` not free in `ψ`; free case = rename (`truth_ex` pattern) | Partial |
-| TL · `CompletedModel.TruthLemma` | structural `cases`; `bind` via partial `truth_all` | Partial |
+| TL · `CompletedModel.truth_all` | not-free case closed; free case (`is_free x ψ`) still open | Partial |
+| TL · `CompletedModel.TruthLemma` | structural assembly; `bind` via partial `truth_all` | Partial |
 | **I** | **Final-completeness hole** | **Partial** |
 | I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` (needs `pf_extended` ←) | Not Yet |
 | I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked on rows above) | Partial |

@@ -24,6 +24,12 @@ theorem subst_depth'' {x : SVAR} {i : NOM N} {φ : Form N} : (φ[i//x]).depth < 
   apply subst_depth
   apply ex_depth
 
+theorem subst_depth_bind {x : SVAR} {i : NOM N} {φ : Form N} : (φ[i//x]).depth < (all x, φ).depth := by
+  apply Nat.lt_of_le_of_lt
+  apply Nat.le_of_eq
+  apply subst_depth
+  apply sub_depth_bind
+
 theorem iff_subst_svar {y x : SVAR} : (φ ⟷ ψ)[y // x] = (φ[y//x] ⟷ ψ[y//x]) := by
   simp [subst_svar]
 

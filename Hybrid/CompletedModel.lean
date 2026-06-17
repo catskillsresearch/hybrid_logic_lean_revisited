@@ -802,7 +802,7 @@ lemma truth_box {ψ : Form TotalSet} : ∀ {Θ : Set (Form TotalSet)}, (mcs : MC
 lemma truth_all {ψ : Form TotalSet} : ∀ {Θ : Set (Form TotalSet)} {x : SVAR}, (mcs : MCS Θ) → (wit : witnessed Θ) →
     (statement ψ mcs wit) → statement (all x, ψ) mcs wit := by
   intro Θ x mcs wit ih Δ h_in
-  have ⟨Δ_mcs, _⟩ := mcs_in_prop mcs wit h_in
+  have ⟨Δ_mcs, _⟩ := (mcs_in_prop mcs wit h_in)
   apply Iff.intro
   · intro hall
     simp only [Sat]
