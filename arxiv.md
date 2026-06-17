@@ -187,7 +187,7 @@ flowchart TD
     C["C · Formula countability / enumeration"]
     D["D · Bound-variable renaming"]
     E["E · odd_noms homomorphism<br/>(structural refactor)"]:::crux
-    F["F · Language extension (pf_extended)"]
+    F["F · Language extension<br/>(total_* + pf_extended)"]
     G["G · Witnessed Lindenbaum<br/>(LindenbaumWitnessed, ExtendedLindenbaumLemma)"]
     TL["Truth lemma (CompletedModel) — re-fit to compile"]
     H["H · Existence lemma (l313')"]
@@ -197,7 +197,6 @@ flowchart TD
     C --> RL
     RL --> G
     E --> G
-    F --> G
     B --> F
     B --> G
     B --> H
@@ -240,9 +239,9 @@ chain.*
 each have their own internal order; the diagrams below are sized to fit a single column
 and are meant to be read *inside* the corresponding deliverable.
 
-*F · language extension (`LanguageExtension.lean`).* Forward totalization is on the
-`cons_sat` hot path only indirectly; **backward conservativity** is what unlocks
-`consistent_total`.
+*F · language extension (`LanguageExtension.lean`).* Structural `total_*` lemmas are
+largely independent of **G**; **`pf_extended` ←** (conservativity) is what unlocks
+`consistent_total` in **I**, not `ExtendedLindenbaumLemma`.
 
 ```mermaid
 flowchart LR
@@ -340,12 +339,15 @@ where a stage offers a choice we take the *easiest task first*. Concretely: rest
 compile (A) so the whole library elaborates with holes marked; clear the
 decidable/mechanical leaves — propositional tautologies (B), formula-countability (C),
 bound-variable renaming (D); carry out the `odd_noms` reorganization (E), the one
-foundation that is a redesign rather than a proof; discharge the language-extension layer
-(F), a batch of structural inductions; prove the witnessed Lindenbaum lemma (G), which
-fans C, E, F together; close the existence lemma (H); re-fit the completed-model truth
-lemma (TL), which waits on H; and assemble the final theorem (I). The concrete
-deliverables and their dependency order are listed next; their live status is tracked in
-§9.
+foundation that is a redesign rather than a proof; discharge the language-extension
+structural lemmas (**F**, the `total_*` batch — largely parallel to **E**); prove the
+witnessed Lindenbaum lemma (**G**), which in the code depends chiefly on **C**, **E**, and
+**B**; close the existence lemma (**H**), which depends on **B** and **D** only; discharge
+the language-extension structural lemmas (**F**, the `total_*` batch — parallel to **E**);
+finish **F**'s conservativity half (`pf_extended` ←), which feeds **I** but not **G** or
+**H**; re-fit the completed-model truth lemma (**TL**), which waits on **H**; and assemble
+the final theorem (**I**). In §9, **G** and **H** are listed before **F** so **Pass**
+rows are not buried under **F**'s open conservativity substeps.
 
 ### 1.6 Goal and major steps
 
@@ -355,8 +357,10 @@ the construction Oltean left open. Soundness, syntax, semantics, and most scaffo
 already exist; the gap is the Henkin-style completeness argument and the "freshness"
 machinery it depends on.
 
-The work decomposes into the following major steps, in dependency order. Their status is
-tracked in the results table (§9). Steps **B**–**I** each consist of discharging a group
+The work decomposes into the following major steps. Letter labels **A**–**I** follow
+Oltean's proof narrative; §9 lists **G** and **H** before **F** because those steps are
+**Pass** in the code and do not import `LanguageExtension` or wait on `pf_extended` ←
+(only **I** does). Status is tracked in the results table (§9).
 of `sorry`/`admit` obligations *inherited from Oltean's development*; we group them by
 the mathematical reason they exist. (We verified against the archived upstream sources
 that these holes are Oltean's own, not artifacts of our port — for instance Oltean's
@@ -385,17 +389,19 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   remapping (`odd_noms`) is a homomorphism for the connectives and conjunctions. This is
   where Oltean's `bulk_subst`-over-sorted-lists encoding makes the "obvious" lemmas hard
   (§1.3), and everything downstream depends on it.
-- **F. Remove the language-extension / theorem-preservation holes.**
-  `LanguageExtension`: `total_subst_svar`, `total_tautology`, `total_subst_svar'`,
-  `total_subst_nom`, `total_iterate_pos`, `total_iterate_nec`, `l416`, and `pf_extended`
-  (Prop. 4.1.7: derivations are preserved when the language is expanded with new
-  nominals).
 - **G. Remove the witnessed-Lindenbaum holes.** `Lindenbaum`: `LindenbaumWitnessed`
-  (the Lindenbaum union of a set with *enough nominals* is witnessed) and
-  `ExtendedLindenbaumLemma` (every consistent set extends to a witnessed MCS in the
-  expanded language).
+  and `ExtendedLindenbaumLemma`. In the Lean graph this module imports **E** / countability /
+  proof scaffolding only — not `LanguageExtension`.
 - **H. Remove the existence-lemma hole.** `ExistenceLemma.l313'`: the diamond-witness
-  property used to build successor states of the completed model. Depends on **B**, **D**.
+  property used to build successor states of the completed model. Depends on **B** and
+  **D** only (Figure 1); does not use **F** or **G** (`l313'` is on base-language
+  `Form N`, not `TotalSet` / `pf_extended`).
+- **F. Remove the language-extension / theorem-preservation holes.**
+  `LanguageExtension`: structural `total_*` lemmas, `l416`, and `pf_extended`
+  (Prop. 4.1.7: derivations survive the language expansion). The **`total_*` block is
+  largely independent of **G** and **H**; the remaining **`pf_extended` ←** (conservativity)
+  is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or
+  `l313'`.
 - **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
   `truth_ex`) and the supporting valuation lemmas to the current `simp` normal forms.
@@ -549,9 +555,14 @@ Status legend: **Pass** — done and compiling; **Fail** — attempted, currentl
 **Not Yet** — not yet attempted. Step **A** is broken out into one row per module (in the
 `Hybrid.lean` dependency order in which they are converted); steps **B**–**I** are broken
 out into one row per `sorry`/`admit` declaration to be removed ("remove Oltean's
-`admit`/`sorry` for *X*"), again in dependency order. Step **A** is **Pass** once every
+`admit`/`sorry` for *X*"). After **E**, **G** and **H** precede **F** in the table:
+they are **Pass** and do not depend on `pf_extended` ← (Figure 1); letter labels still
+match Oltean's narrative. Step **A** is **Pass** once every
 module in that list elaborates under the pinned toolchain (remaining proof holes are
-tracked under **B**–**I**, not under **A**).
+tracked under **B**–**I**, not under **A**). Parent rows (**F**, **G**, …) summarize
+their substeps: a parent can be **Partial** while an earlier-numbered step is **Pass**
+when the open substeps are not on that step's critical path (e.g. **G** and **H** **Pass**
+while **F** awaits `pf_extended` ← for **I** only).
 
 | Step | Deliverable | Status |
 | --- | --- | --- |
@@ -593,6 +604,16 @@ tracked under **B**–**I**, not under **A**).
 | E · `Substitutions.List.odd_to` | list lift `List Γ.odd_noms → List Γ` | Pass |
 | E · `Substitutions.odd_conj` | `odd_noms` distributes over conjunction | Pass |
 | E · `Substitutions.odd_conj_rev` | `odd_noms` distributes over conjunction (rev) | Pass |
+| **G** | **Witnessed-Lindenbaum holes** | **Pass** |
+| G · `Lindenbaum.LindenbaumWitnessed` | Lindenbaum union with enough nominals is witnessed | Pass |
+| G · `Lindenbaum.witness_in_next` / `witness_at_step` | per-step witness extraction | Pass |
+| G · `Lindenbaum.zero_nocc_odd` / `even_nocc_odd` / `enough_noms_odd_base` | even nominals fresh for the odd-only base | Pass |
+| G · `Lindenbaum.lindenbaum_next_subset` / `family_subset` / `fresh_even_dominating` | each finite stage adds finitely many formulas, so an even nominal survives | Pass |
+| G · `Lindenbaum.ExtendedLindenbaumLemma` | consistent ⟹ witnessed MCS in expanded language | Pass |
+| G · `Lindenbaum.enough_noms_odd_step` | per-stage structural freshness (finiteness argument) | Pass |
+| **H** | **Existence-lemma hole** | **Pass** |
+| H · `Substitutions.subst_nom_noop` / `rename_svar_nom` | freshness rewrite lemmas | Pass |
+| H · `ExistenceLemma.l313'` | diamond-witness property for successor states | Pass |
 | **F** | **Language-extension / theorem-preservation holes** | **Partial** |
 | F · `LanguageExtension.total_subst_svar` | `total` inverts svar substitution | Pass |
 | F · `LanguageExtension.total_tautology` | `Tautology φ ↔ Tautology φ.total` | Pass |
@@ -607,23 +628,13 @@ tracked under **B**–**I**, not under **A**).
 | F · `LanguageExtension.pf_extended` (→) | `⊢ φ → ⊢ φ.total` (totalize a derivation) | Pass |
 | F · `LanguageExtension.pf_extended` (←), axiom cases | 6/7 backward axiom cases (`ax_k/q1/q2_svar/name/nom/brcn`) | Pass |
 | F · `LanguageExtension.pf_extended` (←), conservativity core | `ax_q2_nom` + `mp`/`general`/`necess`: alien-nominal elimination | Not Yet |
-| **G** | **Witnessed-Lindenbaum holes** | **Pass** |
-| G · `Lindenbaum.LindenbaumWitnessed` | Lindenbaum union with enough nominals is witnessed | Pass |
-| G · `Lindenbaum.witness_in_next` / `witness_at_step` | per-step witness extraction | Pass |
-| G · `Lindenbaum.zero_nocc_odd` / `even_nocc_odd` / `enough_noms_odd_base` | even nominals fresh for the odd-only base | Pass |
-| G · `Lindenbaum.lindenbaum_next_subset` / `family_subset` / `fresh_even_dominating` | each finite stage adds finitely many formulas, so an even nominal survives | Pass |
-| G · `Lindenbaum.ExtendedLindenbaumLemma` | consistent ⟹ witnessed MCS in expanded language | Pass |
-| G · `Lindenbaum.enough_noms_odd_step` | per-stage structural freshness (finiteness argument) | Pass |
-| **H** | **Existence-lemma hole** | **Pass** |
-| H · `Substitutions.subst_nom_noop` / `rename_svar_nom` | freshness rewrite lemmas | Pass |
-| H · `ExistenceLemma.l313'` | diamond-witness property for successor states | Pass |
+| F · `LanguageExtension.sat_total` / `Model.ofTotal` | `TotalSet` satisfaction → `Model N` | Pass |
+| F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
 | **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Partial** |
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.truth_box` / `truth_all` | □ and ∀ cases (Oltean never formalized these) | Not Yet |
 | TL · `CompletedModel.mcs_in_*_succ` | successor/`MCS_in` path lemmas for the □ case | Not Yet |
 | TL · `CompletedModel.TruthLemma` | depth/`ex`-pattern assembly | Not Yet |
-| F · `LanguageExtension.sat_total` / `Model.ofTotal` | `TotalSet` satisfaction → `Model N` | Pass |
-| F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
 | **I** | **Final-completeness hole** | **Partial** |
 | I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` (needs `pf_extended` ←) | Not Yet |
 | I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked on rows above) | Partial |
