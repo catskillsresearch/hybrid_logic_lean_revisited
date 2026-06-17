@@ -1,6 +1,8 @@
 import Hybrid.Substitutions
 import Hybrid.ProofUtils
 import Hybrid.FormCountable
+import Mathlib.Data.Finset.Lattice.Fold
+import Mathlib.Algebra.Group.Even
 
 open Classical
 
@@ -405,21 +407,111 @@ theorem zero_nocc_odd : ∀ φ : Form TotalSet, nom_occurs 0 φ.odd_noms = false
   | box a ih => rw [odd_box]; simp only [nom_occurs, ih]
   | bind x a ih => rw [odd_bind]; simp only [nom_occurs, ih]
 
+-- Generalisation of `zero_nocc_odd`: *any* even nominal is fresh for an odd-nominal image,
+-- since `odd_noms` sends every nominal `i ↦ 2·i+1` (always odd).
+theorem even_nocc_odd {j : NOM TotalSet} (heven : Even (j.letter : ℕ)) :
+    ∀ φ : Form TotalSet, nom_occurs j φ.odd_noms = false := by
+  intro φ
+  induction φ with
+  | bttm => rw [odd_bttm]; rfl
+  | prop p => simp [Form.odd_noms, Form.list_noms, Form.odd_list_noms, Form.bulk_subst, nom_occurs]
+  | svar x => simp [Form.odd_noms, Form.list_noms, Form.odd_list_noms, Form.bulk_subst, nom_occurs]
+  | nom i =>
+      rw [odd_nom]
+      have hne : j ≠ 2 * i + 1 := by
+        intro h
+        rw [NOM_eq] at h
+        have hval : (j.letter : ℕ) = (i.letter : ℕ) * 2 + 1 := congrArg Subtype.val h
+        obtain ⟨t, ht⟩ := heven
+        omega
+      simp only [nom_occurs, decide_eq_false_iff_not]
+      exact hne
+  | impl a b iha ihb => rw [odd_impl]; simp only [nom_occurs, iha, ihb, Bool.or_self]
+  | box a ih => rw [odd_box]; simp only [nom_occurs, ih]
+  | bind x a ih => rw [odd_bind]; simp only [nom_occurs, ih]
+
 -- Base case of structural freshness: the even nominal `0` is fresh for the whole image set.
 theorem enough_noms_odd_base (Γ : Set (Form TotalSet)) : ∃ i : NOM TotalSet, all_nocc i Γ.odd_noms := by
   refine ⟨0, ?_⟩
   rintro φ ⟨ψ, _, rfl⟩
   exact zero_nocc_odd ψ
 
+-- A single Lindenbaum step only enlarges the previous set by a *finite* number of formulas
+-- (the enumerated formula `φ` itself, plus at most one existential witness).
+lemma lindenbaum_next_subset (prev : Set (Form N)) (φ : Form N) :
+    ∃ A : Finset (Form N), lindenbaum_next prev φ ⊆ prev ∪ ↑A := by
+  unfold lindenbaum_next
+  split
+  · split
+    · next x ψ _ =>
+        split
+        · next c =>
+            refine ⟨{(ex x, ψ), ψ[c.choose // x]}, ?_⟩
+            intro a ha
+            simp only [Set.union_singleton, Set.mem_insert_iff, Set.mem_union,
+                       Finset.coe_insert, Finset.coe_singleton, Set.mem_singleton_iff] at ha ⊢
+            tauto
+        · refine ⟨{(ex x, ψ)}, ?_⟩
+          intro a ha
+          simp only [Set.union_singleton, Set.mem_insert_iff,
+                     Finset.coe_singleton] at ha ⊢
+          tauto
+    · refine ⟨{φ}, ?_⟩
+      intro a ha
+      simp only [Set.union_singleton, Set.mem_insert_iff,
+                 Finset.coe_singleton] at ha ⊢
+      tauto
+  · exact ⟨∅, fun a ha => Or.inl ha⟩
+
+-- Hence each finite stage `Γ (n, e)` is contained in the base `Γ` together with a finite set.
+lemma family_subset {Γ : Set (Form N)} (e : ℕ → Form N) :
+    ∀ n, ∃ A : Finset (Form N), Γ (n, e) ⊆ Γ ∪ ↑A := by
+  intro n
+  induction n with
+  | zero =>
+      simp only [lindenbaum_family]
+      exact lindenbaum_next_subset Γ (e 0)
+  | succ m ih =>
+      obtain ⟨A, hA⟩ := ih
+      obtain ⟨A', hA'⟩ := lindenbaum_next_subset (Γ (m, e)) (e (m+1))
+      refine ⟨A ∪ A', ?_⟩
+      calc Γ ((m+1), e) ⊆ Γ (m, e) ∪ ↑A' := hA'
+        _ ⊆ (Γ ∪ ↑A) ∪ ↑A' := Set.union_subset_union hA (subset_refl _)
+        _ = Γ ∪ (↑A ∪ ↑A') := by rw [Set.union_assoc]
+        _ = Γ ∪ ↑(A ∪ A') := by rw [Finset.coe_union]
+
+-- For any finite set of formulas there is an even nominal that occurs in none of them.
+-- (Take a letter that is both even and larger than every nominal appearing in the set.)
+lemma fresh_even_dominating (A : Finset (Form TotalSet)) :
+    ∃ j : NOM TotalSet, Even (j.letter : ℕ) ∧ (∀ φ ∈ A, nom_occurs j φ = false) := by
+  obtain ⟨M, hM⟩ : ∃ M : ℕ, ∀ φ ∈ A, (φ.new_nom.letter : ℕ) ≤ M := by
+    refine ⟨A.sup (fun φ => (φ.new_nom.letter : ℕ)), fun φ hφ => ?_⟩
+    exact Finset.le_sup (f := fun φ => (φ.new_nom.letter : ℕ)) hφ
+  refine ⟨⟨2 * M + 2, trivial⟩, ?_, ?_⟩
+  · show Even (2 * M + 2)
+    exact ⟨M + 1, by omega⟩
+  intro φ hφ
+  apply ge_new_nom_is_new
+  show (φ.new_nom.letter : ℕ) ≤ (2 * M + 2 : ℕ)
+  have := hM φ hφ
+  omega
+
 -- Inductive (per-stage) case of structural freshness.  This is the heart of the completeness
 -- proof and the obstacle on which Oltean's original development stalled.  At every finite
 -- stage of the Lindenbaum construction only finitely many further formulas (hence finitely
 -- many further nominals) have been added to the odd-only base set, so an unused even nominal
--- always remains.  Establishing this rigorously requires a finiteness argument over the
--- family `Γ.odd_noms (n, e)`.
+-- always remains.
 theorem enough_noms_odd_step (Γ : Set (Form TotalSet)) :
     ∀ (e : ℕ → Form TotalSet) (n : ℕ), ∃ i : NOM TotalSet, all_nocc i (Γ.odd_noms (n, e)) := by
-  admit
+  intro e n
+  obtain ⟨A, hA⟩ := family_subset (Γ := Γ.odd_noms) e n
+  obtain ⟨j, hjeven, hjA⟩ := fresh_even_dominating A
+  refine ⟨j, ?_⟩
+  intro φ hφ
+  rcases hA hφ with hbase | hAmem
+  · obtain ⟨ψ, _, rfl⟩ := hbase
+    exact even_nocc_odd hjeven ψ
+  · exact hjA φ hAmem
 
 theorem enough_noms_odd (Γ : Set (Form TotalSet)) : enough_noms Γ.odd_noms :=
   ⟨enough_noms_odd_base Γ, enough_noms_odd_step Γ⟩

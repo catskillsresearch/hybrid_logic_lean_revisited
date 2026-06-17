@@ -1,5 +1,6 @@
 import Hybrid.Proof
 import Hybrid.Substitutions
+import Hybrid.ProofUtils
 
 open Proof
 
@@ -267,24 +268,100 @@ lemma total_iterate_nec {φ : Form N} : (iterate_nec n φ).total = iterate_nec n
       show □ ((iterate_nec k φ).total) = □ (iterate_nec k (φ.total))
       rw [ih]
 
+-- Totalization only renames nominals, so it preserves the free-variable and
+-- substitutability predicates (both of which depend solely on the SVAR structure).
+lemma total_is_free {φ : Form N} {x : SVAR} : is_free x φ.total = is_free x φ := by
+  induction φ with
+  | impl a b iha ihb => simp only [Form.total, is_free, iha, ihb]
+  | box a ih => simp only [Form.total, is_free, ih]
+  | bind y a ih => simp only [Form.total, is_free, ih]
+  | _ => rfl
+
+lemma total_is_substable {φ : Form N} {s v : SVAR} : is_substable φ.total s v = is_substable φ s v := by
+  induction φ with
+  | impl a b iha ihb => simp only [Form.total, is_substable, iha, ihb]
+  | box a ih => simp only [Form.total, is_substable, ih]
+  | bind y a ih => simp only [Form.total, is_substable, total_is_free, ih]
+  | _ => rfl
+
+-- Generalizing a nominal constant `i` to a fresh variable `x` preserves theoremhood
+-- (Oltean's Lemma 4.1.6).  Rather than re-running the structural induction, we obtain it
+-- from the already-proven universal version `generalize_constants` (`⊢ φ → ⊢ all x, φ[x // i]`)
+-- by instantiating the universal back at `x`: since `x` is fresh, `φ[x // i]` is substable
+-- for `x`, and `(φ[x // i])[x // x] = φ[x // i]`.
 noncomputable def l416 {φ : Form N} {x : SVAR} (i : NOM N) (pf : ⊢ φ) (h : pf.fresh_var x) : ⊢ (φ[x // i]) := by
-  induction pf with
-  | ax_k =>
-      simp [nom_subst_svar]
-      apply ax_k
-  | ax_name =>
-      simp [nom_subst_svar]
-      apply ax_name
-  | ax_nom =>
-      simp only [nom_subst_svar, nec_subst_nom, pos_subst_nom]
-      apply ax_nom
-  | ax_brcn =>
-      simp [nom_subst_svar]
-      apply ax_brcn
-  | ax_q2_svar =>
-      simp [fresh_var] at h
-      admit
-  | _ => admit
+  have hcon : pf.contains φ := by unfold Proof.contains; simp only [beq_self_eq_true, Bool.true_or]
+  have hx : x ≥ φ.new_var := h φ hcon
+  have gc := generalize_constants i hx pf
+  have hsub : is_substable (φ[x // i]) x x := new_var_subst hx
+  have key := mp (ax_q2_svar (φ[x // i]) x x hsub) gc
+  rwa [subst_self_is_self] at key
+
+-- ===========================================================================
+-- Helpers for the backward direction of `pf_extended` (conservativity).
+-- ===========================================================================
+
+-- Peel `total` back through the connectives: a totalized formula matching a
+-- connective decomposes into totalizations of `N`-formulas.
+lemma total_eq_impl {φ : Form N} {a b : Form TotalSet} (h : φ.total = a ⟶ b) :
+    ∃ a' b' : Form N, a'.total = a ∧ b'.total = b := by
+  cases φ with
+  | impl l r => simp only [Form.total, Form.impl.injEq] at h; exact ⟨l, r, h.1, h.2⟩
+  | _ => simp [Form.total] at h
+
+lemma total_eq_box {φ : Form N} {a : Form TotalSet} (h : φ.total = □ a) :
+    ∃ a' : Form N, a'.total = a := by
+  cases φ with
+  | box r => simp only [Form.total, Form.box.injEq] at h; exact ⟨r, h⟩
+  | _ => simp [Form.total] at h
+
+lemma total_eq_bind {φ : Form N} {v : SVAR} {a : Form TotalSet} (h : φ.total = all v, a) :
+    ∃ a' : Form N, a'.total = a := by
+  cases φ with
+  | bind u r => simp only [Form.total, Form.bind.injEq] at h; exact ⟨r, h.2⟩
+  | _ => simp [Form.total] at h
+
+-- On the range of `total`, `inv_t` is a genuine right inverse.
+lemma total_in_range {ψ : Form TotalSet} (h : ∃ α : Form N, α.total = ψ) :
+    ((@Form.inv_t N) ψ).total = ψ :=
+  Function.invFun_eq h
+
+-- Reconstruction lemmas (no side condition) for the remaining axioms, mirroring
+-- `total_ax_k`/`total_ax_q1`/`total_ax_q2_svar` above.
+theorem total_ax_name {φ : Form N} {v : SVAR} (h : φ.total = ex v, v) : φ = ex v, v := by
+  apply total_inj'
+  rw [h]; rfl
+
+theorem total_ax_brcn {φ : Form N} {v : SVAR} {ψ : Form TotalSet}
+    (h : φ.total = (all v, □ψ) ⟶ (□ all v, ψ)) : φ = (all v, □ψ⁻) ⟶ (□ all v, ψ⁻) := by
+  obtain ⟨l, r, hl, _⟩ := total_eq_impl h
+  obtain ⟨lb, hlb⟩ := total_eq_bind hl
+  obtain ⟨lbb, hlbb⟩ := total_eq_box hlb
+  apply total_inj'
+  rw [h]
+  simp only [Form.total, total_in_range ⟨lbb, hlbb⟩]
+
+-- Peel `total` back through an `iterate_nec` stack (n boxes).
+lemma total_eq_iterate_nec :
+    ∀ {n : ℕ} {φ : Form N} {a : Form TotalSet}, φ.total = iterate_nec n a → ∃ a' : Form N, a'.total = a := by
+  intro n
+  induction n with
+  | zero => intro φ a h; exact ⟨φ, h⟩
+  | succ k ih =>
+      intro φ a h
+      have hstep : iterate_nec (k+1) a = □ (iterate_nec k a) := rfl
+      rw [hstep] at h
+      obtain ⟨b, hb⟩ := total_eq_box h
+      exact ih hb
+
+theorem total_ax_nom {φ : Form N} {v : SVAR} {ψ : Form TotalSet} {m n : ℕ}
+    (hr : ∃ α : Form N, α.total = ψ)
+    (h : φ.total = (all v, iterate_pos m (v ⋀ ψ) ⟶ iterate_nec n (v ⟶ ψ))) :
+    φ = (all v, iterate_pos m (v ⋀ ψ⁻) ⟶ iterate_nec n (v ⟶ ψ⁻)) := by
+  apply total_inj'
+  rw [h]
+  simp only [Form.total, Form.conj, Form.neg, Form.diamond, total_iterate_pos,
+             total_iterate_nec, total_in_range hr]
 
 noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
   apply TypeIff.intro
@@ -296,13 +373,13 @@ noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
         assumption
     | ax_k =>
         apply Proof.ax_k
-    | ax_q1 =>
+    | ax_q1 a b p =>
         apply Proof.ax_q1
-        admit
-    | ax_q2_svar =>
+        rw [total_is_free]; exact p
+    | ax_q2_svar a v s p =>
         simp [Form.total, total_subst_svar']
         apply Proof.ax_q2_svar
-        admit
+        rw [total_is_substable]; exact p
     | ax_q2_nom =>
         simp [Form.total, total_subst_nom]
         apply Proof.ax_q2_nom
@@ -332,26 +409,60 @@ noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
     | @ax_k ψ_t χ_t =>
         rw [(total_ax_k hc)]
         apply Proof.ax_k
-    | ax_q1 =>
+    | ax_q1 a b p =>
         rw [total_ax_q1 hc]
         apply Proof.ax_q1
-        admit
-    | ax_q2_svar =>
+        obtain ⟨l, _, hl, _⟩ := total_eq_impl hc
+        obtain ⟨lb, hlb⟩ := total_eq_bind hl
+        obtain ⟨a', _, ha', _⟩ := total_eq_impl hlb
+        rw [← total_is_free, total_in_range ⟨a', ha'⟩]
+        exact p
+    | ax_q2_svar a v s p =>
         rw [total_ax_q2_svar hc]
         apply Proof.ax_q2_svar
-        admit
+        obtain ⟨l, _, hl, _⟩ := total_eq_impl hc
+        obtain ⟨a', ha'⟩ := total_eq_bind hl
+        rw [← total_is_substable, total_in_range ⟨a', ha'⟩]
+        exact p
+    | ax_name v =>
+        rw [total_ax_name hc]
+        apply Proof.ax_name
+    | ax_brcn =>
+        rw [total_ax_brcn hc]
+        apply Proof.ax_brcn
+    -- The remaining cases are the genuine conservativity obstacle (the nut Oltean
+    -- left open).  They are *not* closeable by this structural induction:
+    --
+    --  • `ax_q2_nom`: the instance `(all v, a) ⟶ a[s // v]` may use a TotalSet
+    --    nominal `s` that is *alien* (lies in ℕ \ N).  Pulling it back requires
+    --    deciding whether `s ∈ N` (reconstruct with the preimage nominal via
+    --    `total_subst_nom`) or `v ∉ free(a)` (then `s` does not occur and any
+    --    `N`-nominal instantiates), i.e. the alien-nominal elimination argument.
+    --
+    --  • `mp` / `general` / `necess`: the induction hypotheses are useless here.
+    --    E.g. for `mp pf1 : ⊢ (α ⟶ φ_t)`, `pf2 : ⊢ α`, the antecedent `α` is an
+    --    arbitrary TotalSet formula that need NOT be `β.total` for any `β : Form N`,
+    --    so neither IH (which only fires on totalizations) applies.
+    --
+    -- The correct strategy (Blackburn, "extension by constants is conservative"):
+    -- a TotalSet derivation of `φ.total` mentions finitely many alien nominals;
+    -- replace each — throughout the *whole* derivation — by a fresh SVAR using the
+    -- proof transformations `generalize_constants` / `rename_constants` (already
+    -- available), then ∀-generalize and instantiate them away to land in `Form N`.
+    -- Formalizing this needs (i) the finite set of nominals occurring in a proof
+    -- and (ii) an iterated-replacement recursion; it replaces this whole induction.
     | ax_q2_nom =>
         admit
-    | ax_name =>
-        admit
     | ax_nom  =>
-        admit
-    | ax_brcn =>
-        admit
+        obtain ⟨c, hcb⟩ := total_eq_bind hc
+        obtain ⟨c1, c2, _, hc2⟩ := total_eq_impl hcb
+        obtain ⟨d, hd⟩ := total_eq_iterate_nec hc2
+        obtain ⟨e1, e2, _, he2⟩ := total_eq_impl hd
+        rw [total_ax_nom ⟨e2, he2⟩ hc]
+        apply Proof.ax_nom
     | mp pf1 pf2 ih1 ih2   =>
         rename_i ψ _
         rw [←hc] at pf1 ih1
-
         admit
     | general =>
         admit

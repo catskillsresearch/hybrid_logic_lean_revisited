@@ -533,14 +533,17 @@ out into one row per `sorry`/`admit` declaration to be removed ("remove Oltean's
 | F · `LanguageExtension.total_subst_nom` | `total` commutes with nom subst | Pass |
 | F · `LanguageExtension.total_iterate_pos` | `total` commutes with `iterate_pos` | Pass |
 | F · `LanguageExtension.total_iterate_nec` | `total` commutes with `iterate_nec` | Pass |
-| F · `LanguageExtension.l416` | fresh-variable substitution into a proof | Not Yet |
-| F · `LanguageExtension.pf_extended` | `⊢ φ ↔ ⊢ φ.total` (Prop. 4.1.7) | Not Yet |
-| **G** | **Witnessed-Lindenbaum holes** | **Partial** |
+| F · `LanguageExtension.total_is_free` / `total_is_substable` | `total` preserves `is_free` / `is_substable` | Pass |
+| F · `LanguageExtension.l416` | fresh-variable substitution into a proof (via `generalize_constants`) | Pass |
+| F · `LanguageExtension.pf_extended` (→) | `⊢ φ → ⊢ φ.total` (totalize a derivation) | Pass |
+| F · `LanguageExtension.pf_extended` (←) | `⊢ φ.total → ⊢ φ` (conservativity of the extension) | Not Yet |
+| **G** | **Witnessed-Lindenbaum holes** | **Pass** |
 | G · `Lindenbaum.LindenbaumWitnessed` | Lindenbaum union with enough nominals is witnessed | Pass |
 | G · `Lindenbaum.witness_in_next` / `witness_at_step` | per-step witness extraction | Pass |
-| G · `Lindenbaum.zero_nocc_odd` / `enough_noms_odd_base` | even nominals fresh for the odd-only base | Pass |
+| G · `Lindenbaum.zero_nocc_odd` / `even_nocc_odd` / `enough_noms_odd_base` | even nominals fresh for the odd-only base | Pass |
+| G · `Lindenbaum.lindenbaum_next_subset` / `family_subset` / `fresh_even_dominating` | each finite stage adds finitely many formulas, so an even nominal survives | Pass |
 | G · `Lindenbaum.ExtendedLindenbaumLemma` | consistent ⟹ witnessed MCS in expanded language | Pass |
-| G · `Lindenbaum.enough_noms_odd_step` | per-stage structural freshness (finiteness argument) | Not Yet |
+| G · `Lindenbaum.enough_noms_odd_step` | per-stage structural freshness (finiteness argument) | Pass |
 | **H** | **Existence-lemma hole** | **Pass** |
 | H · `Substitutions.subst_nom_noop` / `rename_svar_nom` | freshness rewrite lemmas | Pass |
 | H · `ExistenceLemma.l313'` | diamond-witness property for successor states | Pass |
