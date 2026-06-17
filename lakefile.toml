@@ -1,0 +1,17 @@
+name = "hybrid_logic_lean"
+version = "0.1.0"
+keywords = ["logic", "hybrid-logic", "modal-logic"]
+defaultTargets = ["Hybrid"]
+
+[leanOptions]
+pp.unicode.fun = true
+relaxedAutoImplicit = true
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.30.0"
+
+[[lean_lib]]
+name = "Hybrid"
+globs = ["Hybrid", "Hybrid.+"]

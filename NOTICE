@@ -1,0 +1,22 @@
+hybrid_logic_lean_revisited
+
+This repository continues and completes Alex Oltean's Lean 4 formalization of
+hybrid logic:
+
+    Original:  https://github.com/alexoltean61/hybrid_logic_lean
+    This work: https://github.com/catskillsresearch/hybrid_logic_lean_revisited
+
+The code under Hybrid/ originates with Alex Oltean and follows
+Patrick Blackburn, "Hybrid Completeness", Logic Journal of the IGPL, 1998.
+That original work was published upstream without an explicit license; all
+rights to it remain with its author. It is included and modified here in good
+faith for non-commercial academic research, with attribution, and no rights
+over the original work are claimed.
+
+The modifications in this repository -- porting to Lean v4.30.0 / mathlib
+v4.30.0 and completing the completeness proof -- together with the new files at
+the repository root, are contributed under the Apache License, Version 2.0, to
+the extent they are separable from the original work.
+
+The disjoint-sum (N ⊕ ℕ) Henkin construction used to close the completeness
+proof was suggested by Bud Mishra.
