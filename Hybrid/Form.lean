@@ -119,6 +119,18 @@ section Basics
     | .bind _ φ =>  2 + Form.depth φ
     | _       =>    0
 
+  theorem sub_depth_impl_l (φ ψ : Form N) : φ.depth < (Form.impl φ ψ).depth := by
+    simp [Form.depth]; omega
+
+  theorem sub_depth_impl_r (φ ψ : Form N) : ψ.depth < (Form.impl φ ψ).depth := by
+    simp [Form.depth]; omega
+
+  theorem sub_depth_box (φ : Form N) : φ.depth < (Form.box φ).depth := by
+    simp [Form.depth]
+
+  theorem sub_depth_bind (x : SVAR) (φ : Form N) : φ.depth < (Form.bind x φ).depth := by
+    simp [Form.depth]
+
   instance : Nonempty (Form N) := ⟨Form.bttm⟩
 
   @[simp]

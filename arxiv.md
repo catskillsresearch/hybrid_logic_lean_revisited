@@ -534,9 +534,12 @@ out into one row per `sorry`/`admit` declaration to be removed ("remove Oltean's
 | F · `LanguageExtension.total_iterate_pos` | `total` commutes with `iterate_pos` | Pass |
 | F · `LanguageExtension.total_iterate_nec` | `total` commutes with `iterate_nec` | Pass |
 | F · `LanguageExtension.total_is_free` / `total_is_substable` | `total` preserves `is_free` / `is_substable` | Pass |
+| F · `LanguageExtension.total_eq_impl/box/bind` / `total_in_range` | peel `total` through connectives; right-inverse on range | Pass |
+| F · `LanguageExtension.total_ax_name/brcn/nom` | reconstruction lemmas for the remaining axioms | Pass |
 | F · `LanguageExtension.l416` | fresh-variable substitution into a proof (via `generalize_constants`) | Pass |
 | F · `LanguageExtension.pf_extended` (→) | `⊢ φ → ⊢ φ.total` (totalize a derivation) | Pass |
-| F · `LanguageExtension.pf_extended` (←) | `⊢ φ.total → ⊢ φ` (conservativity of the extension) | Not Yet |
+| F · `LanguageExtension.pf_extended` (←), axiom cases | 6/7 backward axiom cases (`ax_k/q1/q2_svar/name/nom/brcn`) | Pass |
+| F · `LanguageExtension.pf_extended` (←), conservativity core | `ax_q2_nom` + `mp`/`general`/`necess`: alien-nominal elimination | Not Yet |
 | **G** | **Witnessed-Lindenbaum holes** | **Pass** |
 | G · `Lindenbaum.LindenbaumWitnessed` | Lindenbaum union with enough nominals is witnessed | Pass |
 | G · `Lindenbaum.witness_in_next` / `witness_at_step` | per-step witness extraction | Pass |
@@ -547,11 +550,17 @@ out into one row per `sorry`/`admit` declaration to be removed ("remove Oltean's
 | **H** | **Existence-lemma hole** | **Pass** |
 | H · `Substitutions.subst_nom_noop` / `rename_svar_nom` | freshness rewrite lemmas | Pass |
 | H · `ExistenceLemma.l313'` | diamond-witness property for successor states | Pass |
-| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Pass** |
-| TL · `CompletedModel.truth_*` | truth-lemma cases (`bttm`/`prop`/`nom`/`svar`/`ex`/…) | Pass |
+| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Partial** |
+| TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
+| TL · `CompletedModel.truth_box` / `truth_all` | □ and ∀ cases (Oltean never formalized these) | Not Yet |
+| TL · `CompletedModel.TruthLemma` | depth/`ex`-pattern assembly | Not Yet |
+| F · `LanguageExtension.sat_total` / `Model.ofTotal` | `TotalSet` satisfaction → `Model N` | Pass |
+| F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
 | **I** | **Final-completeness hole** | **Partial** |
+| I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` (needs `pf_extended` ←) | Not Yet |
+| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked on rows above) | Partial |
 | I · `Completeness.ModelExistence` | completeness ⟺ every consistent set is satisfiable | Pass |
-| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (needs truth-lemma assembly + `cons_sat`) | Not Yet |
+| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`) | Partial |
 
 ---
 
@@ -581,6 +590,13 @@ We gratefully acknowledge assistance from the following tools:
   debug `lake` and type-class errors, and draft the narrative in this document.
   Generated Lean was treated as provisional until it compiled under the pinned
   toolchain; no result was accepted on the basis of an LLM's assertion alone.
+- **Cursor Composer 2.5** ([Cmp25]): Cursor's agentic coding model (built on the
+  Kimi K2.5 checkpoint), used for routine agent work — dependency-ordered porting,
+  `lake build` repair loops, scaffolding and documentation (`arxiv.md`), and closing
+  mechanical proof obligations where the strategy was already fixed. Per the model
+  card, Composer 2.5 is optimized for multi-step tool use and codebase navigation rather
+  than open-ended mathematical research; accordingly, novel proof design (e.g.
+  conservativity of the language extension) was not delegated to it alone.
 - **Anthropic Claude Opus 4.8, High reasoning** ([Ant26]): the large language model
   underlying the Cursor agent for the bulk of the proof-repair and porting work reported
   here — closing the existence lemma (`l313'`), the witnessed-Lindenbaum induction
@@ -633,9 +649,12 @@ The ported development with the completed completeness proof is at
    https://publicationethics.org/guidance/cope-position/authorship-and-ai-tools
 8. **[Cur25]** Anysphere, Inc. *Cursor: AI-native code editor and agent environment*.
    https://cursor.com (accessed 2026).
-9. **[Gem25]** Google DeepMind. *Gemini model family*. Technical documentation and
+9. **[Cmp25]** Anysphere, Inc. *Composer 2.5*. Model announcement and documentation,
+   https://cursor.com/blog/composer-2-5; pricing and model card as integrated in Cursor,
+   https://cursor.com/docs/models (accessed 2026).
+10. **[Gem25]** Google DeepMind. *Gemini model family*. Technical documentation and
    model cards. https://ai.google.dev/gemini-api/docs/models
-10. **[Ant26]** Anthropic. *Claude Opus 4.8* (high thinking/reasoning variant). System card
+11. **[Ant26]** Anthropic. *Claude Opus 4.8* (high thinking/reasoning variant). System card
    and announcement, https://www.anthropic.com/news/claude-opus-4-8; model documentation as
    integrated in Cursor, https://cursor.com/docs/models/claude-opus-4-8 (accessed 2026).
 

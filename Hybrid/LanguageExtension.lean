@@ -1,6 +1,7 @@
 import Hybrid.Proof
 import Hybrid.Substitutions
 import Hybrid.ProofUtils
+import Hybrid.Truth
 
 open Proof
 
@@ -42,6 +43,42 @@ lemma total_inv_is_inv : Function.LeftInverse (@Form.inv_t N) Form.total := by
 
 notation φ"⁺" => Form.total φ
 notation φ"⁻" => Form.inv_t φ
+
+/-- The image of a base-language set under `Form.total`. -/
+noncomputable def Set.total (Γ : Set (Form N)) : Set (Form TotalSet) :=
+  {ψ | ∃ φ ∈ Γ, ψ = φ.total}
+
+/-- Restrict a `TotalSet` model to the nominal type `N` (same world, same `Vₚ`, nominals
+    embedded via `Subtype`).  Used to pull a completed `TotalSet` model back to `Model N`. -/
+noncomputable def Model.ofTotal (M : Model TotalSet) : Model N where
+  W := M.W
+  R := M.R
+  Vₚ := M.Vₚ
+  Vₙ := fun i => M.Vₙ ⟨i.letter, trivial⟩
+
+/-- Satisfaction commutes with `Form.total` under `Model.ofTotal`. -/
+theorem sat_total (M : Model TotalSet) (s : M.W) (g : I M.W) (φ : Form N) :
+    (@Sat TotalSet M s g φ.total) ↔ (@Sat N (Model.ofTotal M) s g φ) := by
+  induction φ generalizing s g with
+  | bttm => simp [Form.total, Model.ofTotal, Sat]
+  | prop p => simp [Form.total, Model.ofTotal, Sat]; rfl
+  | svar v => simp [Form.total, Sat]; rfl
+  | nom i => simp [Form.total, Model.ofTotal, Sat]
+  | impl a b iha ihb => simp [Form.total, Model.ofTotal, Sat, iha, ihb]
+  | box a ih =>
+      simp only [Form.total, Model.ofTotal, Sat]
+      constructor
+      · intro h s' hs'
+        exact (ih s' g).mp (h s' hs')
+      · intro h s' hs'
+        exact (ih s' g).mpr (h s' hs')
+  | bind x a ih =>
+      simp only [Form.total, Model.ofTotal, Sat]
+      constructor
+      · intro h g' hg'
+        exact (ih s g').mp (h g' hg')
+      · intro h g' hg'
+        exact (ih s g').mpr (h g' hg')
 
 theorem total_impl {φ : Form N} : φ⁺ = (ψ ⟶ χ) → φ = (ψ⁻ ⟶ χ⁻) := by
   intro h
@@ -355,13 +392,16 @@ lemma total_eq_iterate_nec :
       exact ih hb
 
 theorem total_ax_nom {φ : Form N} {v : SVAR} {ψ : Form TotalSet} {m n : ℕ}
-    (hr : ∃ α : Form N, α.total = ψ)
     (h : φ.total = (all v, iterate_pos m (v ⋀ ψ) ⟶ iterate_nec n (v ⟶ ψ))) :
     φ = (all v, iterate_pos m (v ⋀ ψ⁻) ⟶ iterate_nec n (v ⟶ ψ⁻)) := by
+  obtain ⟨c, hcb⟩ := total_eq_bind h
+  obtain ⟨c1, c2, _, hc2⟩ := total_eq_impl hcb
+  obtain ⟨d, hd⟩ := total_eq_iterate_nec hc2
+  obtain ⟨e1, e2, _, he2⟩ := total_eq_impl hd
   apply total_inj'
   rw [h]
   simp only [Form.total, Form.conj, Form.neg, Form.diamond, total_iterate_pos,
-             total_iterate_nec, total_in_range hr]
+             total_iterate_nec, total_in_range ⟨e2, he2⟩]
 
 noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
   apply TypeIff.intro
@@ -454,11 +494,7 @@ noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
     | ax_q2_nom =>
         admit
     | ax_nom  =>
-        obtain ⟨c, hcb⟩ := total_eq_bind hc
-        obtain ⟨c1, c2, _, hc2⟩ := total_eq_impl hcb
-        obtain ⟨d, hd⟩ := total_eq_iterate_nec hc2
-        obtain ⟨e1, e2, _, he2⟩ := total_eq_impl hd
-        rw [total_ax_nom ⟨e2, he2⟩ hc]
+        rw [total_ax_nom hc]
         apply Proof.ax_nom
     | mp pf1 pf2 ih1 ih2   =>
         rename_i ψ _

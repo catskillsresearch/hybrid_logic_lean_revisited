@@ -676,3 +676,24 @@ lemma truth_ex : ∀ {Θ : Set (Form TotalSet)}, (mcs : MCS Θ) → (wit : witne
       apply Proof.MCS_mp Δ_mcs; apply Proof.MCS_thm Δ_mcs
     --  exact @exists_replace x ψ y
       apply exists_replace; exact y; exact this
+
+-- Truth lemma, □ case.  Oltean's original development never formalized this case (nor
+-- `truth_all` for `∀`); the arxiv blueprint lists `truth_box` as TL work.  The → direction
+-- uses `R_nec` on witnessed/canonical successors and the subformula IH; the ← direction
+-- uses MCS maximality + the diamond–successor existence machinery (`R_pos`, `has_state_symbol`).
+lemma truth_box : ∀ {Θ : Set (Form TotalSet)}, (mcs : MCS Θ) → (wit : witnessed Θ) →
+    (statement φ mcs wit) → statement (□φ) mcs wit := by
+  admit
+
+-- Truth lemma, `∀` case (same status as `truth_box`; can also be routed through
+-- `sat_dual_all_ex` + `truth_ex` once `truth_neg` / depth bookkeeping is in place).
+lemma truth_all : ∀ {Θ : Set (Form TotalSet)} {x : SVAR}, (mcs : MCS Θ) → (wit : witnessed Θ) →
+    (statement φ mcs wit) → statement (all x, φ) mcs wit := by
+  admit
+
+/-- The truth lemma: membership in an `MCS_in` state coincides with satisfaction in the
+    completed model.  Requires `truth_box`, `truth_all`, and the `ex`-pattern branch
+    (`truth_ex` — structurally `ex` is not a `Form` constructor). -/
+theorem TruthLemma (φ : Form TotalSet) {Θ : Set (Form TotalSet)} (mcs : MCS Θ) (wit : witnessed Θ) :
+    statement φ mcs wit := by
+  admit
