@@ -355,38 +355,32 @@ lemma NOM.fromTotal_total {N : Set ℕ} (j : NOM TotalSet) (hj : (j.letter : ℕ
 
 def nom_in_base {N : Set ℕ} (j : NOM TotalSet) : Prop := (j.letter : ℕ) ∈ N
 
+lemma NOM.toTotal_fromTotal {N : Set ℕ} {j : NOM TotalSet} (hj : nom_in_base (N := N) j) :
+    NOM.toTotal (NOM.fromTotal j hj) = j := by
+  apply NOM_eq.mpr; rfl
+
 def form_noms_in_base {N : Set ℕ} (ψ : Form TotalSet) : Prop :=
   ∀ j ∈ ψ.list_noms, nom_in_base (N := N) j
 
 lemma form_noms_in_base_nom {N : Set ℕ} {i : NOM TotalSet} (hi : nom_in_base (N := N) i) :
-    form_noms_in_base (Form.nom i) := by
+    form_noms_in_base (N := N) (Form.nom i) := by
   intro j hj; simp [Form.list_noms] at hj; subst hj; exact hi
 
 lemma form_noms_in_base_impl {N : Set ℕ} {a b : Form TotalSet}
-    (ha : form_noms_in_base a) (hb : form_noms_in_base b) :
-    form_noms_in_base (a ⟶ b) := by
+    (ha : form_noms_in_base (N := N) a) (hb : form_noms_in_base (N := N) b) :
+    form_noms_in_base (N := N) (a ⟶ b) := by
   intro j hj
   rw [← occurs_list_noms] at hj
   simp only [Form.list_noms, nom_occurs, Bool.or_eq_true, List.mem_dedup, List.mem_merge] at hj
-  cases hj with
-  | inl h => exact ha j h
-  | inr h => exact hb j h
+  rcases hj with h | h
+  · exact ha j (by rw [← occurs_list_noms]; exact h)
+  · exact hb j (by rw [← occurs_list_noms]; exact h)
 
-lemma form_noms_in_base_box {N : Set ℕ} {a : Form TotalSet} (ha : form_noms_in_base a) :
-    form_noms_in_base (□ a) := ha
+lemma form_noms_in_base_box {N : Set ℕ} {a : Form TotalSet} (ha : form_noms_in_base (N := N) a) :
+    form_noms_in_base (N := N) (□ a) := ha
 
-lemma form_noms_in_base_bind {N : Set ℕ} {v : SVAR} {a : Form TotalSet} (ha : form_noms_in_base a) :
-    form_noms_in_base (all v, a) := ha
-
-lemma list_noms_mem_impl_left {a b : Form TotalSet} {j : NOM TotalSet}
-    (hj : j ∈ a.list_noms) : j ∈ (a ⟶ b).list_noms := by
-  rw [← occurs_list_noms]
-  simp only [Form.list_noms, nom_occurs, hj, Bool.true_or]
-
-lemma list_noms_mem_impl_right {a b : Form TotalSet} {j : NOM TotalSet}
-    (hj : j ∈ b.list_noms) : j ∈ (a ⟶ b).list_noms := by
-  rw [← occurs_list_noms]
-  simp only [Form.list_noms, nom_occurs, hj, Bool.or_true]
+lemma form_noms_in_base_bind {N : Set ℕ} {v : SVAR} {a : Form TotalSet} (ha : form_noms_in_base (N := N) a) :
+    form_noms_in_base (N := N) (all v, a) := ha
 
 /-- If every nominal letter lies in `N`, the formula is in the image of `Form.total`. -/
 lemma range_of_form {N : Set ℕ} {ψ : Form TotalSet} (h : form_noms_in_base (N := N) ψ) :
@@ -399,8 +393,14 @@ lemma range_of_form {N : Set ℕ} {ψ : Form TotalSet} (h : form_noms_in_base (N
       have hi := h i (by simp [Form.list_noms])
       exact ⟨Form.nom (NOM.fromTotal i hi), NOM.fromTotal_total i hi⟩
   | impl a b iha ihb =>
-      obtain ⟨a', ha'⟩ := iha (fun j hj => h j (list_noms_mem_impl_left hj))
-      obtain ⟨b', hb'⟩ := ihb (fun j hj => h j (list_noms_mem_impl_right hj))
+      obtain ⟨a', ha'⟩ := iha (fun j (hj : j ∈ a.list_noms) => h j (by
+        have this := (occurs_list_noms (φ := a)).mpr hj
+        rw [← occurs_list_noms]
+        simp [Form.list_noms, nom_occurs, this, Bool.or_true]))
+      obtain ⟨b', hb'⟩ := ihb (fun j (hj : j ∈ b.list_noms) => h j (by
+        have this := (occurs_list_noms (φ := b)).mpr hj
+        rw [← occurs_list_noms]
+        simp [Form.list_noms, nom_occurs, this, Bool.true_or]))
       exact ⟨a' ⟶ b', by simp [Form.total, ha', hb']⟩
   | box a ih =>
       obtain ⟨a', ha'⟩ := ih h
@@ -412,14 +412,21 @@ lemma range_of_form {N : Set ℕ} {ψ : Form TotalSet} (h : form_noms_in_base (N
 lemma inv_t_eq_of_range' {N : Set ℕ} {ψ : Form TotalSet} (h : form_noms_in_base (N := N) ψ) :
     ((@Form.inv_t N) ψ).total = ψ := by
   obtain ⟨χ, hχ⟩ := range_of_form h
-  rw [← total_inv_is_inv χ, hχ]
+  rw [← hχ, total_inv_is_inv]
+
+lemma subst_nom_toTotal {N : Set ℕ} {s : NOM TotalSet} (hs : nom_in_base (N := N) s) (v : SVAR)
+    (a : Form TotalSet) :
+    a[NOM.toTotal (NOM.fromTotal s hs) // v] = a[s // v] :=
+  congrArg (fun n : NOM TotalSet => a[n // v]) (NOM.toTotal_fromTotal hs)
 
 theorem total_subst_nom_pullback {N : Set ℕ} {a : Form TotalSet} {s : NOM TotalSet} {v : SVAR}
     (ha : form_noms_in_base (N := N) a) (hs : nom_in_base (N := N) s) {φ : Form N}
-    (h : φ⁺ = a[s // v]) : φ = ((@Form.inv_t N) a)[NOM.fromTotal s hs // v] := by
+    (h : Form.total φ = a[s // v]) :
+    φ = ((@Form.inv_t N) a)[NOM.fromTotal s hs // v] := by
   apply total_inj'
-  show φ⁺ = (((@Form.inv_t N) a)[NOM.fromTotal s hs // v]).total
-  rw [h, total_subst_nom, NOM.fromTotal_total s hs, ← inv_t_eq_of_range' ha]
+  rw [h]
+  rw [total_subst_nom, inv_t_eq_of_range' ha]
+  exact subst_nom_toTotal hs v a
 
 theorem total_ax_q2_nom {N : Set ℕ} {φ : Form N} {v : SVAR} {a : Form TotalSet} {s : NOM TotalSet}
     (ha : form_noms_in_base (N := N) a) (hs : nom_in_base (N := N) s)
@@ -427,10 +434,10 @@ theorem total_ax_q2_nom {N : Set ℕ} {φ : Form N} {v : SVAR} {a : Form TotalSe
     φ = (all v, ((@Form.inv_t N) a)) ⟶ ((@Form.inv_t N) a)[NOM.fromTotal s hs // v] := by
   cases φ with
   | impl l r =>
-      simp [Form.total] at h ⊢
-      apply And.intro
-      · exact total_bind h.1
-      · apply total_subst_nom_pullback ha hs; exact h.2
+      simp only [Form.total] at h ⊢
+      injection h with h1 h2
+      rw [total_bind (φ := l) h1]
+      rw [total_subst_nom_pullback ha hs h2]
   | _ => simp [Form.total] at h
 
 theorem total_ax_q2_nom_end {N : Set ℕ} {φ : Form N} {v : SVAR} {a : Form TotalSet}
@@ -438,11 +445,170 @@ theorem total_ax_q2_nom_end {N : Set ℕ} {φ : Form N} {v : SVAR} {a : Form Tot
     φ = (all v, ((@Form.inv_t N) a)) ⟶ ((@Form.inv_t N) a) := by
   cases φ with
   | impl l r =>
-      simp [Form.total] at h ⊢
-      apply And.intro
-      · exact total_bind h.1
-      · apply total_inj'; rw [h.2, inv_t_eq_of_range' ha]
+      simp only [Form.total] at h ⊢
+      injection h with h1 h2
+      rw [total_bind (φ := l) h1]
+      apply total_inj'
+      simp only [Form.total, h2, inv_t_eq_of_range' ha]
   | _ => simp [Form.total] at h
+
+-- ===========================================================================
+-- F2 / F3: alien-nominal elimination + in-range proof pullback (Blackburn).
+-- ===========================================================================
+
+section Conservativity
+variable {NBase : Set ℕ}
+open Classical
+
+/-- Every base-language formula has only base nominal letters after totalization. -/
+lemma form_noms_in_base_total (φ : Form NBase) : form_noms_in_base (N := NBase) φ.total := by
+  induction φ with
+  | nom i =>
+      intro j hj
+      have hj' := List.mem_singleton.mp (by simpa [Form.list_noms, Form.total] using hj)
+      subst hj'
+      simpa [nom_in_base, NOM.toTotal] using i.letter.2
+  | impl a b iha ihb => exact form_noms_in_base_impl (N := NBase) iha ihb
+  | box a ih => exact form_noms_in_base_box (N := NBase) ih
+  | bind v a ih => exact form_noms_in_base_bind (N := NBase) ih
+  | bttm | prop _ | svar _ => intro j hj; simp [Form.list_noms, Form.total] at hj
+
+/-- `φ[new // old]` leaves `φ` unchanged when `old` does not occur
+    (`nom_subst_nom φ new old` replaces `old` with `new`). -/
+lemma nom_subst_nom_nocc {ψ : Form TotalSet} {new old : NOM TotalSet}
+    (h : nom_occurs old ψ = false) : nom_subst_nom ψ new old = ψ := by
+  induction ψ with
+  | nom a =>
+      by_cases heq : a = old
+      · exfalso
+        exact Bool.eq_false_iff.mp h (by simp [nom_occurs, heq])
+      · simp [nom_subst_nom, heq]
+  | impl a b iha ihb =>
+      simp [nom_occurs, nom_subst_nom, Bool.or_eq_false_iff] at h ⊢
+      simp [iha h.1, ihb h.2]
+  | box a ih => simp [nom_occurs, nom_subst_nom] at h ⊢; exact ih h
+  | bind v a ih => simp [nom_occurs, nom_subst_nom] at h ⊢; exact ih h
+  | _ => rfl
+
+lemma nom_occurs_false_of_form_noms_in_base {ψ : Form TotalSet} (hψ : form_noms_in_base (N := NBase) ψ)
+    {j : NOM TotalSet} (hjb : ¬nom_in_base (N := NBase) j) : nom_occurs j ψ = false := by
+  by_cases h : nom_occurs j ψ = true
+  · exfalso
+    have hocc : nom_occurs j ψ := h ▸ rfl
+    exact hjb (hψ j ((occurs_list_noms (φ := ψ)).mp hocc))
+  · rw [← Bool.eq_false_eq_not_eq_true]
+    exact h
+
+def Proof.all_noms_in_base (NBase : Set ℕ) {ψ : Form TotalSet} (pf : @Proof TotalSet ψ) : Prop :=
+  ∀ j ∈ pf.proof_noms, nom_in_base (N := NBase) j
+
+lemma Proof.all_noms_in_base_root (NBase : Set ℕ) {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (h : Proof.all_noms_in_base NBase pf) : form_noms_in_base (N := NBase) ψ := by
+  intro j hj
+  exact h j (by
+    simp only [Proof.proof_noms, List.mem_dedup, List.mem_flatMap]
+    refine ⟨ψ, ?_, hj⟩
+    cases pf <;> simp [Proof.formulasIn])
+
+lemma Proof.mem_formulasIn_of_list_noms {ψ : Form TotalSet} (pf : @Proof TotalSet ψ) (χ : Form TotalSet)
+    (hχ : χ ∈ pf.formulasIn) {j : NOM TotalSet} (hj : j ∈ χ.list_noms) :
+    j ∈ pf.proof_noms := by
+  simp only [Proof.proof_noms, List.mem_dedup, List.mem_flatMap]
+  exact ⟨χ, hχ, hj⟩
+
+lemma Proof.form_noms_in_base_of_all_noms (NBase : Set ℕ) {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (h : Proof.all_noms_in_base NBase pf) : ∀ χ ∈ pf.formulasIn, form_noms_in_base (N := NBase) χ := by
+  intro χ hχ j hj
+  exact h j (Proof.mem_formulasIn_of_list_noms pf χ hχ hj)
+
+noncomputable def base_nom_total (hN : NBase.Nonempty) : NOM TotalSet :=
+  ⟨Classical.choose hN, trivial⟩
+
+lemma base_nom_total_in_base (hN : NBase.Nonempty) : nom_in_base (N := NBase) (base_nom_total hN) :=
+  Classical.choose_spec hN
+
+/-- Globally rename one alien nominal to a fixed base nominal throughout a derivation. -/
+noncomputable def Proof.eliminate_one_alien {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (hψ : form_noms_in_base (N := NBase) ψ) (j base : NOM TotalSet) (hjb : ¬nom_in_base (N := NBase) j)
+    (hb : nom_in_base (N := NBase) base) : @Proof TotalSet ψ := by
+  have hnocc := nom_occurs_false_of_form_noms_in_base hψ hjb
+  exact nom_subst_nom_nocc (new := base) (old := j) hnocc ▸ rename_constants_fwd base j pf
+
+/-- Iterated alien elimination over `proof_noms`; the root formula is unchanged. -/
+noncomputable def Proof.eliminate_aliens {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (hψ : form_noms_in_base (N := NBase) ψ) (base : NOM TotalSet) (_hb : nom_in_base (N := NBase) base) :
+    List (NOM TotalSet) → @Proof TotalSet ψ
+  | [] => pf
+  | j :: rest =>
+      if hjb : nom_in_base (N := NBase) j then
+        Proof.eliminate_aliens pf hψ base _hb rest
+      else
+        have hAlien : ¬nom_in_base (N := NBase) j := fun h => hjb h
+        Proof.eliminate_aliens (pf.eliminate_one_alien hψ j base hAlien _hb) hψ base _hb rest
+
+/-- After eliminating every alien in `proof_noms`, all remaining nominals lie in `N`. -/
+lemma Proof.all_noms_in_base_eliminate_aliens (NBase : Set ℕ) {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (hψ : form_noms_in_base (N := NBase) ψ) (base : NOM TotalSet) (hb : nom_in_base (N := NBase) base) :
+    Proof.all_noms_in_base NBase (pf.eliminate_aliens hψ base hb pf.proof_noms) := by
+  admit
+
+lemma Proof.form_noms_in_base_of_eliminate_aliens (NBase : Set ℕ) {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (hψ : form_noms_in_base (N := NBase) ψ) (base : NOM TotalSet) (hb : nom_in_base (N := NBase) base) :
+    ∀ χ ∈ (pf.eliminate_aliens hψ base hb pf.proof_noms).formulasIn,
+      form_noms_in_base (N := NBase) χ := by
+  intro χ hχ j hj
+  let pf' := pf.eliminate_aliens hψ base hb pf.proof_noms
+  have hAll := Proof.all_noms_in_base_eliminate_aliens NBase pf hψ base hb
+  exact hAll j (Proof.mem_formulasIn_of_list_noms pf' χ hχ hj)
+
+lemma inv_t_impl {a b : Form TotalSet} (ha : form_noms_in_base (N := NBase) a) (hb : form_noms_in_base (N := NBase) b) :
+    ((@Form.inv_t NBase) (a ⟶ b)) = ((@Form.inv_t NBase) a) ⟶ ((@Form.inv_t NBase) b) := by
+  apply total_inj'
+  simp only [Form.total, inv_t_eq_of_range' (form_noms_in_base_impl (N := NBase) ha hb),
+    inv_t_eq_of_range' ha, inv_t_eq_of_range' hb]
+
+lemma inv_t_box {a : Form TotalSet} (ha : form_noms_in_base (N := NBase) a) :
+    ((@Form.inv_t NBase) (□ a)) = □ ((@Form.inv_t NBase) a) := by
+  apply total_inj'
+  simp only [Form.total, inv_t_eq_of_range' (form_noms_in_base_box (N := NBase) ha), inv_t_eq_of_range' ha]
+
+lemma inv_t_bind {v : SVAR} {a : Form TotalSet} (ha : form_noms_in_base (N := NBase) a) :
+    ((@Form.inv_t NBase) (all v, a)) = all v, ((@Form.inv_t NBase) a) := by
+  apply total_inj'
+  simp only [Form.total, inv_t_eq_of_range' (form_noms_in_base_bind (N := NBase) ha), inv_t_eq_of_range' ha]
+
+lemma form_noms_in_base_impl_left {a b : Form TotalSet} (h : form_noms_in_base (N := NBase) (a ⟶ b)) :
+    form_noms_in_base (N := NBase) a := by
+  intro j hj
+  exact h j (by
+    rw [← occurs_list_noms]
+    simp only [Form.list_noms, nom_occurs, Bool.or_eq_true, List.mem_dedup, List.mem_merge]
+    exact Or.inl ((occurs_list_noms (φ := a)).mpr hj))
+
+lemma form_noms_in_base_impl_right {a b : Form TotalSet} (h : form_noms_in_base (N := NBase) (a ⟶ b)) :
+    form_noms_in_base (N := NBase) b := by
+  intro j hj
+  exact h j (by
+    rw [← occurs_list_noms]
+    simp only [Form.list_noms, nom_occurs, Bool.or_eq_true, List.mem_dedup, List.mem_merge]
+    exact Or.inr ((occurs_list_noms (φ := b)).mpr hj))
+
+lemma Proof.mem_formulasIn_self {ψ : Form TotalSet} (pf : @Proof TotalSet ψ) : ψ ∈ pf.formulasIn := by
+  induction pf with
+  | tautology _ | ax_k | ax_q1 _ _ _ | ax_q2_svar _ _ _ _ | ax_q2_nom _ _ _ | ax_name _ | ax_nom _ _ | ax_brcn =>
+      simp [Proof.formulasIn]
+  | general _ _ => simp [Proof.formulasIn]
+  | necess _ => simp [Proof.formulasIn]
+  | mp _ _ _ _ => simp [Proof.formulasIn]
+
+/-- Pull an in-range `TotalSet` derivation back to the base language via `inv_t`.
+    Scaffold: mp/general/necess via explicit recursion; remaining admits on `ax_q2_nom`/`ax_brcn`. -/
+noncomputable def in_range_proof_back {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (hall : ∀ χ ∈ pf.formulasIn, form_noms_in_base (N := NBase) χ) :
+    @Proof NBase ((@Form.inv_t NBase) ψ) := by
+  admit
+
+end Conservativity
 
 -- Peel `total` back through the connectives: a totalized formula matching a
 -- connective decomposes into totalizations of `N`-formulas.
@@ -546,72 +712,6 @@ noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
         apply Proof.necess
         assumption
   . intro pf
-    generalize hc : φ.total = φ_t at *
-    induction pf with
-    | tautology =>
-        apply Proof.tautology
-        rw [total_tautology, hc]
-        assumption
-    | @ax_k ψ_t χ_t =>
-        rw [(total_ax_k hc)]
-        apply Proof.ax_k
-    | ax_q1 a b p =>
-        rw [total_ax_q1 hc]
-        apply Proof.ax_q1
-        obtain ⟨l, _, hl, _⟩ := total_eq_impl hc
-        obtain ⟨lb, hlb⟩ := total_eq_bind hl
-        obtain ⟨a', _, ha', _⟩ := total_eq_impl hlb
-        rw [← total_is_free, total_in_range ⟨a', ha'⟩]
-        exact p
-    | ax_q2_svar a v s p =>
-        rw [total_ax_q2_svar hc]
-        apply Proof.ax_q2_svar
-        obtain ⟨l, _, hl, _⟩ := total_eq_impl hc
-        obtain ⟨a', ha'⟩ := total_eq_bind hl
-        rw [← total_is_substable, total_in_range ⟨a', ha'⟩]
-        exact p
-    | ax_name v =>
-        rw [total_ax_name hc]
-        apply Proof.ax_name
-    | ax_brcn =>
-        rw [total_ax_brcn hc]
-        apply Proof.ax_brcn
-    -- The remaining cases are the genuine conservativity obstacle (the nut Oltean
-    -- left open).  They are *not* closeable by this structural induction:
-    --
-    --  • `ax_q2_nom`: the instance `(all v, a) ⟶ a[s // v]` may use a TotalSet
-    --    nominal `s` that is *alien* (lies in ℕ \ N).  Pulling it back requires
-    --    deciding whether `s ∈ N` (reconstruct with the preimage nominal via
-    --    `total_subst_nom`) or `v ∉ free(a)` (then `s` does not occur and any
-    --    `N`-nominal instantiates), i.e. the alien-nominal elimination argument.
-    --
-    --  • `mp` / `general` / `necess`: the induction hypotheses are useless here.
-    --    E.g. for `mp pf1 : ⊢ (α ⟶ φ_t)`, `pf2 : ⊢ α`, the antecedent `α` is an
-    --    arbitrary TotalSet formula that need NOT be `β.total` for any `β : Form N`,
-    --    so neither IH (which only fires on totalizations) applies.
-    --
-    -- The correct strategy (Blackburn, "extension by constants is conservative"):
-    -- a TotalSet derivation of `φ.total` mentions finitely many alien nominals;
-    -- replace each — throughout the *whole* derivation — by a fresh SVAR using the
-    -- proof transformations `generalize_constants` / `rename_constants` (already
-    -- available), then ∀-generalize and instantiate them away to land in `Form N`.
-    -- Formalizing this needs (i) the finite set of nominals occurring in a proof
-    -- and (ii) an iterated-replacement recursion; it replaces this whole induction.
-    | ax_q2_nom a v s =>
-        by_cases ha : form_noms_in_base a
-        · by_cases hs : nom_in_base s
-          · rw [total_ax_q2_nom ha hs hc]
-            apply Proof.ax_q2_nom
-          · admit
-        · admit
-    | ax_nom  =>
-        rw [total_ax_nom hc]
-        apply Proof.ax_nom
-    | mp pf1 pf2 ih1 ih2   =>
-        rename_i ψ _
-        rw [←hc] at pf1 ih1
-        admit
-    | general =>
-        admit
-    | necess  =>
-        admit
+    -- Blackburn pipeline (F2 alien elimination → F3 inv_t pullback).  Blocked on
+    -- `Proof.all_noms_in_base_eliminate_aliens` (F2) and `in_range_proof_back` (F3).
+    admit
