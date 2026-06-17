@@ -216,10 +216,24 @@ flowchart TD
     SND --> TL
 ```
 
-*Figure 1. Dependency blueprint of the completeness development. Shaded nodes already
-compile; the orange node (E) is the encoding "crux" that we discharge by reorganization
-rather than by proving the inherited obligations as stated (§1.3). The two fan-in points,
-**G** and **I**, are why the work is a tree rather than a chain.*
+**Legend (node colors).** The diagram uses three node styles:
+
+- **Green** — pre-existing foundations that already compiled before this work and are
+  *not* deliverables of the completeness effort: Kripke semantics, the Hilbert proof
+  system, Soundness, Regular Lindenbaum, and Model Existence.
+- **Orange** — the single encoding *crux*, **E** (`odd_noms` homomorphism), discharged by
+  reorganizing the representation rather than by proving the inherited `admit`s as stated
+  (§1.3).
+- **Blue** — the new deliverables this work closes: **B, C, D, F, G, TL, H, I**.
+
+The shading is a snapshot of the *incoming* state; live, per-deliverable status is tracked
+in the results table (§9).
+
+*Figure 1. Dependency blueprint of the completeness development. Shaded (green) nodes
+already compiled at the outset; the orange node (E) is the encoding "crux" that we
+discharge by reorganization rather than by proving the inherited obligations as stated
+(§1.3). The two fan-in points, **G** and **I**, are why the work is a tree rather than a
+chain.*
 
 **The incoming state: where the holes are.** What Oltean left open is concentrated in the
 freshness/witnessing layer (steps 2–3) and the pieces that depend on it (the completed
@@ -264,12 +278,13 @@ rather than to grind against it.
 where a stage offers a choice we take the *easiest task first*. Concretely: restore the
 compile (A) so the whole library elaborates with holes marked; clear the
 decidable/mechanical leaves — propositional tautologies (B), formula-countability (C),
-bound-variable renaming (D); discharge the language-extension layer (F), a batch of
-structural inductions; carry out the `odd_noms` reorganization (E), the one foundation
-that is a redesign rather than a proof; prove the witnessed Lindenbaum lemma (G), which
-fans C, E, F together; and finally re-fit the completed-model truth lemma, close the
-existence lemma (H), and assemble the final theorem (I). The concrete deliverables and
-their dependency order are listed next; their live status is tracked in §9.
+bound-variable renaming (D); carry out the `odd_noms` reorganization (E), the one
+foundation that is a redesign rather than a proof; discharge the language-extension layer
+(F), a batch of structural inductions; prove the witnessed Lindenbaum lemma (G), which
+fans C, E, F together; close the existence lemma (H); re-fit the completed-model truth
+lemma (TL), which waits on H; and assemble the final theorem (I). The concrete
+deliverables and their dependency order are listed next; their live status is tracked in
+§9.
 
 ### 1.6 Goal and major steps
 
@@ -288,8 +303,9 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
 
 - **A. Get the whole library compiling.** Fix roughly two and a half years of mathlib
   API churn module-by-module in dependency order so that `lake build` succeeds with the
-  proof holes still marked `sorry`/`admit`. (All modules compile except `CompletedModel`
-  and `Completeness`.)
+  proof holes still marked `sorry`/`admit`. (Per-module status is tracked in §9; the
+  larger re-fit of `CompletedModel`'s truth lemma is split out as its own step, **TL**,
+  since it feeds the final assembly **I** in the blueprint.)
 - **B. Remove the propositional-tautology holes.** Discharge the `Tautology.lean`
   truth-table lemmas Oltean left as `admit` (`hs_taut`, `neg_intro`, `conj_intro`,
   `conj_intro_hs`, `iff_intro`, `iff_elim_l`, `iff_elim_r`, `iff_rw`, `iff_imp`,
@@ -318,9 +334,15 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   `ExtendedLindenbaumLemma` (every consistent set extends to a witnessed MCS in the
   expanded language).
 - **H. Remove the existence-lemma hole.** `ExistenceLemma.l313'`: the diamond-witness
-  property used to build successor states of the completed model.
+  property used to build successor states of the completed model. Depends on **B**, **D**.
+- **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
+  truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
+  `truth_box`, `truth_ex`) and the supporting valuation lemmas to the current `simp`
+  normal forms so the canonical/completed model elaborates. These are correct proofs that
+  needed a port, not new `admit`s (the second hole-kind in §1.4). Depends on **B**, **D**,
+  **H** (and on Kripke semantics and Soundness).
 - **I. Remove the final-completeness hole.** `Completeness.Completeness`: assemble the
-  truth lemma, the model-existence theorem, and **G**–**H** into `Γ ⊨ φ → Γ ⊢ φ`.
+  truth lemma (**TL**), the model-existence theorem, and **G** into `Γ ⊨ φ → Γ ⊢ φ`.
 
 The substantive mathematics is concentrated in **E**–**I**; **B**–**D** are essentially
 mechanical leaf lemmas. **E** is the crux, for the encoding reasons discussed in §1.3.
