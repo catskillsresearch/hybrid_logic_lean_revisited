@@ -533,3 +533,19 @@ theorem ExtendedLindenbaumLemma : ∀ Γ : Set (Form TotalSet), consistent Γ �
     exact LindenbaumMaximal cons' f_inj enum_inv φ
   · -- witnessing
     exact LindenbaumWitnessed cons' f_inj enum_inv (enough_noms_odd Γ)
+
+/-- Witnessed Lindenbaum on a set that already carries `enough_noms` (not just on `odd_noms`). -/
+theorem WitnessedLindenbaumLemma : ∀ Γ : Set (Form TotalSet), consistent Γ → enough_noms Γ →
+    ∃ Γ' : Set (Form TotalSet), Γ ⊆ Γ' ∧ MCS Γ' ∧ witnessed Γ' := by
+  intro Γ cons hnom
+  obtain ⟨f, f_inj⟩ := exists_injective_nat (Form TotalSet)
+  let enum := f.invFun
+  have enum_inv : enum = f.invFun := rfl
+  let Γ' := LindenbaumMCS enum Γ cons
+  refine ⟨Γ', ?_, ⟨?_, ?_⟩, ?_⟩
+  · intro φ hφ
+    exact all_sets_in_family 0 (Γ_in_family hφ)
+  · exact LindenbaumConsistent cons f_inj enum_inv
+  · intro φ
+    exact LindenbaumMaximal cons f_inj enum_inv φ
+  · exact LindenbaumWitnessed cons f_inj enum_inv hnom

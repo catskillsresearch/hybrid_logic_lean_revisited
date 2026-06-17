@@ -636,12 +636,15 @@ while **F** awaits `pf_extended` ← for **I** only).
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.mcs_in_*_succ` | `mcs_in_witnessed_succ` / `completed_to_witnessed` / `mcs_in_completed_succ` | Pass |
 | TL · `CompletedModel.restrict_canonical_succ` | extend witnessed path along `Canonical.R` | Pass |
-| TL · `CompletedModel.diamond_succ_mcs` | Lindenbaum lift (needs consistency + witnessed on output) | Partial |
-| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline (blocked on two rows above) | Partial |
+| TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent | Not Yet |
+| TL · `CompletedModel.enough_noms_diamond_seed` | fresh nominals for witnessed Lindenbaum on seed | Not Yet |
+| TL · `CompletedModel.diamond_succ_mcs` | `WitnessedLindenbaumLemma` wired; needs rows above | Partial |
+| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline (blocked on diamond rows) | Partial |
 | TL · `Proof.not_nec_to_diamond` | `∼(□φ) ⟶ ◇∼φ` for MCS maximality step | Pass |
-| TL · `CompletedModel.truth_box` | □ case fully wired; ← blocked only on diamond chain admits | Partial |
-| TL · `CompletedModel.truth_all` | ∀ case (Oltean never formalized) | Not Yet |
-| TL · `CompletedModel.TruthLemma` | structural `cases` on `Form`; `bind` blocked on `truth_all` | Partial |
+| TL · `CompletedModel.truth_box` | □ case wired; ← blocked on diamond chain | Partial |
+| TL · `Proof.all_iff_notfree` | `(all x, ψ) ⟷ ψ` when `x` not free (Q1 + `ax_q2`) | Pass |
+| TL · `CompletedModel.truth_all` | closed when `x` not free in `ψ`; free case = rename (`truth_ex` pattern) | Partial |
+| TL · `CompletedModel.TruthLemma` | structural `cases`; `bind` via partial `truth_all` | Partial |
 | **I** | **Final-completeness hole** | **Partial** |
 | I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` (needs `pf_extended` ←) | Not Yet |
 | I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked on rows above) | Partial |

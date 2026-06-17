@@ -707,10 +707,17 @@ lemma completed_canonical {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit 
     (hΔ : Δ.MCS_in mcs wit) (hR : (CompletedModel mcs wit).R Δ Δ') : Canonical.R Δ Δ' :=
   (completed_to_witnessed mcs wit hΔ hR).2.2
 
+/-- Freshness for the diamond successor seed `{ψ} ∪ {χ | □χ ∈ Δ}`.
+    Requires the Henkin `set_family` infrastructure (`witnessed Δ`, `◇ψ ∈ Δ`). -/
+lemma enough_noms_diamond_seed {Δ : Set (Form TotalSet)} (ψ : Form TotalSet)
+    (wit : witnessed Δ) (hdia : ◇ψ ∈ Δ) :
+    enough_noms ({ψ} ∪ {χ | □χ ∈ Δ}) := by
+  admit
+
 /-- If `◇ψ ∈ Δ` and `Δ` is MCS, the one-step successor seed
     `{ψ} ∪ {χ | □χ ∈ Δ}` is consistent.  (Oltean's `set_family` base case.) -/
 theorem diamond_extension_consistent {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (ψ : Form TotalSet)
-    (_hdia : ◇ψ ∈ Δ) : consistent ({ψ} ∪ {χ | □χ ∈ Δ}) := by
+    (hdia : ◇ψ ∈ Δ) : consistent ({ψ} ∪ {χ | □χ ∈ Δ}) := by
   admit
 
 /-- Lindenbaum extension of the successor seed: an MCS `Γ'` with `Canonical.R Δ Γ'` and `ψ ∈ Γ'`. -/
@@ -720,8 +727,9 @@ theorem diamond_succ_mcs {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (wit : witnes
       Canonical.R Δ Γ' ∧ ψ ∈ Γ' ∧ MCS Γ' ∧ witnessed Γ' := by
   let Γ₀ := {ψ} ∪ {χ | □χ ∈ Δ}
   have hcons := diamond_extension_consistent mcs ψ hdia
-  obtain ⟨Γ', hsub, hmcs⟩ := RegularLindenbaumLemma Γ₀ hcons
-  refine ⟨Γ', ?_, hsub (Or.inl (Set.mem_singleton ψ)), hmcs, by admit⟩
+  have hnom := enough_noms_diamond_seed ψ wit hdia
+  obtain ⟨Γ', hsub, hmcs, hwit⟩ := WitnessedLindenbaumLemma Γ₀ hcons hnom
+  refine ⟨Γ', ?_, hsub (Or.inl (Set.mem_singleton ψ)), hmcs, hwit⟩
   simp only [Canonical, restrict_by, mcs, hmcs, true_and]
   intro φ hbox
   exact hsub (Or.inr (by simp [hbox]))
@@ -789,11 +797,36 @@ lemma truth_box {ψ : Form TotalSet} : ∀ {Θ : Set (Form TotalSet)}, (mcs : MC
       have hbot : Form.bttm ∈ Δ' := Proof.MCS_mp Δ'_mcs hneg hψmem
       exact Δ'_mcs.1 (Proof.Γ_premise hbot)
 
--- Truth lemma, `∀` case (same status as `truth_box`; can also be routed through
--- `sat_dual_all_ex` + `truth_ex` once `truth_neg` / depth bookkeeping is in place).
+-- Truth lemma, `∀` case: when `x` is not free in `ψ`, `all x, ψ` agrees with `ψ`;
+-- the free case uses the same rename/`ax_q2` pattern as `truth_ex`.
 lemma truth_all {ψ : Form TotalSet} : ∀ {Θ : Set (Form TotalSet)} {x : SVAR}, (mcs : MCS Θ) → (wit : witnessed Θ) →
     (statement ψ mcs wit) → statement (all x, ψ) mcs wit := by
-  admit
+  intro Θ x mcs wit ih Δ h_in
+  have ⟨Δ_mcs, _⟩ := mcs_in_prop mcs wit h_in
+  apply Iff.intro
+  · intro hall
+    simp only [Sat]
+    intro g' hvar
+    by_cases hf : is_free x ψ = false
+    · have hψmem : ψ ∈ Δ :=
+        Proof.MCS_pf Δ_mcs (Proof.Γ_mp (Proof.Γ_theorem (@Proof.ax_q2_svar_instance x TotalSet ψ) Δ)
+          (Proof.Γ_premise hall))
+      have hsatψ : (StandardCompletedModel mcs wit, coe Δ mcs wit h_in, StandardCompletedI mcs wit) ⊨ ψ :=
+        (ih h_in).mp hψmem
+      have hequiv := @generalize_not_free x TotalSet ψ hf (StandardCompletedModel mcs wit)
+          (coe Δ mcs wit h_in) (StandardCompletedI mcs wit)
+      rw [iff_sat] at hequiv
+      have hsatall := hequiv.mp hsatψ
+      simp only [Sat] at hsatall ⊢
+      exact hsatall g' hvar
+    · admit
+  · intro hsat
+    by_cases hf : is_free x ψ = false
+    · have hsatψ : (StandardCompletedModel mcs wit, coe Δ mcs wit h_in, StandardCompletedI mcs wit) ⊨ ψ :=
+        hsat (StandardCompletedI mcs wit) (is_variant_refl x)
+      have hψmem : ψ ∈ Δ := (ih h_in).mpr hsatψ
+      exact (Proof.MCS_rw Δ_mcs (@Proof.all_iff_notfree TotalSet x ψ hf)).mpr hψmem
+    · admit
 
 /-- The truth lemma: membership in an `MCS_in` state coincides with satisfaction in the
     completed model.  Structural cases use the `truth_*` lemmas; `ex` uses `truth_ex`. -/

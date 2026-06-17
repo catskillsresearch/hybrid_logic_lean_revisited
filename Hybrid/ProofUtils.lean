@@ -706,6 +706,16 @@ def nec_dual : ⊢((□ ψ)⟷∼(◇ ∼ψ)) := by
         apply iff_elim_r
         apply dn_nec
 
+/-- When `x` is not free in `ψ`, `∀x.ψ` and `ψ` are provably equivalent (Henkin / Q1). -/
+def all_iff_notfree {x : SVAR} {ψ : Form N} (h : is_free x ψ = false) : ⊢ ((all x, ψ) ⟷ ψ) := by
+  apply mp; apply mp
+  apply tautology
+  apply iff_intro
+  · exact @ax_q2_svar_instance x N ψ
+  · apply mp (ax_q1 (φ := ψ) (ψ := ψ) (by simp [is_free, h]))
+    apply general x
+    apply tautology imp_refl
+
 /-- From `∼(□φ)` derive `◇∼φ` (contrapositive of `nec_dual` + double-negation). -/
 def not_nec_to_diamond {φ : Form N} : ⊢ ((∼(□φ)) ⟶ (◇∼φ)) := by
   have h1 : ⊢ ((□φ) ⟷ ∼(◇ ∼φ)) := nec_dual
