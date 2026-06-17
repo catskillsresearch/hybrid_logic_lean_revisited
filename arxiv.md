@@ -632,8 +632,9 @@ while **F** awaits `pf_extended` ← for **I** only).
 | F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
 | **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Partial** |
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
-| TL · `CompletedModel.truth_box` / `truth_all` | □ and ∀ cases (Oltean never formalized these) | Not Yet |
-| TL · `CompletedModel.mcs_in_*_succ` | successor/`MCS_in` path lemmas for the □ case | Not Yet |
+| TL · `CompletedModel.mcs_in_*_succ` | `mcs_in_witnessed_succ` / `completed_to_witnessed` / `mcs_in_completed_succ` | Pass |
+| TL · `CompletedModel.truth_box` | □ case (→ direction closed; ← needs `set_family` base) | Partial |
+| TL · `CompletedModel.truth_all` | ∀ case (Oltean never formalized) | Not Yet |
 | TL · `CompletedModel.TruthLemma` | depth/`ex`-pattern assembly | Not Yet |
 | **I** | **Final-completeness hole** | **Partial** |
 | I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` (needs `pf_extended` ←) | Not Yet |

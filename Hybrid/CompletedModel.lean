@@ -677,15 +677,63 @@ lemma truth_ex : ∀ {Θ : Set (Form TotalSet)}, (mcs : MCS Θ) → (wit : witne
     --  exact @exists_replace x ψ y
       apply exists_replace; exact y; exact this
 
--- Successor lemmas for the □ truth-lemma case (`mcs_in_canonical_succ`, etc.) are the
--- next TL sub-task; the → direction of `truth_box` goes through them + `R_nec`.
+/-- Extend `MCS_in` along a witnessed-model edge (`path_root` on the second path component). -/
+lemma mcs_in_witnessed_succ {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit : witnessed Θ)
+    (_hΔ : Δ.MCS_in mcs wit) (hR : (WitnessedModel mcs wit).R Δ Δ') : Δ'.MCS_in mcs wit := by
+  simp only [WitnessedModel, Set.GeneratedSubmodel] at hR
+  obtain ⟨_, ⟨m, hpath⟩, _⟩ := hR
+  exists m
+  exact path_root Θ witnessed hpath
+
+/-- Extract the witnessed edge from a completed-model step (no dummy glue). -/
+lemma completed_to_witnessed {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit : witnessed Θ)
+    (_hΔ : Δ.MCS_in mcs wit) (hR : (CompletedModel mcs wit).R Δ Δ') :
+    (WitnessedModel mcs wit).R Δ Δ' := by
+  simp only [CompletedModel] at hR
+  cases hR with
+  | inl hW => exact hW
+  | inr h =>
+    exfalso
+    rw [h.1] at _hΔ
+    exact (mcs_in_prop mcs wit _hΔ).1.1 (Proof.Γ_premise (Set.mem_singleton Form.bttm))
+
+lemma mcs_in_completed_succ {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit : witnessed Θ)
+    (hΔ : Δ.MCS_in mcs wit) (hR : (CompletedModel mcs wit).R Δ Δ') : Δ'.MCS_in mcs wit :=
+  mcs_in_witnessed_succ mcs wit hΔ (completed_to_witnessed mcs wit hΔ hR)
+
+lemma completed_canonical {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit : witnessed Θ)
+    (hΔ : Δ.MCS_in mcs wit) (hR : (CompletedModel mcs wit).R Δ Δ') : Canonical.R Δ Δ' :=
+  (completed_to_witnessed mcs wit hΔ hR).2.2
+
 -- Truth lemma, □ case.  Oltean's original development never formalized this case (nor
 -- `truth_all` for `∀`); the arxiv blueprint lists `truth_box` as TL work.  The → direction
 -- uses `R_nec` on witnessed/canonical successors and the subformula IH; the ← direction
--- uses MCS maximality + the diamond–successor existence machinery (`R_pos`, `has_state_symbol`).
+-- uses MCS maximality + a canonical successor from `◇ ∼φ` (still needs `set_family` base).
 lemma truth_box : ∀ {Θ : Set (Form TotalSet)}, (mcs : MCS Θ) → (wit : witnessed Θ) →
     (statement φ mcs wit) → statement (□φ) mcs wit := by
-  admit
+  intro Θ mcs wit ih Δ h_in
+  have ⟨Δ_mcs, _⟩ := mcs_in_prop mcs wit h_in
+  apply Iff.intro
+  · intro h_box
+    simp only [Sat]
+    intro s' hR
+    have hR' : (CompletedModel mcs wit).R Δ s'.1 := hR
+    cases s'.2 with
+    | inl _ =>
+      have hΔ' := mcs_in_completed_succ mcs wit h_in hR'
+      have hmem := R_nec h_box (completed_canonical mcs wit h_in hR')
+      exact (ih hΔ').mp hmem
+    | inr hdummy =>
+      exfalso
+      rcases hdummy with ⟨_, hbot⟩
+      have hbot_in := mcs_in_completed_succ mcs wit h_in hR'
+      rw [hbot] at hbot_in
+      exact (mcs_in_prop mcs wit hbot_in).1.1 (Proof.Γ_premise (Set.mem_singleton Form.bttm))
+  · intro h_sat
+    by_cases h : □φ ∈ Δ
+    · exact h
+    · -- TODO: `◇ ∼φ ∈ Δ` from `MCS_max` + `nec_dual`, then canonical successor + `pos_sat`
+      admit
 
 -- Truth lemma, `∀` case (same status as `truth_box`; can also be routed through
 -- `sat_dual_all_ex` + `truth_ex` once `truth_neg` / depth bookkeeping is in place).
