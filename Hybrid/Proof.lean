@@ -60,6 +60,24 @@ def Proof.contains {φ : Form N} : Proof φ → Form N → Bool :=
 
 def Proof.fresh_var : Proof φ → SVAR → Prop := λ pf x => ∀ ψ, pf.contains ψ → x ≥ ψ.new_var
 
+/-- Every formula root appearing in a derivation (for nominal inventory / conservativity). -/
+def Proof.formulasIn {φ : Form N} : Proof φ → List (Form N)
+  | .tautology _ => [φ]
+  | .ax_k => [φ]
+  | .ax_q1 _ _ _ => [φ]
+  | .ax_q2_svar _ _ _ _ => [φ]
+  | .ax_q2_nom _ _ _ => [φ]
+  | .ax_name _ => [φ]
+  | .ax_nom _ _ => [φ]
+  | .ax_brcn => [φ]
+  | .general _ pf => pf.formulasIn
+  | .necess pf => pf.formulasIn
+  | .mp pf1 pf2 => pf1.formulasIn ++ pf2.formulasIn
+
+/-- Nominals occurring in any formula of a derivation (deduped, descending merge order). -/
+def Proof.proof_noms {φ : Form N} (pf : Proof φ) : List (NOM N) :=
+  (pf.formulasIn.flatMap Form.list_noms).dedup
+
 def SyntacticConsequence (Γ : Set (Form N)) (φ : Form N) := Σ L, Proof ((conjunction Γ L) ⟶ φ)
 
 prefix:500 "⊢"  => Proof

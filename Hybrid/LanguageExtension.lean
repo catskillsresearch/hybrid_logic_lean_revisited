@@ -338,6 +338,112 @@ noncomputable def l416 {φ : Form N} {x : SVAR} (i : NOM N) (pf : ⊢ φ) (h : p
 -- Helpers for the backward direction of `pf_extended` (conservativity).
 -- ===========================================================================
 
+/-- Embed a base-language nominal into `TotalSet`. -/
+noncomputable def NOM.toTotal {N : Set ℕ} (j : NOM N) : NOM TotalSet := ⟨j.letter, trivial⟩
+
+/-- Reconstruct a base-language nominal from a `TotalSet` one whose letter lies in `N`. -/
+noncomputable def NOM.fromTotal {N : Set ℕ} (j : NOM TotalSet) (hj : (j.letter : ℕ) ∈ N) : NOM N :=
+  ⟨j.letter, hj⟩
+
+lemma NOM.toTotal_total {N : Set ℕ} (j : NOM N) :
+    (Form.nom j).total = Form.nom (NOM.toTotal j) := by
+  simp [Form.total, NOM.toTotal, NOM_eq]
+
+lemma NOM.fromTotal_total {N : Set ℕ} (j : NOM TotalSet) (hj : (j.letter : ℕ) ∈ N) :
+    (Form.nom (NOM.fromTotal j hj)).total = Form.nom j := by
+  simp [Form.total, NOM.fromTotal, NOM_eq]
+
+def nom_in_base {N : Set ℕ} (j : NOM TotalSet) : Prop := (j.letter : ℕ) ∈ N
+
+def form_noms_in_base {N : Set ℕ} (ψ : Form TotalSet) : Prop :=
+  ∀ j ∈ ψ.list_noms, nom_in_base (N := N) j
+
+lemma form_noms_in_base_nom {N : Set ℕ} {i : NOM TotalSet} (hi : nom_in_base (N := N) i) :
+    form_noms_in_base (Form.nom i) := by
+  intro j hj; simp [Form.list_noms] at hj; subst hj; exact hi
+
+lemma form_noms_in_base_impl {N : Set ℕ} {a b : Form TotalSet}
+    (ha : form_noms_in_base a) (hb : form_noms_in_base b) :
+    form_noms_in_base (a ⟶ b) := by
+  intro j hj
+  rw [← occurs_list_noms] at hj
+  simp only [Form.list_noms, nom_occurs, Bool.or_eq_true, List.mem_dedup, List.mem_merge] at hj
+  cases hj with
+  | inl h => exact ha j h
+  | inr h => exact hb j h
+
+lemma form_noms_in_base_box {N : Set ℕ} {a : Form TotalSet} (ha : form_noms_in_base a) :
+    form_noms_in_base (□ a) := ha
+
+lemma form_noms_in_base_bind {N : Set ℕ} {v : SVAR} {a : Form TotalSet} (ha : form_noms_in_base a) :
+    form_noms_in_base (all v, a) := ha
+
+lemma list_noms_mem_impl_left {a b : Form TotalSet} {j : NOM TotalSet}
+    (hj : j ∈ a.list_noms) : j ∈ (a ⟶ b).list_noms := by
+  rw [← occurs_list_noms]
+  simp only [Form.list_noms, nom_occurs, hj, Bool.true_or]
+
+lemma list_noms_mem_impl_right {a b : Form TotalSet} {j : NOM TotalSet}
+    (hj : j ∈ b.list_noms) : j ∈ (a ⟶ b).list_noms := by
+  rw [← occurs_list_noms]
+  simp only [Form.list_noms, nom_occurs, hj, Bool.or_true]
+
+/-- If every nominal letter lies in `N`, the formula is in the image of `Form.total`. -/
+lemma range_of_form {N : Set ℕ} {ψ : Form TotalSet} (h : form_noms_in_base (N := N) ψ) :
+    ∃ χ : Form N, χ.total = ψ := by
+  induction ψ with
+  | bttm => exact ⟨Form.bttm, rfl⟩
+  | prop p => exact ⟨Form.prop p, rfl⟩
+  | svar v => exact ⟨Form.svar v, rfl⟩
+  | nom i =>
+      have hi := h i (by simp [Form.list_noms])
+      exact ⟨Form.nom (NOM.fromTotal i hi), NOM.fromTotal_total i hi⟩
+  | impl a b iha ihb =>
+      obtain ⟨a', ha'⟩ := iha (fun j hj => h j (list_noms_mem_impl_left hj))
+      obtain ⟨b', hb'⟩ := ihb (fun j hj => h j (list_noms_mem_impl_right hj))
+      exact ⟨a' ⟶ b', by simp [Form.total, ha', hb']⟩
+  | box a ih =>
+      obtain ⟨a', ha'⟩ := ih h
+      exact ⟨□ a', by simp [Form.total, ha']⟩
+  | bind v a ih =>
+      obtain ⟨a', ha'⟩ := ih h
+      exact ⟨all v, a', by simp [Form.total, ha']⟩
+
+lemma inv_t_eq_of_range' {N : Set ℕ} {ψ : Form TotalSet} (h : form_noms_in_base (N := N) ψ) :
+    ((@Form.inv_t N) ψ).total = ψ := by
+  obtain ⟨χ, hχ⟩ := range_of_form h
+  rw [← total_inv_is_inv χ, hχ]
+
+theorem total_subst_nom_pullback {N : Set ℕ} {a : Form TotalSet} {s : NOM TotalSet} {v : SVAR}
+    (ha : form_noms_in_base (N := N) a) (hs : nom_in_base (N := N) s) {φ : Form N}
+    (h : φ⁺ = a[s // v]) : φ = ((@Form.inv_t N) a)[NOM.fromTotal s hs // v] := by
+  apply total_inj'
+  show φ⁺ = (((@Form.inv_t N) a)[NOM.fromTotal s hs // v]).total
+  rw [h, total_subst_nom, NOM.fromTotal_total s hs, ← inv_t_eq_of_range' ha]
+
+theorem total_ax_q2_nom {N : Set ℕ} {φ : Form N} {v : SVAR} {a : Form TotalSet} {s : NOM TotalSet}
+    (ha : form_noms_in_base (N := N) a) (hs : nom_in_base (N := N) s)
+    (h : φ⁺ = (all v, a) ⟶ a[s // v]) :
+    φ = (all v, ((@Form.inv_t N) a)) ⟶ ((@Form.inv_t N) a)[NOM.fromTotal s hs // v] := by
+  cases φ with
+  | impl l r =>
+      simp [Form.total] at h ⊢
+      apply And.intro
+      · exact total_bind h.1
+      · apply total_subst_nom_pullback ha hs; exact h.2
+  | _ => simp [Form.total] at h
+
+theorem total_ax_q2_nom_end {N : Set ℕ} {φ : Form N} {v : SVAR} {a : Form TotalSet}
+    (ha : form_noms_in_base (N := N) a) (h : φ⁺ = (all v, a) ⟶ a) :
+    φ = (all v, ((@Form.inv_t N) a)) ⟶ ((@Form.inv_t N) a) := by
+  cases φ with
+  | impl l r =>
+      simp [Form.total] at h ⊢
+      apply And.intro
+      · exact total_bind h.1
+      · apply total_inj'; rw [h.2, inv_t_eq_of_range' ha]
+  | _ => simp [Form.total] at h
+
 -- Peel `total` back through the connectives: a totalized formula matching a
 -- connective decomposes into totalizations of `N`-formulas.
 lemma total_eq_impl {φ : Form N} {a b : Form TotalSet} (h : φ.total = a ⟶ b) :
@@ -491,8 +597,13 @@ noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
     -- available), then ∀-generalize and instantiate them away to land in `Form N`.
     -- Formalizing this needs (i) the finite set of nominals occurring in a proof
     -- and (ii) an iterated-replacement recursion; it replaces this whole induction.
-    | ax_q2_nom =>
-        admit
+    | ax_q2_nom a v s =>
+        by_cases ha : form_noms_in_base a
+        · by_cases hs : nom_in_base s
+          · rw [total_ax_q2_nom ha hs hc]
+            apply Proof.ax_q2_nom
+          · admit
+        · admit
     | ax_nom  =>
         rw [total_ax_nom hc]
         apply Proof.ax_nom
