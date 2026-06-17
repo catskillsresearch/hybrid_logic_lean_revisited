@@ -208,6 +208,12 @@ flowchart TD
     G --> I
     TL --> I
     ME --> I
+    SEM --> SND
+    SEM --> ME
+    SEM --> TL
+    SEM --> I
+    SND --> D
+    SND --> TL
 ```
 
 *Figure 1. Dependency blueprint of the completeness development. Shaded nodes already
@@ -550,6 +556,15 @@ We gratefully acknowledge assistance from the following tools:
   debug `lake` and type-class errors, and draft the narrative in this document.
   Generated Lean was treated as provisional until it compiled under the pinned
   toolchain; no result was accepted on the basis of an LLM's assertion alone.
+- **Anthropic Claude Opus 4.8, High reasoning** ([Ant26]): the large language model
+  underlying the Cursor agent for the bulk of the proof-repair and porting work reported
+  here — closing the existence lemma (`l313'`), the witnessed-Lindenbaum induction
+  (`LindenbaumWitnessed`), the structural-freshness base case, and the re-fit of the
+  canonical-model truth lemma and final assembly so that the development compiles under
+  the pinned toolchain. Per the model card, the system is a general-purpose reasoning
+  model with no formal soundness guarantee; accordingly, every emitted proof term was
+  checked by the Lean kernel, and the remaining `sorry`/`admit` obligations are reported
+  honestly rather than papered over.
 - **Google Gemini** ([Gem25]): exploratory discussion of the completeness gap and
   candidate repair strategies. It was in one such discussion that Bud Mishra's
   disjoint-sum (`N ⊕ ℕ`) Henkin construction was surfaced and connected to the
@@ -595,4 +610,7 @@ The ported development with the completed completeness proof is at
    https://cursor.com (accessed 2026).
 9. **[Gem25]** Google DeepMind. *Gemini model family*. Technical documentation and
    model cards. https://ai.google.dev/gemini-api/docs/models
+10. **[Ant26]** Anthropic. *Claude Opus 4.8* (high thinking/reasoning variant). System card
+   and announcement, https://www.anthropic.com/news/claude-opus-4-8; model documentation as
+   integrated in Cursor, https://cursor.com/docs/models/claude-opus-4-8 (accessed 2026).
 
