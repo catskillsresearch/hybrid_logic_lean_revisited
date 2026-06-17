@@ -546,11 +546,76 @@ noncomputable def Proof.eliminate_aliens {ψ : Form TotalSet} (pf : @Proof Total
         have hAlien : ¬nom_in_base (N := NBase) j := fun h => hjb h
         Proof.eliminate_aliens (pf.eliminate_one_alien hψ j base hAlien _hb) hψ base _hb rest
 
-/-- After eliminating every alien in `proof_noms`, all remaining nominals lie in `N`. -/
-lemma Proof.all_noms_in_base_eliminate_aliens (NBase : Set ℕ) {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+lemma Proof.mem_proof_noms_eliminate_one_alien {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (hψ : form_noms_in_base (N := NBase) ψ) (j base : NOM TotalSet)
+    (hAlien : ¬nom_in_base (N := NBase) j) (_hb : nom_in_base (N := NBase) base) {k : NOM TotalSet}
+    (hk : k ∈ (pf.eliminate_one_alien hψ j base hAlien _hb).proof_noms) :
+    k ∈ pf.proof_noms ∨ k = base := by
+  have hnocc := nom_occurs_false_of_form_noms_in_base hψ hAlien
+  have hk' : k ∈ (rename_constants_fwd base j pf).proof_noms := by
+    simpa [Proof.eliminate_one_alien, hnocc] using hk
+  exact mem_proof_noms_rename_constants_fwd hk'
+
+lemma Proof.not_mem_proof_noms_eliminate_one_alien {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (hψ : form_noms_in_base (N := NBase) ψ) (j base : NOM TotalSet)
+    (hAlien : ¬nom_in_base (N := NBase) j) (_hb : nom_in_base (N := NBase) base) :
+    j ∉ (pf.eliminate_one_alien hψ j base hAlien _hb).proof_noms := by
+  have hnocc := nom_occurs_false_of_form_noms_in_base hψ hAlien
+  intro h
+  have h' : j ∈ (rename_constants_fwd base j pf).proof_noms := by
+    simpa [Proof.eliminate_one_alien, hnocc] using h
+  have hne : base ≠ j := fun heq => hAlien (heq ▸ _hb)
+  exact not_mem_proof_noms_rename_constants_fwd hne h'
+
+lemma Proof.all_noms_in_base_eliminate_go {ψ : Form TotalSet}
     (hψ : form_noms_in_base (N := NBase) ψ) (base : NOM TotalSet) (hb : nom_in_base (N := NBase) base) :
-    Proof.all_noms_in_base NBase (pf.eliminate_aliens hψ base hb pf.proof_noms) := by
-  admit
+    ∀ (L : List (NOM TotalSet)) (pf' : @Proof TotalSet ψ),
+      (∀ k, k ∈ pf'.proof_noms → k ∈ L ∨ nom_in_base (N := NBase) k) →
+      Proof.all_noms_in_base NBase (pf'.eliminate_aliens hψ base hb L) := by
+  intro L pf' hsub
+  induction L generalizing pf' with
+  | nil =>
+      intro k hk
+      simp only [Proof.all_noms_in_base, Proof.eliminate_aliens] at hk ⊢
+      exact (hsub k hk).resolve_left (by simp)
+  | cons j rest ih =>
+      simp only [Proof.eliminate_aliens]
+      split_ifs with hjb
+      · exact ih pf' (by
+          intro k hk
+          rcases hsub k hk with hL | hbk
+          · simp only [List.mem_cons] at hL
+            rcases hL with (rfl) | hkrest
+            · exact Or.inr hjb
+            · exact Or.inl hkrest
+          · exact Or.inr hbk)
+      · have hAlien : ¬nom_in_base (N := NBase) j := fun h => hjb h
+        exact ih (pf'.eliminate_one_alien hψ j base hAlien hb) (by
+          intro k hk
+          by_cases hkbase : nom_in_base (N := NBase) k
+          · exact Or.inr hkbase
+          · exact Or.inl (by
+              have hmem := Proof.mem_proof_noms_eliminate_one_alien pf' hψ j base hAlien hb hk
+              have hkpf : k ∈ pf'.proof_noms := by
+                rcases hmem with hkpf | hkb
+                · exact hkpf
+                · exact absurd (hkb ▸ hb) hkbase
+              have := hsub k hkpf
+              simp only [List.mem_cons, Bool.not_eq_true] at this
+              rcases this with hL | hbk
+              · rcases hL with hj | hkrest
+                · rw [hj] at hk
+                  exact absurd hk (Proof.not_mem_proof_noms_eliminate_one_alien pf' hψ j base hAlien hb)
+                · exact hkrest
+              · exact absurd hbk hkbase))
+
+/-- After eliminating every alien in `proof_noms`, all remaining nominals lie in `N`. -/
+lemma Proof.all_noms_in_base_eliminate_aliens {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (hψ : form_noms_in_base (N := NBase) ψ) (base : NOM TotalSet) (hb : nom_in_base (N := NBase) base) :
+    Proof.all_noms_in_base NBase (pf.eliminate_aliens hψ base hb pf.proof_noms) :=
+  Proof.all_noms_in_base_eliminate_go hψ base hb pf.proof_noms pf (by
+    intro k hk
+    exact Or.inl hk)
 
 lemma Proof.form_noms_in_base_of_eliminate_aliens (NBase : Set ℕ) {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
     (hψ : form_noms_in_base (N := NBase) ψ) (base : NOM TotalSet) (hb : nom_in_base (N := NBase) base) :
@@ -558,7 +623,7 @@ lemma Proof.form_noms_in_base_of_eliminate_aliens (NBase : Set ℕ) {ψ : Form T
       form_noms_in_base (N := NBase) χ := by
   intro χ hχ j hj
   let pf' := pf.eliminate_aliens hψ base hb pf.proof_noms
-  have hAll := Proof.all_noms_in_base_eliminate_aliens NBase pf hψ base hb
+  have hAll := Proof.all_noms_in_base_eliminate_aliens pf hψ base hb
   exact hAll j (Proof.mem_formulasIn_of_list_noms pf' χ hχ hj)
 
 lemma inv_t_impl {a b : Form TotalSet} (ha : form_noms_in_base (N := NBase) a) (hb : form_noms_in_base (N := NBase) b) :
@@ -592,14 +657,6 @@ lemma form_noms_in_base_impl_right {a b : Form TotalSet} (h : form_noms_in_base 
     rw [← occurs_list_noms]
     simp only [Form.list_noms, nom_occurs, Bool.or_eq_true, List.mem_dedup, List.mem_merge]
     exact Or.inr ((occurs_list_noms (φ := b)).mpr hj))
-
-lemma Proof.mem_formulasIn_self {ψ : Form TotalSet} (pf : @Proof TotalSet ψ) : ψ ∈ pf.formulasIn := by
-  induction pf with
-  | tautology _ | ax_k | ax_q1 _ _ _ | ax_q2_svar _ _ _ _ | ax_q2_nom _ _ _ | ax_name _ | ax_nom _ _ | ax_brcn =>
-      simp [Proof.formulasIn]
-  | general _ _ => simp [Proof.formulasIn]
-  | necess _ => simp [Proof.formulasIn]
-  | mp _ _ _ _ => simp [Proof.formulasIn]
 
 /-- Pull an in-range `TotalSet` derivation back to the base language via `inv_t`.
     Scaffold: mp/general/necess via explicit recursion; remaining admits on `ax_q2_nom`/`ax_brcn`. -/

@@ -740,6 +740,42 @@ section Nominals
     | bind _ _ ih => exact ih
     | _        => simp [Form.list_noms, nom_occurs]
 
+  /-- After substituting a fresh state variable for a nominal, no new nominals appear and the
+      replaced nominal disappears from the inventory. -/
+  theorem list_noms_nom_subst_svar {x : SVAR} {old : NOM N} (hx : x ≥ φ.new_var) :
+      ∀ {k : NOM N}, k ∈ (φ[x // old]).list_noms → k ∈ φ.list_noms ∧ k ≠ old := by
+    intro k hk
+    induction φ generalizing x with
+    | nom a =>
+        by_cases heq : a = old
+        · subst heq
+          simp [nom_subst_svar, Form.list_noms] at hk
+        · simp [nom_subst_svar, Form.list_noms, heq] at hk
+          subst hk
+          exact ⟨List.mem_singleton.mpr rfl, heq⟩
+    | impl ψ χ ih1 ih2 =>
+        have hx1 := (new_var_geq1 hx).1
+        have hx2 := (new_var_geq1 hx).2
+        simp only [nom_subst_svar, Form.list_noms, List.mem_dedup, List.mem_merge] at hk
+        rcases hk with h | h
+        · rcases ih1 hx1 h with ⟨hk', hne⟩
+          exact ⟨by
+            rw [Form.list_noms, List.mem_dedup, List.mem_merge]
+            exact Or.inl hk', hne⟩
+        · rcases ih2 hx2 h with ⟨hk', hne⟩
+          exact ⟨by
+            rw [Form.list_noms, List.mem_dedup, List.mem_merge]
+            exact Or.inr hk', hne⟩
+    | box ψ ih =>
+        have hx' := new_var_geq3 hx
+        simp only [nom_subst_svar, Form.list_noms] at hk
+        exact ih hx' hk
+    | bind y ψ ih =>
+        have hx' := (new_var_geq2 hx).2
+        simp only [nom_subst_svar, Form.new_var, max, Form.list_noms] at hk
+        exact ih hx' hk
+    | _ => simp [nom_subst_svar, Form.list_noms] at hk
+
   theorem list_noms_subst {old new : NOM N} : i ∈ (φ[new // old]).list_noms → ((i ∈ φ.list_noms ∧ i ≠ old) ∨ i = new) := by
     rw [←occurs_list_noms, ←occurs_list_noms]
     intro h
