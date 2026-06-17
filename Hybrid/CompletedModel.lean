@@ -1,9 +1,11 @@
 import Hybrid.ProofUtils
 import Hybrid.Truth
 import Hybrid.Soundness
+import Hybrid.Tautology
 -- Interface for proofs to be filled
 -- about renaming bound vars:
 import Hybrid.RenameBound
+import Hybrid.Lindenbaum
 
 open Classical
 
@@ -705,12 +707,54 @@ lemma completed_canonical {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit 
     (hΔ : Δ.MCS_in mcs wit) (hR : (CompletedModel mcs wit).R Δ Δ') : Canonical.R Δ Δ' :=
   (completed_to_witnessed mcs wit hΔ hR).2.2
 
+/-- If `◇ψ ∈ Δ` and `Δ` is MCS, the one-step successor seed
+    `{ψ} ∪ {χ | □χ ∈ Δ}` is consistent.  (Oltean's `set_family` base case.) -/
+theorem diamond_extension_consistent {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (ψ : Form TotalSet)
+    (_hdia : ◇ψ ∈ Δ) : consistent ({ψ} ∪ {χ | □χ ∈ Δ}) := by
+  admit
+
+/-- Lindenbaum extension of the successor seed: an MCS `Γ'` with `Canonical.R Δ Γ'` and `ψ ∈ Γ'`. -/
+theorem diamond_succ_mcs {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (wit : witnessed Δ) (ψ : Form TotalSet)
+    (hdia : ◇ψ ∈ Δ) :
+    ∃ Γ' : Set (Form TotalSet),
+      Canonical.R Δ Γ' ∧ ψ ∈ Γ' ∧ MCS Γ' ∧ witnessed Γ' := by
+  let Γ₀ := {ψ} ∪ {χ | □χ ∈ Δ}
+  have hcons := diamond_extension_consistent mcs ψ hdia
+  obtain ⟨Γ', hsub, hmcs⟩ := RegularLindenbaumLemma Γ₀ hcons
+  refine ⟨Γ', ?_, hsub (Or.inl (Set.mem_singleton ψ)), hmcs, by admit⟩
+  simp only [Canonical, restrict_by, mcs, hmcs, true_and]
+  intro φ hbox
+  exact hsub (Or.inr (by simp [hbox]))
+
+/-- Extend a restrict-by-witnessed path along one canonical step. -/
+lemma restrict_canonical_succ {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit : witnessed Θ)
+    (hΔ : Δ.MCS_in mcs wit) (hR : Canonical.R Δ Δ') (hΔ' : witnessed Δ') :
+    ∃ n, path (restrict_by witnessed Canonical.R) Θ Δ' n := by
+  obtain ⟨n, hpath⟩ := mcs_in_wit mcs wit hΔ
+  have hw : witnessed Δ := (mcs_in_prop mcs wit hΔ).2
+  refine ⟨n + 1, Δ, ⟨hw, hΔ', hR⟩, hpath⟩
+
+/-- From `◇ψ ∈ Δ` build a completed-model successor of `Δ` that contains `ψ`. -/
+lemma diamond_completed_succ {Θ Δ : Set (Form TotalSet)} (mcs : MCS Θ) (wit : witnessed Θ)
+    (hΔ : Δ.MCS_in mcs wit) (ψ : Form TotalSet) (hdia : ◇ψ ∈ Δ) :
+    ∃ Δ' : Set (Form TotalSet),
+      Δ'.MCS_in mcs wit ∧ (CompletedModel mcs wit).R Δ Δ' ∧ (ψ ∈ Δ') := by
+  have ⟨Δ_mcs, hwitΔ⟩ := mcs_in_prop mcs wit hΔ
+  obtain ⟨Γ', hcan, hψ, hmcs, hwitΓ'⟩ := diamond_succ_mcs Δ_mcs hwitΔ ψ hdia
+  obtain ⟨m, hpath⟩ := restrict_canonical_succ mcs wit hΔ hcan hwitΓ'
+  have hW : (WitnessedModel mcs wit).R Δ Γ' := by
+    simp only [WitnessedModel, Set.GeneratedSubmodel]
+    obtain ⟨n, hΔpath⟩ := mcs_in_wit mcs wit hΔ
+    exact ⟨⟨n, hΔpath⟩, ⟨m, hpath⟩, hcan⟩
+  refine ⟨Γ', mcs_in_witnessed_succ mcs wit hΔ hW, Or.inl hW, hψ⟩
+
 -- Truth lemma, □ case.  Oltean's original development never formalized this case (nor
 -- `truth_all` for `∀`); the arxiv blueprint lists `truth_box` as TL work.  The → direction
 -- uses `R_nec` on witnessed/canonical successors and the subformula IH; the ← direction
--- uses MCS maximality + a canonical successor from `◇ ∼φ` (still needs `set_family` base).
-lemma truth_box : ∀ {Θ : Set (Form TotalSet)}, (mcs : MCS Θ) → (wit : witnessed Θ) →
-    (statement φ mcs wit) → statement (□φ) mcs wit := by
+-- uses MCS maximality + `diamond_completed_succ` (blocked on `diamond_extension_consistent`
+-- and witnessed lift in `diamond_succ_mcs`).
+lemma truth_box {ψ : Form TotalSet} : ∀ {Θ : Set (Form TotalSet)}, (mcs : MCS Θ) → (wit : witnessed Θ) →
+    (statement ψ mcs wit) → statement (□ψ) mcs wit := by
   intro Θ mcs wit ih Δ h_in
   have ⟨Δ_mcs, _⟩ := mcs_in_prop mcs wit h_in
   apply Iff.intro
@@ -730,20 +774,36 @@ lemma truth_box : ∀ {Θ : Set (Form TotalSet)}, (mcs : MCS Θ) → (wit : witn
       rw [hbot] at hbot_in
       exact (mcs_in_prop mcs wit hbot_in).1.1 (Proof.Γ_premise (Set.mem_singleton Form.bttm))
   · intro h_sat
-    by_cases h : □φ ∈ Δ
+    by_cases h : □ψ ∈ Δ
     · exact h
-    · -- TODO: `◇ ∼φ ∈ Δ` from `MCS_max` + `nec_dual`, then canonical successor + `pos_sat`
-      admit
+    · exfalso
+      have hnec : ∼(□ψ) ∈ Δ := (Proof.MCS_max Δ_mcs).mp h
+      have hdia : ◇∼ψ ∈ Δ :=
+        Proof.MCS_pf Δ_mcs (Proof.Γ_mp (Proof.Γ_theorem (@Proof.not_nec_to_diamond TotalSet ψ) Δ) (Proof.Γ_premise hnec))
+      obtain ⟨Δ', hΔ'in, hR', hneg⟩ := diamond_completed_succ mcs wit h_in (∼ψ) hdia
+      have hsatψ : (StandardCompletedModel mcs wit, coe Δ' mcs wit hΔ'in, StandardCompletedI mcs wit) ⊨ ψ := by
+        simp only [Sat] at h_sat
+        exact h_sat (coe Δ' mcs wit hΔ'in) (by simpa [StandardCompletedModel, CompletedModel, coe] using hR')
+      have hψmem : ψ ∈ Δ' := (ih hΔ'in).mpr hsatψ
+      have ⟨Δ'_mcs, _⟩ := mcs_in_prop mcs wit hΔ'in
+      have hbot : Form.bttm ∈ Δ' := Proof.MCS_mp Δ'_mcs hneg hψmem
+      exact Δ'_mcs.1 (Proof.Γ_premise hbot)
 
 -- Truth lemma, `∀` case (same status as `truth_box`; can also be routed through
 -- `sat_dual_all_ex` + `truth_ex` once `truth_neg` / depth bookkeeping is in place).
-lemma truth_all : ∀ {Θ : Set (Form TotalSet)} {x : SVAR}, (mcs : MCS Θ) → (wit : witnessed Θ) →
-    (statement φ mcs wit) → statement (all x, φ) mcs wit := by
+lemma truth_all {ψ : Form TotalSet} : ∀ {Θ : Set (Form TotalSet)} {x : SVAR}, (mcs : MCS Θ) → (wit : witnessed Θ) →
+    (statement ψ mcs wit) → statement (all x, ψ) mcs wit := by
   admit
 
 /-- The truth lemma: membership in an `MCS_in` state coincides with satisfaction in the
-    completed model.  Requires `truth_box`, `truth_all`, and the `ex`-pattern branch
-    (`truth_ex` — structurally `ex` is not a `Form` constructor). -/
+    completed model.  Structural cases use the `truth_*` lemmas; `ex` uses `truth_ex`. -/
 theorem TruthLemma (φ : Form TotalSet) {Θ : Set (Form TotalSet)} (mcs : MCS Θ) (wit : witnessed Θ) :
     statement φ mcs wit := by
-  admit
+  cases φ with
+  | bttm => exact truth_bttm mcs wit
+  | prop p => exact truth_prop mcs wit
+  | nom i => exact truth_nom mcs wit
+  | svar x => exact truth_svar mcs wit
+  | impl ψ χ => exact truth_impl (φ := ψ) (ψ := χ) mcs wit (TruthLemma ψ mcs wit) (TruthLemma χ mcs wit)
+  | box ψ => exact truth_box mcs wit (TruthLemma ψ mcs wit)
+  | bind x ψ => exact truth_all (ψ := ψ) mcs wit (TruthLemma ψ mcs wit)

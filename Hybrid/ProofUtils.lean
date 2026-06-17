@@ -706,6 +706,14 @@ def nec_dual : ⊢((□ ψ)⟷∼(◇ ∼ψ)) := by
         apply iff_elim_r
         apply dn_nec
 
+/-- From `∼(□φ)` derive `◇∼φ` (contrapositive of `nec_dual` + double-negation). -/
+def not_nec_to_diamond {φ : Form N} : ⊢ ((∼(□φ)) ⟶ (◇∼φ)) := by
+  have h1 : ⊢ ((□φ) ⟷ ∼(◇ ∼φ)) := nec_dual
+  have h2 : ⊢ ((∼(□φ)) ⟷ ∼∼(◇ ∼φ)) :=
+    mp (mp (tautology iff_elim_l) (tautology iff_not)) h1
+  have h3 : ⊢ ((∼(□φ)) ⟶ ∼∼(◇ ∼φ)) := mp (tautology iff_elim_l) h2
+  exact hs h3 (tautology (@dne N (◇ ∼φ)))
+
 def diw_impl (h : ⊢(φ ⟶ ψ)) : ⊢ (◇φ ⟶ ◇ψ) := by
   have l1 := mp (tautology contrapositive) h
   have l2 := necess l1

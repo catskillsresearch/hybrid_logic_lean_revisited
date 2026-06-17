@@ -276,6 +276,8 @@ flowchart TD
   impl --> box["truth_box<br/>(new)"]
   impl --> all["truth_all<br/>(new)"]
   H["H · l313'"] --> box
+  setfam["diamond_extension_consistent<br/>(set_family base)"] --> box
+  witlift["diamond_succ_mcs<br/>(witnessed output)"] --> box
   ex["truth_ex<br/>(ex-pattern)"] --> TLm["TruthLemma"]
   box --> TLm
   all --> TLm
@@ -633,9 +635,13 @@ while **F** awaits `pf_extended` ← for **I** only).
 | **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Partial** |
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.mcs_in_*_succ` | `mcs_in_witnessed_succ` / `completed_to_witnessed` / `mcs_in_completed_succ` | Pass |
-| TL · `CompletedModel.truth_box` | □ case (→ direction closed; ← needs `set_family` base) | Partial |
+| TL · `CompletedModel.restrict_canonical_succ` | extend witnessed path along `Canonical.R` | Pass |
+| TL · `CompletedModel.diamond_succ_mcs` | Lindenbaum lift (needs consistency + witnessed on output) | Partial |
+| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline (blocked on two rows above) | Partial |
+| TL · `Proof.not_nec_to_diamond` | `∼(□φ) ⟶ ◇∼φ` for MCS maximality step | Pass |
+| TL · `CompletedModel.truth_box` | □ case fully wired; ← blocked only on diamond chain admits | Partial |
 | TL · `CompletedModel.truth_all` | ∀ case (Oltean never formalized) | Not Yet |
-| TL · `CompletedModel.TruthLemma` | depth/`ex`-pattern assembly | Not Yet |
+| TL · `CompletedModel.TruthLemma` | structural `cases` on `Form`; `bind` blocked on `truth_all` | Partial |
 | **I** | **Final-completeness hole** | **Partial** |
 | I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` (needs `pf_extended` ←) | Not Yet |
 | I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked on rows above) | Partial |
