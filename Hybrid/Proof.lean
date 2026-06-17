@@ -50,6 +50,18 @@ def Proof.size : Proof φ → ℕ
   | .mp pf1 pf2   => pf1.size + pf2.size + 1
   | _ => 1
 
+lemma Proof.size_lt_mp {α β : Form N} (pf1 : Proof (α ⟶ β)) (pf2 : Proof α) :
+    pf1.size < (mp pf1 pf2).size := by simp [Proof.size]; omega
+
+lemma Proof.size_lt_mp₂ {α β : Form N} (pf1 : Proof (α ⟶ β)) (pf2 : Proof α) :
+    pf2.size < (mp pf1 pf2).size := by simp [Proof.size]; omega
+
+lemma Proof.size_lt_general {φ : Form N} (v : SVAR) (pf : Proof φ) :
+    pf.size < (general v pf).size := by simp [Proof.size]
+
+lemma Proof.size_lt_necess {φ : Form N} (pf : Proof φ) :
+    pf.size < (necess pf).size := by simp [Proof.size]
+
 def Proof.contains {φ : Form N} : Proof φ → Form N → Bool :=
   λ pf ψ => φ == ψ ||
     match pf with
@@ -70,9 +82,9 @@ def Proof.formulasIn {φ : Form N} : Proof φ → List (Form N)
   | .ax_name _ => [φ]
   | .ax_nom _ _ => [φ]
   | .ax_brcn => [φ]
-  | .general _ pf => pf.formulasIn
-  | .necess pf => pf.formulasIn
-  | .mp pf1 pf2 => pf1.formulasIn ++ pf2.formulasIn
+  | .general _ pf => φ :: pf.formulasIn
+  | .necess pf => φ :: pf.formulasIn
+  | .mp pf1 pf2 => φ :: pf1.formulasIn ++ pf2.formulasIn
 
 /-- Nominals occurring in any formula of a derivation (deduped, descending merge order). -/
 def Proof.proof_noms {φ : Form N} (pf : Proof φ) : List (NOM N) :=

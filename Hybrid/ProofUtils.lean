@@ -367,17 +367,19 @@ def generalize_constants {φ : Form N} {x : SVAR} (i : NOM N) (h : x ≥ φ.new_
     . apply generalize_constants; assumption
     . apply generalize_constants_rev; assumption
 
+  /-- Forward direction only: rename nominal `j` to `i` throughout a derivation. -/
+  def rename_constants_fwd {φ : Form N} (j i : NOM N) (pf : Proof φ) : Proof (φ[j // i]) := by
+    let x := φ.new_var
+    have x_geq : x ≥ φ.new_var := Nat.le.refl
+    have l1 := generalize_constants i x_geq pf
+    have l2 := ax_q2_nom (φ[x // i]) x j
+    have l3 := mp l2 l1
+    rw [svar_svar_nom_subst x_geq] at l3
+    exact l3
+
   def rename_constants (j i : NOM N) (h : nom_occurs j φ = false) : ⊢ φ iff ⊢ (φ[j // i]) := by
     apply TypeIff.intro
-    . intro pf
-      let x := φ.new_var
-      have x_geq : x ≥ φ.new_var := by simp; apply Nat.le_refl
-      have l1 := generalize_constants i x_geq pf
-      have l2 := ax_q2_nom (φ[x // i]) x j
-      have l3 := mp l2 l1
-      have : φ[x//i][j//x] = φ[j//i] := svar_svar_nom_subst x_geq
-      rw [this] at l3
-      exact l3
+    . exact rename_constants_fwd j i
     . intro pf
       let x := (φ[j//i]).new_var
       have x_geq : x ≥ (φ[j//i]).new_var := by simp; apply Nat.le_refl

@@ -243,19 +243,27 @@ and are meant to be read *inside* the corresponding deliverable.
 
 *F · language extension (`LanguageExtension.lean`).* Structural `total_*` lemmas are
 largely independent of **G**; **`pf_extended` ←** (conservativity) is what unlocks
-`consistent_total` in **I**, not `ExtendedLindenbaumLemma`.
+`consistent_total` in **I**, not `ExtendedLindenbaumLemma`. The backward direction is
+**not** a structural induction on `Proof` (aliens may appear only in subformulas); it
+follows Blackburn: finitely many alien nominals in `proof_noms` → global rename via
+`rename_constants_fwd` / `eliminate_aliens` (F2) → pull back in-range proofs with `inv_t`
+(F3). F1 supplies the `ax_q2_nom` reconstruction lemmas used inside F3.
 
 *Figure 1a · F · language extension.*
 
 ```mermaid
 flowchart LR
   classDef pass fill:#d8efd8,stroke:#3a3,color:#000
+  classDef partial fill:#fff3cd,stroke:#d28,color:#000
   classDef open fill:#f8d7da,stroke:#c33,color:#000
 
   tot["Form.total / odd_noms"]:::pass --> fwd["pf_extended →<br/>⊢ φ ⇒ ⊢ φ.total"]:::pass
   tot --> bax["backward axiom replay<br/>(6/7 axiom cases)"]:::pass
-  bax --> core["conservativity core<br/>ax_q2_nom · mp · general · necess"]:::open
-  core --> back["pf_extended ←<br/>⊢ φ.total ⇒ ⊢ φ"]:::open
+  bax --> f1["F1 · ax_q2_nom pullback<br/>total_subst_nom_pullback<br/>total_ax_q2_nom"]:::pass
+  f1 --> f2a["F2 · inventory + rename<br/>form_noms_in_base · eliminate_aliens"]:::partial
+  f2a --> f2b["F2 · all_noms_in_base_eliminate_aliens"]:::open
+  f2b --> f3["F3 · inv_t pullback<br/>in_range_proof_back"]:::open
+  f3 --> back["pf_extended ←<br/>⊢ φ.total ⇒ ⊢ φ"]:::open
   back --> ct["I · consistent_total"]:::open
   sat["sat_total / Model.ofTotal"]:::pass --> pull["pull satisfaction<br/>TotalSet → Model N"]:::pass
 ```
@@ -443,8 +451,9 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
 - **F. Remove the language-extension / theorem-preservation holes.**
   `LanguageExtension`: structural `total_*` lemmas, `l416`, and `pf_extended`
   (Prop. 4.1.7: derivations survive the language expansion). The **`total_*` block is
-  largely independent of **G** and **H**; the remaining **`pf_extended` ←** (conservativity)
-  is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or
+  largely independent of **G** and **H**; the remaining **`pf_extended` ←** (conservativity:
+  F1 `ax_q2_nom` pullback **Pass**; F2 alien elimination **Partial**; F3 `inv_t` pullback
+  **Not Yet**) is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or
   `l313'`.
 - **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
@@ -673,7 +682,20 @@ while **F** awaits `pf_extended` ← for **I** only).
 | F · `LanguageExtension.l416` | fresh-variable substitution into a proof (via `generalize_constants`) | Pass |
 | F · `LanguageExtension.pf_extended` (→) | `⊢ φ → ⊢ φ.total` (totalize a derivation) | Pass |
 | F · `LanguageExtension.pf_extended` (←), axiom cases | 6/7 backward axiom cases (`ax_k/q1/q2_svar/name/nom/brcn`) | Pass |
-| F · `LanguageExtension.pf_extended` (←), conservativity core | `ax_q2_nom` + `mp`/`general`/`necess`: alien-nominal elimination | Not Yet |
+| F · `LanguageExtension.nom_in_base` / `form_noms_in_base` / `range_of_form` / `inv_t_eq_of_range'` | in-range nominal vocabulary; `inv_t` right-inverse on range | Pass |
+| F · `LanguageExtension.NOM.fromTotal` / `subst_nom_toTotal` | embed base nominals; align `total` with nom subst | Pass |
+| F · `LanguageExtension.total_subst_nom_pullback` | pull `Form.total` back through nom substitution | Pass |
+| F · `LanguageExtension.total_ax_q2_nom` / `total_ax_q2_nom_end` | reconstruct `ax_q2_nom` when subformulas are in-range | Pass |
+| F · `LanguageExtension.form_noms_in_base_total` / `Proof.proof_noms` / `Proof.all_noms_in_base` | root + derivation nominal inventory (`formulasIn`) | Pass |
+| F · `LanguageExtension.nom_occurs_false_of_form_noms_in_base` | alien letters absent from in-range formulas | Pass |
+| F · `LanguageExtension.nom_subst_nom_nocc` | `nom_subst_nom ψ new old = ψ` when `nom_occurs old ψ = false` (replace `old` with `new`) | Pass |
+| F · `LanguageExtension.Proof.eliminate_one_alien` / `Proof.eliminate_aliens` | Blackburn rename alien `j` ↦ `base` via `rename_constants_fwd base j` | Pass |
+| F · `LanguageExtension.Proof.all_noms_in_base_eliminate_aliens` | after alien loop, every `proof_noms` letter lies in `N` | Not Yet |
+| F · `LanguageExtension.inv_t_impl` / `inv_t_box` / `inv_t_bind` | `inv_t` commutes with connectives on in-range formulas | Pass |
+| F · `LanguageExtension.in_range_proof_back` (axiom replay) | `inv_t` pullback: tautology + `ax_k/q1/name/nom` (+ `ax_brcn`/`ax_q2_svar`/`ax_q2_nom`) | Not Yet |
+| F · `LanguageExtension.in_range_proof_back` (`mp` / `general` / `necess`) | explicit `pf.size` recursion (no structural IH on `Proof`) | Not Yet |
+| F · `LanguageExtension.pf_extended` (←) | wire F2 → F3: `eliminate_aliens` then `in_range_proof_back` | Not Yet |
+| F · `LanguageExtension` / `SyntacticConsequence` conservativity | lift `Γ ⊢ φ` to `Set.total Γ ⊢ φ.total` (needs `pf_extended` ←) | Not Yet |
 | F · `LanguageExtension.sat_total` / `Model.ofTotal` | `TotalSet` satisfaction → `Model N` | Pass |
 | F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
 | **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Partial** |
