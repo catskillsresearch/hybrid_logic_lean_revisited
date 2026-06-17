@@ -677,6 +677,8 @@ lemma truth_ex : ∀ {Θ : Set (Form TotalSet)}, (mcs : MCS Θ) → (wit : witne
     --  exact @exists_replace x ψ y
       apply exists_replace; exact y; exact this
 
+-- Successor lemmas for the □ truth-lemma case (`mcs_in_canonical_succ`, etc.) are the
+-- next TL sub-task; the → direction of `truth_box` goes through them + `R_nec`.
 -- Truth lemma, □ case.  Oltean's original development never formalized this case (nor
 -- `truth_all` for `∀`); the arxiv blueprint lists `truth_box` as TL work.  The → direction
 -- uses `R_nec` on witnessed/canonical successors and the subformula IH; the ← direction

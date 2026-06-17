@@ -208,6 +208,7 @@ flowchart TD
     G --> I
     TL --> I
     ME --> I
+    F -.->|"conservativity"| I
     SEM --> SND
     SEM --> ME
     SEM --> TL
@@ -234,6 +235,66 @@ already compiled at the outset; the orange node (E) is the encoding "crux" that 
 discharge by reorganization rather than by proving the inherited obligations as stated
 (§1.3). The two fan-in points, **G** and **I**, are why the work is a tree rather than a
 chain.*
+
+**Module-level snapshots.** Figure 1 is deliberately coarse. Four load-bearing modules
+each have their own internal order; the diagrams below are sized to fit a single column
+and are meant to be read *inside* the corresponding deliverable.
+
+*F · language extension (`LanguageExtension.lean`).* Forward totalization is on the
+`cons_sat` hot path only indirectly; **backward conservativity** is what unlocks
+`consistent_total`.
+
+```mermaid
+flowchart LR
+  tot["Form.total / odd_noms"] --> fwd["pf_extended →<br/>⊢ φ ⇒ ⊢ φ.total"]
+  tot --> bax["backward axiom replay<br/>(6/7 cases done)"]
+  bax --> core["conservativity core<br/>ax_q2_nom · mp · general · necess"]
+  core --> back["pf_extended ←<br/>⊢ φ.total ⇒ ⊢ φ"]
+  back --> ct["I · consistent_total"]
+  sat["sat_total / Model.ofTotal"] --> pull["pull satisfaction<br/>TotalSet → Model N"]
+```
+
+*G · witnessed Lindenbaum (`Lindenbaum.lean`).* After **E** makes `odd_noms` structural,
+**G** is a finiteness argument: each stage adds only finitely many formulas, so some even
+nominal remains fresh.
+
+```mermaid
+flowchart TD
+  E["E · odd_noms homomorphism"] --> fam["family_subset · lindenbaum_next_subset"]
+  fam --> fresh["fresh_even_dominating"]
+  fresh --> step["enough_noms_odd_step"]
+  step --> wit["LindenbaumWitnessed"]
+  wit --> ext["ExtendedLindenbaumLemma"]
+```
+
+*TL · completed-model truth lemma (`CompletedModel.lean`).* Oltean's base cases compile
+again; **□** and **∀** were never in the upstream repo and must be proved here before the
+depth/`ex`-pattern assembly.
+
+```mermaid
+flowchart TD
+  base["truth_bttm · prop · nom · svar"] --> impl["truth_impl"]
+  impl --> box["truth_box<br/>(new)"]
+  impl --> all["truth_all<br/>(new)"]
+  H["H · l313'"] --> box
+  ex["truth_ex<br/>(ex-pattern)"] --> TLm["TruthLemma"]
+  box --> TLm
+  all --> TLm
+```
+
+*I · model existence (`Completeness.lean`).* `cons_sat` is fully wired; two upstream rows
+still block execution.
+
+```mermaid
+flowchart TD
+  A["consistent Γ"] --> B["consistent_total<br/>(Set.total Γ)"]
+  B --> C["ExtendedLindenbaumLemma → Θ"]
+  C --> D["TruthLemma at root Θ"]
+  D --> E["sat_odd_noms' + sat_total"]
+  E --> F["satisfiable Γ"]
+  B -.->|"BLOCKED"| G["F · pf_extended ←"]
+  D -.->|"BLOCKED"| H["TL · truth_box/all · TruthLemma"]
+```
 
 **The incoming state: where the holes are.** What Oltean left open is concentrated in the
 freshness/witnessing layer (steps 2–3) and the pieces that depend on it (the completed
@@ -337,12 +398,16 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   property used to build successor states of the completed model. Depends on **B**, **D**.
 - **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
-  `truth_box`, `truth_ex`) and the supporting valuation lemmas to the current `simp`
-  normal forms so the canonical/completed model elaborates. These are correct proofs that
-  needed a port, not new `admit`s (the second hole-kind in §1.4). Depends on **B**, **D**,
+  `truth_ex`) and the supporting valuation lemmas to the current `simp` normal forms.
+  **`truth_box` and `truth_all` are new** — Oltean's archived development stops before the
+  modal/binder cases. `TruthLemma` is then assembled by depth induction with a separate
+  `ex`-pattern branch (since `ex` is not a `Form` constructor). Depends on **B**, **D**,
   **H** (and on Kripke semantics and Soundness).
-- **I. Remove the final-completeness hole.** `Completeness.Completeness`: assemble the
-  truth lemma (**TL**), the model-existence theorem, and **G** into `Γ ⊨ φ → Γ ⊢ φ`.
+- **I. Remove the final-completeness hole.** `Completeness`: `cons_sat` runs
+  `consistent_total` → `ExtendedLindenbaumLemma (Set.total Γ)` → `TruthLemma` at the root
+  witnessed MCS → `sat_odd_noms'` / `sat_total`; `Completeness` is then
+  `ModelExistence` + contraposition. **`pf_extended` forward is not on this path**; only
+  backward conservativity feeds `consistent_total`.
 
 The substantive mathematics is concentrated in **E**–**I**; **B**–**D** are essentially
 mechanical leaf lemmas. **E** is the crux, for the encoding reasons discussed in §1.3.
@@ -484,11 +549,13 @@ Status legend: **Pass** — done and compiling; **Fail** — attempted, currentl
 **Not Yet** — not yet attempted. Step **A** is broken out into one row per module (in the
 `Hybrid.lean` dependency order in which they are converted); steps **B**–**I** are broken
 out into one row per `sorry`/`admit` declaration to be removed ("remove Oltean's
-`admit`/`sorry` for *X*"), again in dependency order.
+`admit`/`sorry` for *X*"), again in dependency order. Step **A** is **Pass** once every
+module in that list elaborates under the pinned toolchain (remaining proof holes are
+tracked under **B**–**I**, not under **A**).
 
 | Step | Deliverable | Status |
 | --- | --- | --- |
-| **A** | **Get the whole library compiling** (per module) | **In progress** |
+| **A** | **Get the whole library compiling** (per module) | **Pass** |
 | A · `Util.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
 | A · `Form.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
 | A · `Tautology.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
@@ -553,6 +620,7 @@ out into one row per `sorry`/`admit` declaration to be removed ("remove Oltean's
 | **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Partial** |
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.truth_box` / `truth_all` | □ and ∀ cases (Oltean never formalized these) | Not Yet |
+| TL · `CompletedModel.mcs_in_*_succ` | successor/`MCS_in` path lemmas for the □ case | Not Yet |
 | TL · `CompletedModel.TruthLemma` | depth/`ex`-pattern assembly | Not Yet |
 | F · `LanguageExtension.sat_total` / `Model.ofTotal` | `TotalSet` satisfaction → `Model N` | Pass |
 | F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
