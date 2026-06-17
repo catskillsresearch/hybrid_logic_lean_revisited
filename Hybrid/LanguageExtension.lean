@@ -74,10 +74,62 @@ theorem total_bind {φ : Form N} : φ⁺ = (all x, ψ) → φ = (all x, ψ⁻) :
       exact congr_arg (@Form.inv_t N) h.2
   | _ => simp [Form.total] at *
 
+lemma total_subst_svar' {φ : Form N} {x y : SVAR} : (φ[y // x]).total = (φ.total)[y // x] := by
+  induction φ with
+  | svar z => by_cases h : x = z <;> simp [subst_svar, Form.total, h, -implication_disjunction]
+  | impl φ ψ ih1 ih2 => simp only [subst_svar, Form.total, ih1, ih2]
+  | box φ ih => simp only [subst_svar, Form.total, ih]
+  | bind v φ ih => by_cases h : x = v <;> simp [subst_svar, Form.total, ih, h, -implication_disjunction]
+  | _ => rfl
+
+-- The image of `Form.total` is closed under taking subformulas through a
+-- variable substitution: substituting an SVAR never touches nominals, so if
+-- `ψ[y//x]` arises from an `N`-formula then so does `ψ`.
+lemma range_of_subst {ψ : Form TotalSet} {y x : SVAR} : (∃ χ : Form N, χ.total = ψ[y // x]) → ∃ χ' : Form N, χ'.total = ψ := by
+  induction ψ with
+  | bttm => intro _; exact ⟨Form.bttm, rfl⟩
+  | prop p => intro _; exact ⟨Form.prop p, rfl⟩
+  | svar z => intro _; exact ⟨Form.svar z, rfl⟩
+  | nom i => intro h; exact h
+  | impl a b iha ihb =>
+      intro ⟨χ, hχ⟩
+      cases χ with
+      | impl c d =>
+          simp only [Form.total, subst_svar, Form.impl.injEq] at hχ
+          obtain ⟨c', hc'⟩ := iha ⟨c, hχ.1⟩
+          obtain ⟨d', hd'⟩ := ihb ⟨d, hχ.2⟩
+          exact ⟨c' ⟶ d', by simp only [Form.total, hc', hd']⟩
+      | _ => simp [Form.total, subst_svar] at hχ
+  | box a ih =>
+      intro ⟨χ, hχ⟩
+      cases χ with
+      | box c =>
+          simp only [Form.total, subst_svar, Form.box.injEq] at hχ
+          obtain ⟨c', hc'⟩ := ih ⟨c, hχ⟩
+          exact ⟨□ c', by simp only [Form.total, hc']⟩
+      | _ => simp [Form.total, subst_svar] at hχ
+  | bind z a ih =>
+      intro ⟨χ, hχ⟩
+      by_cases hxz : x = z
+      · simp only [subst_svar, hxz] at hχ
+        exact ⟨χ, hχ⟩
+      · simp only [subst_svar, hxz] at hχ
+        cases χ with
+        | bind w c =>
+            simp only [Form.total] at hχ
+            injection hχ with hw hc
+            obtain ⟨c', hc'⟩ := ih ⟨c, hc⟩
+            exact ⟨Form.bind z c', by simp only [Form.total, hc']⟩
+        | _ => simp [Form.total] at hχ
+
+lemma inv_t_subst {ψ : Form TotalSet} {y x : SVAR} (h : ∃ χ : Form N, χ.total = ψ) : (@Form.inv_t N) (ψ[y // x]) = ((@Form.inv_t N) ψ)[y // x] := by
+  obtain ⟨χ, rfl⟩ := h
+  rw [← total_subst_svar', total_inv_is_inv, total_inv_is_inv]
+
 theorem total_subst_svar {φ : Form N} {x y : SVAR} : φ⁺ = ψ[y//x] → φ = ψ⁻[y//x] := by
   intro h
-
-  admit
+  have hr : ∃ χ : Form N, χ.total = ψ := range_of_subst ⟨φ, h⟩
+  rw [← total_inv_is_inv φ, h, inv_t_subst hr]
 
 theorem total_ax_k {φ : Form N} (h : φ⁺ = □(ψ ⟶ χ) ⟶ (□ψ ⟶ □χ)) : φ = □(ψ⁻ ⟶ χ⁻) ⟶ (□ψ⁻ ⟶ □χ⁻) := by
   cases φ with
@@ -141,20 +193,79 @@ theorem total_ax_q2_svar {φ : Form N} {x y : SVAR} (h : φ⁺ = (all x, ψ) ⟶
 
 
 
-lemma total_tautology {φ : Form N} : Tautology φ ↔ Tautology φ.total := by
-  admit
+-- Given an `Eval N`, build a Boolean valuation on `Form TotalSet` that mirrors
+-- `e` structurally on `⟶`/`⊥` and falls back to `e ∘ inv_t` on atoms.  On the
+-- image of `Form.total` (which is entirely in range) this recovers `e` exactly.
+noncomputable def evalN_to_T (e : Eval N) : Form TotalSet → Bool
+  | .bttm     => false
+  | .prop p   => e.f (Form.prop p)
+  | .svar v   => e.f (Form.svar v)
+  | .nom i    => e.f (Form.inv_t (Form.nom i))
+  | .impl ψ χ => !(evalN_to_T e ψ) || (evalN_to_T e χ)
+  | .box ψ    => e.f (Form.inv_t (Form.box ψ))
+  | .bind x ψ => e.f (Form.inv_t (Form.bind x ψ))
 
-lemma total_subst_svar' {φ : Form N} {x y : SVAR} : (φ[y // x]).total = (φ.total)[y // x] := by
-  admit
+noncomputable def evalT (e : Eval N) : Eval TotalSet where
+  f  := evalN_to_T e
+  p1 := rfl
+  p2 := by
+    intro ψ χ
+    show (!(evalN_to_T e ψ) || evalN_to_T e χ) = true ↔ _
+    cases evalN_to_T e ψ <;> cases evalN_to_T e χ <;> simp
+
+theorem evalT_total {e : Eval N} (φ : Form N) : evalN_to_T e (φ.total) = e.f φ := by
+  induction φ with
+  | bttm => simp only [Form.total, evalN_to_T, e.p1]
+  | prop p => rfl
+  | svar v => rfl
+  | nom i => show e.f (Form.inv_t ((Form.nom i).total)) = _; rw [total_inv_is_inv]
+  | box a _ => show e.f (Form.inv_t ((Form.box a).total)) = _; rw [total_inv_is_inv]
+  | bind x a _ => show e.f (Form.inv_t ((Form.bind x a).total)) = _; rw [total_inv_is_inv]
+  | impl a b iha ihb =>
+      show (!(evalN_to_T e a.total) || evalN_to_T e b.total) = e.f (a ⟶ b)
+      rw [iha, ihb]
+      have h := e.p2 a b
+      cases ha : e.f a <;> cases hb : e.f b <;> cases hab : e.f (a ⟶ b) <;> simp_all
+
+lemma total_tautology {φ : Form N} : Tautology φ ↔ Tautology φ.total := by
+  constructor
+  · intro h e'
+    have gp1 : (fun ψ : Form N => e'.f ψ.total) ⊥ = false := e'.p1
+    have gp2 : ∀ ψ χ : Form N, ((fun ψ : Form N => e'.f ψ.total) (ψ ⟶ χ) = true)
+        ↔ (¬((fun ψ : Form N => e'.f ψ.total) ψ) = true ∨ ((fun ψ : Form N => e'.f ψ.total) χ) = true) := by
+      intro ψ χ
+      show e'.f (ψ.total ⟶ χ.total) = true ↔ _
+      exact e'.p2 ψ.total χ.total
+    exact h ⟨fun ψ => e'.f ψ.total, gp1, gp2⟩
+  · intro h e
+    have := h (evalT e)
+    rw [show (evalT e).f φ.total = evalN_to_T e φ.total from rfl, evalT_total] at this
+    exact this
 
 lemma total_subst_nom {φ : Form N} {i : NOM N} {x : SVAR} : (φ[i // x]).total = (φ.total)[⟨i.1.1, trivial⟩ // x] := by
-  admit
+  induction φ with
+  | svar z => by_cases h : x = z <;> simp [subst_nom, Form.total, h, -implication_disjunction]
+  | impl φ ψ ih1 ih2 => simp only [subst_nom, Form.total, ih1, ih2]
+  | box φ ih => simp only [subst_nom, Form.total, ih]
+  | bind v φ ih => by_cases h : x = v <;> simp [subst_nom, Form.total, ih, h, -implication_disjunction]
+  | _ => rfl
+
+lemma total_diamond {ψ : Form N} : (◇ ψ).total = ◇ (ψ.total) := by
+  simp [Form.diamond, Form.neg, Form.total]
 
 lemma total_iterate_pos {φ : Form N} : (iterate_pos n φ).total = iterate_pos n (φ.total) := by
-  admit
+  induction n with
+  | zero => rfl
+  | succ k ih =>
+      show ◇ ((iterate_pos k φ).total) = ◇ (iterate_pos k (φ.total))
+      rw [ih]
 
 lemma total_iterate_nec {φ : Form N} : (iterate_nec n φ).total = iterate_nec n (φ.total) := by
-  admit
+  induction n with
+  | zero => rfl
+  | succ k ih =>
+      show □ ((iterate_nec k φ).total) = □ (iterate_nec k (φ.total))
+      rw [ih]
 
 noncomputable def l416 {φ : Form N} {x : SVAR} (i : NOM N) (pf : ⊢ φ) (h : pf.fresh_var x) : ⊢ (φ[x // i]) := by
   induction pf with

@@ -301,32 +301,143 @@ theorem RegularLindenbaumLemma : ∀ Γ : Set (Form N), consistent Γ → ∃ Γ
 
 def enough_noms (Γ : Set (Form N)) := (∃ i, all_nocc i Γ) ∧ ∀ (e : ℕ → Form N) (n : ℕ), ∃ i, all_nocc i (Γ (n, e))
 
+-- The previous set is always contained in the next Lindenbaum step (whatever branch fires).
+lemma prev_subset_lindenbaum_next {prev : Set (Form N)} {φ : Form N} : prev ⊆ lindenbaum_next prev φ := by
+  intro a ha
+  unfold lindenbaum_next
+  repeat' split
+  all_goals first
+    | exact ha
+    | (simp only [Set.mem_union, Set.mem_singleton_iff]; tauto)
+
+-- Witness-extraction step. If the existential `ex x, ψ` survives one Lindenbaum step
+-- (so the consistent branch fired) and a fresh nominal exists for that step, then the
+-- witness `ψ[i // x]` (for the *constructed* nominal `i`) lands in the next set.
+lemma witness_in_next {prev : Set (Form N)} {x : SVAR} {ψ : Form N}
+    (hcons : consistent prev)
+    (hmem : (ex x, ψ) ∈ lindenbaum_next prev (ex x, ψ))
+    (hfresh : ∃ i : NOM N, all_nocc i (prev ∪ {ex x, ψ})) :
+    ∃ i : NOM N, ψ[i // x] ∈ lindenbaum_next prev (ex x, ψ) := by
+  -- Force the definitional reduction of the `match` arm for `ex x, ψ`.
+  have hmem' : (ex x, ψ) ∈ (if consistent (prev ∪ {ex x, ψ}) then
+        (if c : ∃ i : NOM N, all_nocc i (prev ∪ {ex x, ψ}) then
+          prev ∪ {ex x, ψ} ∪ {ψ[c.choose // x]} else prev ∪ {ex x, ψ}) else prev) := hmem
+  suffices hgoal : ∃ i : NOM N, ψ[i // x] ∈ (if consistent (prev ∪ {ex x, ψ}) then
+        (if c : ∃ i : NOM N, all_nocc i (prev ∪ {ex x, ψ}) then
+          prev ∪ {ex x, ψ} ∪ {ψ[c.choose // x]} else prev ∪ {ex x, ψ}) else prev) from hgoal
+  by_cases hc : consistent (prev ∪ {ex x, ψ})
+  · rw [if_pos hc] at hmem' ⊢
+    by_cases hfr : ∃ i : NOM N, all_nocc i (prev ∪ {ex x, ψ})
+    · rw [dif_pos hfr] at hmem' ⊢
+      exact ⟨hfr.choose, by simp⟩
+    · exact absurd hfresh hfr
+  · rw [if_neg hc] at hmem' ⊢
+    exfalso
+    apply hc
+    rw [Set.union_singleton, Set.insert_eq_self.mpr hmem']
+    exact hcons
+
+-- One step of the witnessed-Lindenbaum argument, abstracted over the concrete set `S`
+-- and the previous set `prev`.  Given freshness for `S` and that `ex x, ψ` survives, the
+-- witness lands in `S`.
+lemma witness_at_step {S prev : Set (Form N)} {x : SVAR} {ψ : Form N}
+    (hprev_cons : consistent prev)
+    (S_eq : S = lindenbaum_next prev (ex x, ψ))
+    (φ_at : (ex x, ψ) ∈ S)
+    (hfresh : ∃ j : NOM N, all_nocc j S) :
+    ∃ i : NOM N, ψ[i // x] ∈ S := by
+  subst S_eq
+  have hf : ∃ j : NOM N, all_nocc j (prev ∪ {ex x, ψ}) := by
+    obtain ⟨j, hj⟩ := hfresh
+    refine ⟨j, fun χ hχ => ?_⟩
+    rw [Set.mem_union] at hχ
+    rcases hχ with hp | he
+    · exact hj χ (prev_subset_lindenbaum_next hp)
+    · rw [Set.mem_singleton_iff] at he; rw [he]; exact hj _ φ_at
+  exact witness_in_next hprev_cons φ_at hf
+
 lemma LindenbaumWitnessed {Γ : Set (Form N)} (c : consistent Γ) {f : Form N → ℕ} (f_inj : f.Injective) {e : ℕ → Form N} (e_inv : e = f.invFun)
     (h : enough_noms Γ) : witnessed (LindenbaumMCS e Γ c) := by
     intro φ φ_mem
     split
-    . next φ x ψ =>
-        have φ_mem := at_finite_step c f f_inj e e_inv φ_mem
-        let n := f ((all x, ψ⟶⊥)⟶⊥)
-        have not₁ : n = f ((all x, ψ⟶⊥)⟶⊥) := rfl
-        have not₂ : (ex x, ψ) = ((all x, ψ⟶⊥)⟶⊥) := by simp
-        rw [←not₁, ←not₂] at φ_mem
-
-        have ⟨i, nocc⟩ := h.right e n
-        exists i
-        apply all_sets_in_family (n)
-        revert not₁
-        cases n with
-        | zero =>
-            intro not₁
-            have : e (Nat.zero) = ((all x, ψ⟶⊥)⟶⊥) := by rw [show Nat.zero = (0:ℕ) from rfl, not₁, e_inv]; exact f.leftInverse_invFun f_inj _
-            rw [lindenbaum_family, this, lindenbaum_next]
-            admit
-        | succ n =>
-            intro not₁
-            simp [lindenbaum_family]
-            admit
-
+    . next x ψ =>
+        -- `φ = ex x, ψ`. It lands in the set at its own enumeration index `f φ`.
+        -- The matcher hands us the unfolded form `(all x, ψ⟶⊥)⟶⊥`; normalise to `ex x, ψ`.
+        have eqform : ((all x, ψ⟶⊥)⟶⊥) = (ex x, ψ) := rfl
+        have φ_at := at_finite_step c f f_inj e e_inv φ_mem
+        rw [eqform] at φ_at
+        have en : e (f (ex x, ψ)) = (ex x, ψ) := by rw [e_inv]; exact f.leftInverse_invFun f_inj _
+        have hfresh := h.right e (f (ex x, ψ))
+        have main : ∃ i : NOM N, ψ[i // x] ∈ Γ (f (ex x, ψ), e) := by
+          cases hcase : f (ex x, ψ) with
+          | zero =>
+              rw [hcase] at φ_at hfresh
+              refine witness_at_step c ?_ φ_at hfresh
+              show lindenbaum_next Γ (e 0) = lindenbaum_next Γ (ex x, ψ)
+              rw [show e 0 = e (f (ex x, ψ)) by rw [hcase], en]
+          | succ m =>
+              rw [hcase] at φ_at hfresh
+              refine witness_at_step (consistent_family e c m) ?_ φ_at hfresh
+              show lindenbaum_next (Γ (m, e)) (e (m+1)) = lindenbaum_next (Γ (m, e)) (ex x, ψ)
+              rw [show e (m+1) = e (f (ex x, ψ)) by rw [hcase], en]
+        obtain ⟨i, hi⟩ := main
+        exact ⟨i, all_sets_in_family _ hi⟩
     . assumption
 
-theorem ExtendedLindenbaumLemma : ∀ Γ : Set (Form TotalSet), consistent Γ → ∃ Γ' : Set (Form TotalSet), Γ.odd_noms ⊆ Γ' ∧ MCS Γ' ∧ witnessed Γ' := by admit
+-- The nominal `0` (even) never occurs in an odd-nominal image, since `odd_noms` maps every
+-- nominal `i ↦ 2·i+1`.
+theorem zero_nocc_odd : ∀ φ : Form TotalSet, nom_occurs 0 φ.odd_noms = false := by
+  intro φ
+  induction φ with
+  | bttm => rw [odd_bttm]; rfl
+  | prop p => simp [Form.odd_noms, Form.list_noms, Form.odd_list_noms, Form.bulk_subst, nom_occurs]
+  | svar x => simp [Form.odd_noms, Form.list_noms, Form.odd_list_noms, Form.bulk_subst, nom_occurs]
+  | nom i =>
+      rw [odd_nom]
+      have hne : (0 : NOM TotalSet) ≠ 2 * i + 1 := by
+        intro h
+        rw [NOM_eq] at h
+        have hval : (0 : ℕ) = (i.letter : ℕ) * 2 + 1 := congrArg Subtype.val h
+        omega
+      simp only [nom_occurs, decide_eq_false_iff_not]
+      exact hne
+  | impl a b iha ihb => rw [odd_impl]; simp only [nom_occurs, iha, ihb, Bool.or_self]
+  | box a ih => rw [odd_box]; simp only [nom_occurs, ih]
+  | bind x a ih => rw [odd_bind]; simp only [nom_occurs, ih]
+
+-- Base case of structural freshness: the even nominal `0` is fresh for the whole image set.
+theorem enough_noms_odd_base (Γ : Set (Form TotalSet)) : ∃ i : NOM TotalSet, all_nocc i Γ.odd_noms := by
+  refine ⟨0, ?_⟩
+  rintro φ ⟨ψ, _, rfl⟩
+  exact zero_nocc_odd ψ
+
+-- Inductive (per-stage) case of structural freshness.  This is the heart of the completeness
+-- proof and the obstacle on which Oltean's original development stalled.  At every finite
+-- stage of the Lindenbaum construction only finitely many further formulas (hence finitely
+-- many further nominals) have been added to the odd-only base set, so an unused even nominal
+-- always remains.  Establishing this rigorously requires a finiteness argument over the
+-- family `Γ.odd_noms (n, e)`.
+theorem enough_noms_odd_step (Γ : Set (Form TotalSet)) :
+    ∀ (e : ℕ → Form TotalSet) (n : ℕ), ∃ i : NOM TotalSet, all_nocc i (Γ.odd_noms (n, e)) := by
+  admit
+
+theorem enough_noms_odd (Γ : Set (Form TotalSet)) : enough_noms Γ.odd_noms :=
+  ⟨enough_noms_odd_base Γ, enough_noms_odd_step Γ⟩
+
+theorem ExtendedLindenbaumLemma : ∀ Γ : Set (Form TotalSet), consistent Γ → ∃ Γ' : Set (Form TotalSet), Γ.odd_noms ⊆ Γ' ∧ MCS Γ' ∧ witnessed Γ' := by
+  intro Γ cons
+  have cons' : consistent Γ.odd_noms := (Proof.odd_noms_set_cons Γ).mp cons
+  obtain ⟨f, f_inj⟩ := exists_injective_nat (Form TotalSet)
+  let enum := f.invFun
+  have enum_inv : enum = f.invFun := rfl
+  refine ⟨LindenbaumMCS enum Γ.odd_noms cons', ?_, ⟨?_, ?_⟩, ?_⟩
+  · -- `Γ.odd_noms ⊆ Γ'`
+    intro φ hφ
+    exact all_sets_in_family 0 (Γ_in_family hφ)
+  · -- consistency of the MCS
+    exact LindenbaumConsistent cons' f_inj enum_inv
+  · -- maximality of the MCS
+    intro φ
+    exact LindenbaumMaximal cons' f_inj enum_inv φ
+  · -- witnessing
+    exact LindenbaumWitnessed cons' f_inj enum_inv (enough_noms_odd Γ)

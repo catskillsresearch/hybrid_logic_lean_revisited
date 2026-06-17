@@ -81,7 +81,12 @@ lemma split_prefix_suffix {a b : List (ℕ × ℕ × ℕ × ℕ)} (hyp : a.isPre
               simp [-List.isPrefixOf_iff_prefix, -List.isSuffixOf_iff_suffix]
               exact ⟨⟨h1.symm, hsum⟩, is_suffix_cons hb hsuf⟩
 
-theorem prime_2_3 (n m : Nat) : 3^(n+1) ≠ 2^(m+1) := by admit
+theorem prime_2_3 (n m : Nat) : 3^(n+1) ≠ 2^(m+1) := by
+  intro h
+  have h2 : 2^(m+1) % 2 = 0 := by rw [Nat.pow_succ]; omega
+  have h3 : 3^(n+1) % 2 = 1 := by rw [Nat.pow_mod]; simp
+  rw [h] at h3
+  omega
 
 lemma pow2listinj : pow2list.Injective := by
   intro l1 l2 hyp
@@ -130,10 +135,18 @@ theorem pow3listinj : pow3list.Injective := by
           . exact ih hyp.right
 
 lemma guns : x ∈ pow2list a → ∃ n, x.fst = 2^(n+1) := by
-  admit
+  intro h
+  unfold pow2list at h
+  rw [List.mem_map] at h
+  obtain ⟨y, _, hy⟩ := h
+  obtain ⟨a1, b1, c1, d1⟩ := y
+  exists a1
+  rw [← hy]
 
 lemma of_brixton {a : List (ℕ × ℕ × ℕ × ℕ)} : (h :: t).isSuffixOf a → h ∈ a := by
-  admit
+  intro hyp
+  rw [List.isSuffixOf_iff_suffix] at hyp
+  exact hyp.subset (by simp)
 
 lemma suffix_pow2 {a : List (ℕ × ℕ × ℕ × ℕ)} : (h :: t).isSuffixOf (pow2list a) → ∃ n, h.fst = 2^(n+1) := by
   intro hyp

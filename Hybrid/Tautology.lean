@@ -30,7 +30,9 @@ macro_rules
   | `(tactic| eval) => `(tactic| intro e; simp [e.p1, e.p2, e_dn, e_neg, e_conj, e_disj, e_impl, -Form.neg, -Form.conj, -Form.disj, -Form.iff])
 
 theorem hs_taut : Tautology ((φ ⟶ ψ) ⟶ (ψ ⟶ χ) ⟶ (φ ⟶ χ)) := by
-    admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem ax_1 : Tautology (φ ⟶ ψ ⟶ φ) := by
   intro e
@@ -67,8 +69,9 @@ theorem contrapositive' : Tautology ((∼ψ ⟶ ∼φ) ⟶ (φ ⟶ ψ)) := by
     apply em
 
 theorem neg_intro : Tautology ((φ ⟶ ψ) ⟶ (φ ⟶ ∼ψ) ⟶ ∼φ) := by
-    eval
-    admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem imp_refl : Tautology (φ ⟶ φ) := by
   eval
@@ -89,12 +92,14 @@ theorem dn : Tautology (φ ⟷ ∼∼φ) := by
   exact ⟨dni e, dne e⟩ 
 
 theorem conj_intro : Tautology (φ ⟶ ψ ⟶ (φ ⋀ ψ)) := by
-  eval
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem conj_intro_hs : Tautology ((φ ⟶ ψ) ⟶ (φ ⟶ χ) ⟶ (φ ⟶ (ψ ⋀ χ))) := by
-  eval
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem conj_elim_l : Tautology ((φ ⋀ ψ) ⟶ φ) := by
   eval
@@ -115,19 +120,29 @@ theorem conj_comm_t' : Tautology (∼(φ ⋀ ψ) ⟶ ∼(ψ ⋀ φ)) := by
   tauto
 
 theorem iff_intro : Tautology ((φ ⟶ ψ) ⟶ (ψ ⟶ φ) ⟶ (φ ⟷ ψ)) := by
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem iff_elim_l : Tautology ((φ ⟷ ψ) ⟶ (φ ⟶ ψ)) := by
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem iff_elim_r : Tautology ((φ ⟷ ψ) ⟶ (ψ ⟶ φ)) := by
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem iff_rw : Tautology ((φ ⟷ ψ) ⟶ (ψ ⟷ χ) ⟶ (φ ⟷ χ)) := by
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem iff_imp : Tautology ((φ ⟷ ψ) ⟶ (χ ⟷ τ) ⟶ ((φ ⟶ χ) ⟷ (ψ ⟶ τ))) := by
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem taut_iff_mp : Tautology (φ ⟷ ψ) → Tautology (φ ⟶ ψ) := by
   rw [Form.iff]
@@ -144,16 +159,19 @@ theorem taut_iff_mpr : Tautology (φ ⟷ ψ) → Tautology (ψ ⟶ φ) := by
   exact this.right
 
 theorem disj_intro_l : Tautology (φ ⟶ (φ ⋁ ψ)) := by
-  eval
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem disj_intro_r : Tautology (φ ⟶ (ψ ⋁ φ)) := by
-  eval
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem disj_elim : Tautology ((φ ⋁ ψ) ⟶ (φ ⟶ χ) ⟶ (ψ ⟶ χ) ⟶ χ) := by
-  eval
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 theorem idem : Tautology ((χ ⟶ ψ ⟶ ψ ⟶ φ) ⟶ (χ ⟶ ψ ⟶ φ)) := by
   intro e
@@ -182,7 +200,9 @@ theorem com12 : Tautology ((φ ⟶ (ψ ⟶ χ)) ⟶ (ψ ⟶ (φ ⟶ χ))) := by
   exact h1 h3 h2
 
 theorem mp_help : Tautology ((a ⟶ (φ ⟶ ψ)) ⟶ ((b ⟶ φ) ⟶ (a ⟶ b ⟶ ψ))) := by
-  admit
+  intro e
+  simp only [Form.iff, e_impl, e_neg, e_conj, e_disj, ← Bool.not_eq_true]
+  tauto
 
 def Eval.nom_variant (e e' : Eval N) (i : NOM N) (x : SVAR) : Prop :=
   e'.f = (λ φ : Form N => if φ = i then (e.f x) else (e.f φ))

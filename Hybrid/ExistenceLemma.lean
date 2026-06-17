@@ -45,8 +45,14 @@ lemma l313' {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ) (mem : ◇φ
       have := Γ_theorem (l313 subst.2 nocc.1 nocc.2) Δ
       have mem' := MCS_pf mcs (Γ_mp this (Γ_premise mem))
       have has_wit := wit mem'
+      have hgeψ : y ≥ ψ.new_var := (new_var_geq1 (new_var_geq1 geq).2).1
+      have hgeφ : y ≥ φ.new_var := (new_var_geq1 geq).1
+      have hψ : occurs y ψ = false := ge_new_var_is_new hgeψ
+      have hφ : occurs y φ = false := ge_new_var_is_new hgeφ
+      have hren : ∀ j : NOM N, ψ[y // x][j // y] = ψ[j // x] := fun j => rename_svar_nom j x y hgeψ
       simp [subst_nom, y_ne_x] at has_wit ⊢
-      admit
+      simp only [subst_nom_noop hψ, subst_nom_noop hφ, hren] at has_wit
+      exact has_wit
   . trivial
 
 -- ◇ (((ex x, ψ)⟶ψ[y//x])⋀φ)

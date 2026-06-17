@@ -49,17 +49,16 @@ theorem ModelExistence {N : Set ℕ} : completeness_statement N ↔ cons_sat_sta
   . rw [contraposition (cons_sat_statement N) (completeness_statement N)]
     intro h
     simp only [completeness_statement, not_forall, negated_impl, notsatnot, ←conj_comm] at h
-    simp only [cons_sat_statement, not_forall, negated_impl]
     have ⟨Γ, φ, wit_l, wit_r⟩ := h
-    exists (Γ ∪ {∼φ})
-    apply And.intro
-    . apply notprove_consistentnot
-      intro pf
-      apply wit_r
-      exists pf
-    . assumption
+    intro hcontra
+    apply wit_l
+    apply hcontra
+    apply notprove_consistentnot
+    intro pf
+    apply wit_r
+    exact ⟨pf, trivial⟩
 
-theorem Completeness : (∀ (Γ : Set (Form N)) (φ : Form N), Γ ⊨ φ → Γ ⊢ φ) := by
+noncomputable def Completeness : (∀ (Γ : Set (Form N)) (φ : Form N), Γ ⊨ φ → Γ ⊢ φ) := by
   intros h1 h2 h3; apply Exists.choose
   revert h1 h2 h3
   rw [←completeness_statement, ModelExistence]

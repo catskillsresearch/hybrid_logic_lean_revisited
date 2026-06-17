@@ -297,6 +297,47 @@ lemma nom_subst_trans (i : NOM N) (x y : SVAR) (h : y ≥ φ.new_var) : φ[y // 
       simp [Form.new_var] at h
       simp [nom_subst_svar, subst_svar, ih, h]
 
+  lemma subst_nom_noop {φ : Form N} {i : NOM N} {y : SVAR} (h : occurs y φ = false) : φ[i // y] = φ := by
+    induction φ with
+    | svar z => simp only [subst_nom]; split <;> simp_all [occurs]
+    | impl a b iha ihb =>
+        simp only [occurs, Bool.or_eq_false_iff] at h
+        simp only [subst_nom, iha h.1, ihb h.2]
+    | box a ih => simp only [occurs] at h; simp only [subst_nom, ih h]
+    | bind w a ih => simp only [occurs] at h; simp only [subst_nom]; split <;> simp_all [ih h]
+    | _ => rfl
+
+  -- Substituting `x` by a fresh `y` and then renaming `y` to a nominal `i` is the
+  -- same as directly substituting `x` by `i`.  Freshness of `y` (it exceeds the
+  -- new-variable bound, so it differs from every free *and bound* variable of `φ`)
+  -- is what prevents capture.
+  lemma rename_svar_nom {φ : Form N} (i : NOM N) (x y : SVAR) (h : y ≥ φ.new_var) : φ[y // x][i // y] = φ[i // x] := by
+    induction φ with
+    | bttm => simp [subst_svar, subst_nom]
+    | prop => simp [subst_svar, subst_nom]
+    | nom _ => simp [subst_svar, subst_nom]
+    | svar z =>
+        have hyz : y ≠ z := by
+          have := ge_new_var_is_new h; simpa [occurs] using this
+        by_cases hxz : x = z
+        · subst hxz; simp [subst_svar, subst_nom]
+        · simp [subst_svar, subst_nom, hxz, hyz]
+    | impl ψ χ ih1 ih2 =>
+        simp [subst_svar, subst_nom, ih1 (new_var_geq1 h).1, ih2 (new_var_geq1 h).2]
+    | box ψ ih =>
+        simp only [Form.new_var] at h
+        simp [subst_svar, subst_nom, ih h]
+    | bind z ψ ih =>
+        have hb := new_var_geq2 h
+        have hyz : y ≠ z := by
+          intro habs; have hle := hb.left; rw [habs] at hle
+          simp only [svar_le_letter, svar_add_letter] at hle; omega
+        by_cases hxz : x = z
+        · subst hxz
+          have hnoop : ψ[i // y] = ψ := subst_nom_noop (ge_new_var_is_new hb.right)
+          simp [subst_svar, subst_nom, hyz, hnoop]
+        · simp [subst_svar, subst_nom, hxz, hyz, ih hb.right]
+
   lemma ge_new_var_subst_helpr {i : NOM N} {x : SVAR} (h : y ≥ Form.new_var (χ⟶ψ)) : y ≥ Form.new_var (χ⟶ψ[i//x]⟶⊥) := by
     simp [Form.new_var, max]
     split <;> split
@@ -867,29 +908,155 @@ end Nominals
     simp [Form.odd_noms, Form.odd_list_noms, Form.list_noms, Form.bulk_subst, nom_subst_nom, NOM_eq, NOM.hmul, NOM.add, Nat.mul_comm]
 
   theorem bulk_subst_impl {φ ψ : Form TotalSet} : (φ ⟶ ψ).bulk_subst l₁ l₂ = φ.bulk_subst l₁ l₂ ⟶ ψ.bulk_subst l₁ l₂ := by
-    admit
+    induction l₁ generalizing φ ψ l₂ with
+    | nil => cases l₂ <;> rfl
+    | cons h t ih =>
+        cases l₂ with
+        | nil => rfl
+        | cons h2 t2 => simp only [Form.bulk_subst, nom_subst_nom]; exact ih
+
+  theorem bulk_subst_box {φ : Form TotalSet} : (□φ).bulk_subst l₁ l₂ = □(φ.bulk_subst l₁ l₂) := by
+    induction l₁ generalizing φ l₂ with
+    | nil => cases l₂ <;> rfl
+    | cons h t ih =>
+        cases l₂ with
+        | nil => rfl
+        | cons h2 t2 => simp only [Form.bulk_subst, nom_subst_nom]; exact ih
+
+  theorem bulk_subst_bind {φ : Form TotalSet} {x : SVAR} : (all x, φ).bulk_subst l₁ l₂ = all x, (φ.bulk_subst l₁ l₂) := by
+    induction l₁ generalizing φ l₂ with
+    | nil => cases l₂ <;> rfl
+    | cons h t ih =>
+        cases l₂ with
+        | nil => rfl
+        | cons h2 t2 => simp only [Form.bulk_subst, nom_subst_nom]; exact ih
+
+  -- A structural characterisation of `odd_noms`: rename every nominal `i ↦ 2i+1`,
+  -- recursing through the syntax tree.  We prove below that `bulk_subst` over any
+  -- descending list that contains all of `φ`'s nominals computes exactly this map,
+  -- which is what makes the homomorphism lemmas `list_noms_impl_*` go through.
+  def Form.odd_map : Form TotalSet → Form TotalSet
+    | .nom i    => Form.nom (2 * i + 1)
+    | .impl φ ψ => φ.odd_map ⟶ ψ.odd_map
+    | .box φ    => □ φ.odd_map
+    | .bind x φ => all x, φ.odd_map
+    | φ         => φ
+
+  theorem bulk_subst_const {φ : Form TotalSet} (h : ∀ (i j : NOM TotalSet), φ[i // j] = φ) {L₁ L₂ : List (NOM TotalSet)} : φ.bulk_subst L₁ L₂ = φ := by
+    induction L₁ generalizing L₂ with
+    | nil => cases L₂ <;> rfl
+    | cons a as ih =>
+        cases L₂ with
+        | nil => rfl
+        | cons o os => rw [Form.bulk_subst, h]; exact ih
+
+  theorem nom_bulk_noop {j : NOM TotalSet} {L₁ L₂ : List (NOM TotalSet)} (h : j ∉ L₂) : (Form.nom j).bulk_subst L₁ L₂ = Form.nom j := by
+    induction L₁ generalizing L₂ with
+    | nil => cases L₂ <;> rfl
+    | cons a as ih =>
+        cases L₂ with
+        | nil => rfl
+        | cons o os =>
+            simp only [List.mem_cons, not_or] at h
+            simp only [Form.bulk_subst, nom_subst_nom]
+            rw [if_neg h.1]
+            exact ih h.2
+
+  theorem nom_bulk {i : NOM TotalSet} : ∀ {L : List (NOM TotalSet)}, i ∈ L → descending L → (Form.nom i).bulk_subst (L.map (fun j => 2 * j + 1)) L = Form.nom (2 * i + 1) := by
+    intro L
+    induction L with
+    | nil => intro hmem _; simp at hmem
+    | cons o os ih =>
+        intro hmem hdesc
+        rw [List.map_cons]
+        by_cases hio : i = o
+        · subst hio
+          have hnotin : (2 * i + 1) ∉ os := by
+            intro habs
+            have h : i > 2 * i + 1 := hdesc.left _ habs
+            change ((i.letter : ℕ) * 2 + 1 < (i.letter : ℕ)) at h
+            omega
+          simp only [Form.bulk_subst, nom_subst_nom, if_pos]
+          exact nom_bulk_noop hnotin
+        · have hios : i ∈ os := (List.mem_cons.mp hmem).resolve_left hio
+          simp only [Form.bulk_subst, nom_subst_nom]
+          rw [if_neg hio]
+          exact ih hios hdesc.right
+
+  theorem bulk_eq_odd_map {L : List (NOM TotalSet)} (hdesc : descending L) :
+      ∀ φ : Form TotalSet, (∀ i ∈ φ.list_noms, i ∈ L) → φ.bulk_subst (L.map (fun j => 2 * j + 1)) L = φ.odd_map := by
+    intro φ
+    induction φ with
+    | bttm => intro _; exact bulk_subst_const (fun _ _ => rfl)
+    | prop p => intro _; exact bulk_subst_const (fun _ _ => rfl)
+    | svar x => intro _; exact bulk_subst_const (fun _ _ => rfl)
+    | nom i => intro hsub; exact nom_bulk (hsub i (by simp [Form.list_noms])) hdesc
+    | impl φ ψ ihφ ihψ =>
+        intro hsub
+        simp only [Form.odd_map]
+        have mφ : ∀ i ∈ φ.list_noms, i ∈ L := by
+          intro i hi; apply hsub i
+          rw [← occurs_list_noms] at hi ⊢
+          simp only [nom_occurs, hi, Bool.true_or]
+        have mψ : ∀ i ∈ ψ.list_noms, i ∈ L := by
+          intro i hi; apply hsub i
+          rw [← occurs_list_noms] at hi ⊢
+          simp only [nom_occurs, hi, Bool.or_true]
+        rw [bulk_subst_impl, ihφ mφ, ihψ mψ]
+    | box φ ih => intro hsub; simp only [Form.odd_map]; rw [bulk_subst_box, ih hsub]
+    | bind x φ ih => intro hsub; simp only [Form.odd_map]; rw [bulk_subst_bind, ih hsub]
 
   theorem list_noms_impl_r {φ ψ : Form TotalSet} : φ.bulk_subst φ.odd_list_noms φ.list_noms = φ.bulk_subst (φ ⟶ ψ).odd_list_noms (φ ⟶ ψ).list_noms := by
-    admit
+    simp only [Form.odd_list_noms]
+    rw [bulk_eq_odd_map (@descending_list_noms φ) φ (fun i hi => hi),
+        bulk_eq_odd_map (@descending_list_noms (φ ⟶ ψ)) φ
+          (by intro i hi; rw [← occurs_list_noms] at hi ⊢; simp only [nom_occurs, hi, Bool.true_or])]
 
   theorem list_noms_impl_l {φ ψ : Form TotalSet} : φ.bulk_subst φ.odd_list_noms φ.list_noms = φ.bulk_subst (ψ ⟶ φ).odd_list_noms (ψ ⟶ φ).list_noms := by
-    admit
+    simp only [Form.odd_list_noms]
+    rw [bulk_eq_odd_map (@descending_list_noms φ) φ (fun i hi => hi),
+        bulk_eq_odd_map (@descending_list_noms (ψ ⟶ φ)) φ
+          (by intro i hi; rw [← occurs_list_noms] at hi ⊢; simp only [nom_occurs, hi, Bool.or_true])]
 
   theorem odd_impl : (φ ⟶ ψ).odd_noms = φ.odd_noms ⟶ ψ.odd_noms := by
     unfold Form.odd_noms
     conv => rhs; rw [@list_noms_impl_r φ ψ, @list_noms_impl_l ψ φ]
     simp [bulk_subst_impl]
 
-  theorem odd_box : (□φ).odd_noms = □(φ.odd_noms) := by admit
+  theorem odd_bttm : (Form.bttm : Form TotalSet).odd_noms = Form.bttm := by
+    simp [Form.odd_noms, Form.list_noms, Form.odd_list_noms, Form.bulk_subst]
 
-  theorem odd_bind : (all x, φ).odd_noms = all x, (φ.odd_noms) := by admit
+  theorem odd_box : (□φ).odd_noms = □(φ.odd_noms) := by
+    show (□φ).bulk_subst (□φ).odd_list_noms (□φ).list_noms = □(φ.bulk_subst φ.odd_list_noms φ.list_noms)
+    exact bulk_subst_box
 
-  def List.to_odd {Γ : Set (Form TotalSet)} {L : List Γ} : List Γ.odd_noms := sorry
+  theorem odd_bind : (all x, φ).odd_noms = all x, (φ.odd_noms) := by
+    show (all x, φ).bulk_subst (all x, φ).odd_list_noms (all x, φ).list_noms = all x, (φ.bulk_subst φ.odd_list_noms φ.list_noms)
+    exact bulk_subst_bind
 
-  def List.odd_to {Γ : Set (Form TotalSet)} {L : List Γ.odd_noms} : List Γ := sorry
+  theorem odd_conj_two {φ ψ : Form TotalSet} : (φ ⋀ ψ).odd_noms = φ.odd_noms ⋀ ψ.odd_noms := by
+    simp only [Form.conj, Form.neg, odd_impl, odd_bttm]
+
+  def List.to_odd {Γ : Set (Form TotalSet)} : List Γ → List Γ.odd_noms
+    | [] => []
+    | (h :: t) => ⟨h.val.odd_noms, ⟨h.val, h.2, rfl⟩⟩ :: t.to_odd
+
+  noncomputable def List.odd_to {Γ : Set (Form TotalSet)} : List Γ.odd_noms → List Γ
+    | [] => []
+    | (h :: t) => ⟨h.2.choose, h.2.choose_spec.1⟩ :: t.odd_to
 
   theorem odd_conj (Γ : Set (Form TotalSet)) (L : List Γ) : (conjunction Γ L).odd_noms = conjunction Γ.odd_noms L.to_odd := by
-    admit
+    induction L with
+    | nil => simp only [conjunction, List.to_odd, odd_impl, odd_bttm]
+    | cons head tail ih =>
+        show (head.val ⋀ conjunction Γ tail).odd_noms
+            = head.val.odd_noms ⋀ conjunction Γ.odd_noms tail.to_odd
+        rw [odd_conj_two, ih]
 
   theorem odd_conj_rev (Γ : Set (Form TotalSet)) (L' : List Γ.odd_noms) : (conjunction Γ L'.odd_to).odd_noms = conjunction Γ.odd_noms L' := by
-    admit
+    induction L' with
+    | nil => simp only [conjunction, List.odd_to, odd_impl, odd_bttm]
+    | cons head tail ih =>
+        show (head.2.choose ⋀ conjunction Γ tail.odd_to).odd_noms
+            = head.val ⋀ conjunction Γ.odd_noms tail
+        rw [odd_conj_two, ih, head.2.choose_spec.2]

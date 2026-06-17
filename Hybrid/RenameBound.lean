@@ -13,36 +13,98 @@ def Form.replace_bound : Form N → SVAR → Form N
   | φ, _        => φ
 
 theorem replace_neg : (∼φ).replace_bound x = ∼(φ.replace_bound x) := by
-  admit
+  rfl
 
 theorem replace_bound_depth {φ : Form N} {x : SVAR} : (φ.replace_bound x).depth = φ.depth := by
-  admit
+  induction φ with
+  | bind z ψ ih =>
+      simp only [Form.replace_bound]
+      split
+      . simp only [Form.depth, subst_depth', ih]
+      . simp only [Form.depth, ih]
+  | impl φ ψ ih1 ih2 =>
+      simp only [Form.replace_bound, Form.depth, ih1, ih2]
+  | box φ ih =>
+      simp only [Form.replace_bound, Form.depth, ih]
+  | _ => rfl
 
 theorem replace_bound_depth' {ψ : Form N} {x z : SVAR} : ((ψ.replace_bound x)[x//z]).depth < (ex x, ψ).depth := by
   rw [subst_depth', replace_bound_depth]
   apply ex_depth
 
-theorem substable_after_replace (φ : Form N) : is_substable (φ.replace_bound y) y x := by
+-- `φ.no_bind y` records that no binder in `φ` is the variable `y`.  This is
+-- exactly the structural invariant that `replace_bound y` establishes, and it
+-- is precisely what makes a substitution of `y` capture-free.
+def Form.no_bind (y : SVAR) : Form N → Prop
+  | .impl φ ψ => φ.no_bind y ∧ ψ.no_bind y
+  | .box φ    => φ.no_bind y
+  | .bind z φ => z ≠ y ∧ φ.no_bind y
+  | _         => True
+
+theorem no_bind_substable {φ : Form N} {y x : SVAR} : φ.no_bind y → is_substable φ y x = true := by
   induction φ with
-  | bind z φ ih =>
+  | impl φ ψ ih1 ih2 =>
+      intro h
+      simp only [Form.no_bind] at h
+      simp [is_substable, ih1 h.1, ih2 h.2]
+  | box φ ih =>
+      intro h
+      simp only [Form.no_bind] at h
+      simp [is_substable, ih h]
+  | bind z ψ ih =>
+      intro h
+      simp only [Form.no_bind] at h
+      simp only [is_substable]
+      split
+      . rfl
+      . simp only [bne_iff_ne, Bool.and_eq_true]
+        exact ⟨h.1, ih h.2⟩
+  | _ => intro _; simp only [is_substable]
+
+theorem no_bind_subst {φ : Form N} {y w : SVAR} : φ.no_bind y → (φ[w//y]).no_bind y := by
+  induction φ with
+  | svar z => intro _; simp only [subst_svar]; split <;> exact True.intro
+  | impl φ ψ ih1 ih2 =>
+      intro h
+      simp only [Form.no_bind] at h
+      simp only [subst_svar, Form.no_bind]
+      exact ⟨ih1 h.1, ih2 h.2⟩
+  | box φ ih =>
+      intro h
+      simp only [Form.no_bind] at h
+      simp only [subst_svar, Form.no_bind]
+      exact ih h
+  | bind z ψ ih =>
+      intro h
+      simp only [Form.no_bind] at h
+      simp only [subst_svar]
+      split
+      . simp only [Form.no_bind]; exact h
+      . simp only [Form.no_bind]; exact ⟨h.1, ih h.2⟩
+  | _ => intro _; exact True.intro
+
+theorem replace_bound_no_bind {φ : Form N} {y : SVAR} : (φ.replace_bound y).no_bind y := by
+  induction φ with
+  | impl φ ψ ih1 ih2 =>
+      simp only [Form.replace_bound, Form.no_bind]
+      exact ⟨ih1, ih2⟩
+  | box φ ih =>
+      simp only [Form.replace_bound, Form.no_bind]
+      exact ih
+  | bind z ψ ih =>
       simp only [Form.replace_bound]
       split
-      . rw [is_substable]
-        split
-        . simp
-        . simp
-          apply And.intro
-          . have : (φ.replace_bound y).new_var + y.letter ≥ y := by
-              simp only [ge_iff_le, svar_le_letter, svar_add_letter]; omega
+      . simp only [Form.no_bind]
+        refine ⟨?_, no_bind_subst ih⟩
+        simp only [ne_eq, svar_eq, svar_add_letter]
+        omega
+      . rename_i hzy
+        simp only [Form.no_bind]
+        exact ⟨hzy, ih⟩
+  | _ => exact True.intro
 
-            admit
-          .
-            admit
-      . admit
-  | impl φ ψ ih1 ih2 => admit
-  | box φ ih => admit
-  | _ =>
-      simp only [Form.replace_bound, is_substable]
+theorem substable_after_replace (φ : Form N) : is_substable (φ.replace_bound y) y x :=
+  no_bind_substable replace_bound_no_bind
 
 noncomputable def rename_all_bound_pf (φ : Form N) (x : SVAR) : ⊢ (φ ⟷ (φ.replace_bound x)) := by
   induction φ with

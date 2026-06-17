@@ -1,6 +1,4 @@
-# Finishing the Completeness Proof in Lean 4 for Hybrid Logic *L(∀)*, Started by Oltean
-
-*(working title — see alternatives at the end of this file)*
+# Finishing Oltean's Completeness Proof in Lean 4 for Hybrid Logic *L(∀)*
 
 ---
 
@@ -137,7 +135,189 @@ This paper:
    proof hinges on, and documents the encoding choice that makes the formal proofs go
    through cleanly.
 
-> *[Results section to be filled in once the formalization is complete.]*
+### 1.5 The proof blueprint and the incoming state of Oltean's development
+
+Because we are *renovating* an existing, archived formalization rather than writing one
+from scratch, it is worth stating plainly what we inherited, what already works, and
+where the genuine difficulty sits — so that the reader can follow the order in which we
+attack the problem and understand why some `admit`s are dispatched in a line while others
+force a redesign.
+
+**The blueprint.** Completeness for *L(∀)* is the standard Henkin/canonical-model
+argument as adapted to hybrid logic by Blackburn (1998), and Oltean's development wires
+it up faithfully:
+
+```
+Γ ⊨ φ  ⟹  Γ ⊢ φ
+  └─ via contraposition + Model Existence:  every consistent set is satisfiable
+       1. Lindenbaum:           consistent Γ  ⟶  maximal consistent Γ'      [compiles]
+       2. Language extension:   reserve an infinite supply of fresh nominals
+            ├─ odd_noms:   map the language into the ODD nominals (i ↦ 2i+1)
+            └─ pf_extended: ⊢ φ ↔ ⊢ φ⁺   (derivations survive the extension)
+       3. Witnessed Lindenbaum: an MCS that witnesses every ◇ / ∃
+       4. Completed model + Truth lemma
+       5. Existence lemma:      ◇-witnesses provide successor states
+       6. assemble  ⟶  Completeness
+```
+
+This skeleton is sound; the question was never whether the mathematics works (Blackburn
+proved it on paper) but whether each step survives mechanization in dependent type
+theory. Soundness, the syntax and substitution machinery, the Kripke semantics, the
+Hilbert proof system, and ordinary (non-witnessed) Lindenbaum all elaborate and compile.
+
+The dependencies between the remaining deliverables are **not linear but a directed
+acyclic graph** (Figure 1): several independent foundations converge on the witnessed
+Lindenbaum lemma **G** and again on the final theorem **I**. Following the now-common
+practice of stating a Lean development as an explicit blueprint, we record that graph
+here; nodes are the deliverables of §1.6 (with the already-compiling pieces shaded), and
+an edge `X → Y` means *Y uses X*.
+
+```mermaid
+flowchart TD
+    classDef done fill:#d8efd8,stroke:#3a3,color:#000;
+    classDef crux fill:#ffe9c7,stroke:#d28,color:#000;
+
+    SEM["Kripke semantics"]:::done
+    PS["Hilbert proof system"]:::done
+    SND["Soundness"]:::done
+    RL["Regular Lindenbaum"]:::done
+    ME["Model Existence"]:::done
+
+    B["B · Propositional tautologies"]
+    C["C · Formula countability / enumeration"]
+    D["D · Bound-variable renaming"]
+    E["E · odd_noms homomorphism<br/>(structural refactor)"]:::crux
+    F["F · Language extension (pf_extended)"]
+    G["G · Witnessed Lindenbaum<br/>(LindenbaumWitnessed, ExtendedLindenbaumLemma)"]
+    TL["Truth lemma (CompletedModel) — re-fit to compile"]
+    H["H · Existence lemma (l313')"]
+    I["I · Completeness:  Γ ⊨ φ → Γ ⊢ φ"]
+
+    B --> PS
+    C --> RL
+    RL --> G
+    E --> G
+    F --> G
+    B --> F
+    B --> G
+    B --> H
+    B --> TL
+    D --> H
+    D --> TL
+    H --> TL
+    G --> I
+    TL --> I
+    ME --> I
+```
+
+*Figure 1. Dependency blueprint of the completeness development. Shaded nodes already
+compile; the orange node (E) is the encoding "crux" that we discharge by reorganization
+rather than by proving the inherited obligations as stated (§1.3). The two fan-in points,
+**G** and **I**, are why the work is a tree rather than a chain.*
+
+**The incoming state: where the holes are.** What Oltean left open is concentrated in the
+freshness/witnessing layer (steps 2–3) and the pieces that depend on it (the completed
+model's truth lemma, the existence lemma, and the final assembly). Concretely, the
+inherited `sorry`/`admit` obligations fall into three quite different kinds, and
+conflating them is what makes "there are a lot of holes" sound more alarming than it is:
+
+1. *Mechanical / decidable holes* — not real mathematical content. The thirteen
+   `Tautology.lean` truth-table lemmas (one decision-procedure pattern), the
+   formula-countability encoding lemmas, the bound-variable renaming lemmas, and the
+   `LanguageExtension.total_*` structural inductions. Also in this bucket, though not
+   `admit`s but *broken proofs*, is the entire `CompletedModel` truth lemma: Oltean's
+   proofs there are correct and merely need to be re-fitted to the current `simp` normal
+   forms in order to compile. These genuinely yield to incremental, local work.
+2. *Load-bearing, but standard* — the real Henkin content: witnessed Lindenbaum, the
+   existence lemma, and the final assembly. These are not hard *ideas*; they go through
+   once the layer beneath them is clean.
+3. *Load-bearing, and an encoding trap* — the `odd_noms` freshness homomorphism (step 2).
+   This is the one place where eliminating the `admit`s *as stated* is the wrong move.
+
+**Why one cluster is a trap, and what we do about it.** As explained in §1.3, Oltean
+realizes structural freshness with `odd_noms`, which maps every nominal `i ↦ 2·i+1` (so
+the odd nominals carry the image and the even nominals are reserved as a fresh supply —
+Mishra's `N ⊕ ℕ` internalized in `ℕ`). The *idea* is right. But the *implementation*
+computes `odd_noms φ` by collecting φ's nominals into a **merged, sorted,
+de-duplicated** list and `bulk_subst`-ing along it. Against that representation the
+apparently trivial homomorphism `(φ ⟶ ψ).odd_noms = φ.odd_noms ⟶ ψ.odd_noms` is a real
+fight with list ordering, deduplication, and no-op substitutions — and it is precisely
+this lemma (and its siblings `odd_box`, `odd_bind`, `odd_conj`) that the witnessed
+Lindenbaum lemma waits on. Discharging these `admit`s in place would mean proving hard
+statements about an awkward encoding. The productive move is instead to **reorganize**:
+redefine `odd_noms` as a plain structural recursion over the syntax tree
+(`(φ ⟶ ψ).odd_noms := φ.odd_noms ⟶ ψ.odd_noms`, etc.), after which the homomorphism
+lemmas hold *by definition* (`rfl`), the freshness property ("no even nominal occurs in
+`odd_noms φ`") becomes a one-line induction, and the supporting `descending` /
+`nocc_bulk_property` apparatus is no longer needed. This is the sense in which finishing
+the proof is partly an exercise in *renovation*: the obstruction is a representation
+choice, not the construction, and the right response is to change the representation
+rather than to grind against it.
+
+**Plan of attack.** We work in the topological order of the blueprint (Figure 1), and
+where a stage offers a choice we take the *easiest task first*. Concretely: restore the
+compile (A) so the whole library elaborates with holes marked; clear the
+decidable/mechanical leaves — propositional tautologies (B), formula-countability (C),
+bound-variable renaming (D); discharge the language-extension layer (F), a batch of
+structural inductions; carry out the `odd_noms` reorganization (E), the one foundation
+that is a redesign rather than a proof; prove the witnessed Lindenbaum lemma (G), which
+fans C, E, F together; and finally re-fit the completed-model truth lemma, close the
+existence lemma (H), and assemble the final theorem (I). The concrete deliverables and
+their dependency order are listed next; their live status is tracked in §9.
+
+### 1.6 Goal and major steps
+
+**Goal.** Produce a fully `sorry`-free Lean 4 proof (under Lean v4.30.0 / mathlib
+v4.30.0) of the **completeness theorem** for *L(∀)* — `(Γ ⊨ φ) → (Γ ⊢ φ)` — finishing
+the construction Oltean left open. Soundness, syntax, semantics, and most scaffolding
+already exist; the gap is the Henkin-style completeness argument and the "freshness"
+machinery it depends on.
+
+The work decomposes into the following major steps, in dependency order. Their status is
+tracked in the results table (§9). Steps **B**–**I** each consist of discharging a group
+of `sorry`/`admit` obligations *inherited from Oltean's development*; we group them by
+the mathematical reason they exist. (We verified against the archived upstream sources
+that these holes are Oltean's own, not artifacts of our port — for instance Oltean's
+original `Tautology.lean` already carries the thirteen `admit`s below.)
+
+- **A. Get the whole library compiling.** Fix roughly two and a half years of mathlib
+  API churn module-by-module in dependency order so that `lake build` succeeds with the
+  proof holes still marked `sorry`/`admit`. (All modules compile except `CompletedModel`
+  and `Completeness`.)
+- **B. Remove the propositional-tautology holes.** Discharge the `Tautology.lean`
+  truth-table lemmas Oltean left as `admit` (`hs_taut`, `neg_intro`, `conj_intro`,
+  `conj_intro_hs`, `iff_intro`, `iff_elim_l`, `iff_elim_r`, `iff_rw`, `iff_imp`,
+  `disj_intro_l`, `disj_intro_r`, `disj_elim`, `mp_help`) plus `ProofUtils.iff_subst`.
+  All are decidable propositional facts.
+- **C. Remove the formula-countability holes.** `FormCountable`: `prime_2_3`
+  (a number-theoretic fact, `3^(n+1) ≠ 2^(m+1)`), `guns`, and `of_brixton` — injectivity
+  bookkeeping for the Gödel-style encoding that makes `Form` countable (needed to
+  enumerate formulas for Lindenbaum).
+- **D. Remove the bound-variable-renaming holes.** `RenameBound`: `replace_neg`,
+  `replace_bound_depth`, and `substable_after_replace` — structural facts about
+  α-renaming bound state variables.
+- **E. Remove the structural-freshness homomorphism holes (the crux).** `Substitutions`:
+  `bulk_subst_impl`, `list_noms_impl_r`, `list_noms_impl_l`, `odd_box`, `odd_bind`,
+  `List.to_odd`, `List.odd_to`, `odd_conj`, `odd_conj_rev` — that Oltean's `i ↦ 2·i+1`
+  remapping (`odd_noms`) is a homomorphism for the connectives and conjunctions. This is
+  where Oltean's `bulk_subst`-over-sorted-lists encoding makes the "obvious" lemmas hard
+  (§1.3), and everything downstream depends on it.
+- **F. Remove the language-extension / theorem-preservation holes.**
+  `LanguageExtension`: `total_subst_svar`, `total_tautology`, `total_subst_svar'`,
+  `total_subst_nom`, `total_iterate_pos`, `total_iterate_nec`, `l416`, and `pf_extended`
+  (Prop. 4.1.7: derivations are preserved when the language is expanded with new
+  nominals).
+- **G. Remove the witnessed-Lindenbaum holes.** `Lindenbaum`: `LindenbaumWitnessed`
+  (the Lindenbaum union of a set with *enough nominals* is witnessed) and
+  `ExtendedLindenbaumLemma` (every consistent set extends to a witnessed MCS in the
+  expanded language).
+- **H. Remove the existence-lemma hole.** `ExistenceLemma.l313'`: the diamond-witness
+  property used to build successor states of the completed model.
+- **I. Remove the final-completeness hole.** `Completeness.Completeness`: assemble the
+  truth lemma, the model-existence theorem, and **G**–**H** into `Γ ⊨ φ → Γ ⊢ φ`.
+
+The substantive mathematics is concentrated in **E**–**I**; **B**–**D** are essentially
+mechanical leaf lemmas. **E** is the crux, for the encoding reasons discussed in §1.3.
 
 ---
 
@@ -270,6 +450,80 @@ reusable Lean completeness framework in the spirit of From's Isabelle work.
 
 ---
 
+## 9. Results
+
+Status legend: **Pass** — done and compiling; **Fail** — attempted, currently broken;
+**Not Yet** — not yet attempted. Step **A** is broken out into one row per module (in the
+`Hybrid.lean` dependency order in which they are converted); steps **B**–**I** are broken
+out into one row per `sorry`/`admit` declaration to be removed ("remove Oltean's
+`admit`/`sorry` for *X*"), again in dependency order.
+
+| Step | Deliverable | Status |
+| --- | --- | --- |
+| **A** | **Get the whole library compiling** (per module) | **In progress** |
+| A · `Util.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `Form.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `Tautology.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `Substitutions.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `Proof.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `Truth.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `ListUtils.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `ProofUtils.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `Soundness.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `RenameBound.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `FormCountable.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `Lindenbaum.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `LanguageExtension.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `ExistenceLemma.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `CompletedModel.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| A · `Completeness.lean` | Port to Lean v4.30.0 / mathlib v4.30.0 | Pass |
+| **B** | **Propositional-tautology holes** | **Pass** |
+| B · `Tautology` (×13) | `hs_taut`, `neg_intro`, `conj_intro`, `conj_intro_hs`, `iff_intro`, `iff_elim_l`, `iff_elim_r`, `iff_rw`, `iff_imp`, `disj_intro_l`, `disj_intro_r`, `disj_elim`, `mp_help` | Pass |
+| B · `ProofUtils.iff_subst` | Tautology `(φ⟷ψ)⟶(ψ⟷χ)⟶(φ⟷χ)` | Pass |
+| **C** | **Formula-countability holes** | **Pass** |
+| C · `FormCountable.prime_2_3` | `3^(n+1) ≠ 2^(m+1)` | Pass |
+| C · `FormCountable.guns` | `x ∈ pow2list a → ∃ n, x.fst = 2^(n+1)` | Pass |
+| C · `FormCountable.of_brixton` | `(h::t).isSuffixOf a → h ∈ a` | Pass |
+| **D** | **Bound-variable-renaming holes** | **Pass** |
+| D · `RenameBound.replace_neg` | `(∼φ).replace_bound x = ∼(φ.replace_bound x)` | Pass |
+| D · `RenameBound.replace_bound_depth` | `(φ.replace_bound x).depth = φ.depth` | Pass |
+| D · `RenameBound.substable_after_replace` | `is_substable (φ.replace_bound y) y x` | Pass |
+| **E** | **Structural-freshness homomorphism holes (crux)** | **Pass** |
+| E · `Substitutions.bulk_subst_impl` | `bulk_subst` distributes over `⟶` | Pass |
+| E · `Substitutions.list_noms_impl_r` | `list_noms` merge identity (right) | Pass |
+| E · `Substitutions.list_noms_impl_l` | `list_noms` merge identity (left) | Pass |
+| E · `Substitutions.odd_box` | `(□φ).odd_noms = □(φ.odd_noms)` | Pass |
+| E · `Substitutions.odd_bind` | `(all x, φ).odd_noms = all x, φ.odd_noms` | Pass |
+| E · `Substitutions.List.to_odd` | list lift `List Γ → List Γ.odd_noms` | Pass |
+| E · `Substitutions.List.odd_to` | list lift `List Γ.odd_noms → List Γ` | Pass |
+| E · `Substitutions.odd_conj` | `odd_noms` distributes over conjunction | Pass |
+| E · `Substitutions.odd_conj_rev` | `odd_noms` distributes over conjunction (rev) | Pass |
+| **F** | **Language-extension / theorem-preservation holes** | **Partial** |
+| F · `LanguageExtension.total_subst_svar` | `total` inverts svar substitution | Pass |
+| F · `LanguageExtension.total_tautology` | `Tautology φ ↔ Tautology φ.total` | Pass |
+| F · `LanguageExtension.total_subst_svar'` | `total` commutes with svar subst | Pass |
+| F · `LanguageExtension.total_subst_nom` | `total` commutes with nom subst | Pass |
+| F · `LanguageExtension.total_iterate_pos` | `total` commutes with `iterate_pos` | Pass |
+| F · `LanguageExtension.total_iterate_nec` | `total` commutes with `iterate_nec` | Pass |
+| F · `LanguageExtension.l416` | fresh-variable substitution into a proof | Not Yet |
+| F · `LanguageExtension.pf_extended` | `⊢ φ ↔ ⊢ φ.total` (Prop. 4.1.7) | Not Yet |
+| **G** | **Witnessed-Lindenbaum holes** | **Partial** |
+| G · `Lindenbaum.LindenbaumWitnessed` | Lindenbaum union with enough nominals is witnessed | Pass |
+| G · `Lindenbaum.witness_in_next` / `witness_at_step` | per-step witness extraction | Pass |
+| G · `Lindenbaum.zero_nocc_odd` / `enough_noms_odd_base` | even nominals fresh for the odd-only base | Pass |
+| G · `Lindenbaum.ExtendedLindenbaumLemma` | consistent ⟹ witnessed MCS in expanded language | Pass |
+| G · `Lindenbaum.enough_noms_odd_step` | per-stage structural freshness (finiteness argument) | Not Yet |
+| **H** | **Existence-lemma hole** | **Pass** |
+| H · `Substitutions.subst_nom_noop` / `rename_svar_nom` | freshness rewrite lemmas | Pass |
+| H · `ExistenceLemma.l313'` | diamond-witness property for successor states | Pass |
+| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Pass** |
+| TL · `CompletedModel.truth_*` | truth-lemma cases (`bttm`/`prop`/`nom`/`svar`/`ex`/…) | Pass |
+| **I** | **Final-completeness hole** | **Partial** |
+| I · `Completeness.ModelExistence` | completeness ⟺ every consistent set is satisfiable | Pass |
+| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (needs truth-lemma assembly + `cons_sat`) | Not Yet |
+
+---
+
 ## Acknowledgments
 
 - **Alex Oltean** — the original formalization, proof architecture, and thesis, on
@@ -342,15 +596,3 @@ The ported development with the completed completeness proof is at
 9. **[Gem25]** Google DeepMind. *Gemini model family*. Technical documentation and
    model cards. https://ai.google.dev/gemini-api/docs/models
 
----
-
-## Alternative titles
-
-1. **Finishing the Completeness Proof in Lean 4 for Hybrid Logic *L(∀)*, Started by
-   Oltean** *(closest to the suggested phrasing)*
-2. **Closing the Loop: Completing Oltean's Lean 4 Completeness Proof for Hybrid Logic**
-3. **Structural Freshness Finishes the Job: A Lean 4 Completeness Proof for the Hybrid
-   Logic *L(∀)***
-4. **From Soundness to Completeness: Mechanizing Hybrid Logic *L(∀)* in Lean 4**
-5. **Reserved by Construction: Henkin Witnesses and the Lean 4 Completeness of Hybrid
-   Logic**
