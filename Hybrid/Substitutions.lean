@@ -602,6 +602,130 @@ section Nominals
   lemma diffsvar {v x : SVAR} (h : x ≥ v+1) : v ≠ x := by
     simp; intro abs; exact (Nat.ne_of_lt (Nat.lt_of_lt_of_le (Nat.lt_succ_self v.letter) h)) (SVAR.mk.inj abs)  
 
+  theorem is_free_nom_subst_nom {ψ : Form N} {v : SVAR} {new old : NOM N} :
+      is_free v (ψ[new // old]) = is_free v ψ := by
+    induction ψ generalizing v with
+    | nom a =>
+        by_cases ha : a = old <;> simp [nom_subst_nom, is_free, ha]
+    | bind y ψ ih =>
+        by_cases hy : y = v
+        · simp [nom_subst_nom, is_free, hy]
+        · simp [nom_subst_nom, is_free, hy, ih]
+    | impl a b iha ihb => simp [nom_subst_nom, is_free, iha, ihb]
+    | box a ih => simp [nom_subst_nom, is_free, ih]
+    | _ => simp [nom_subst_nom, is_free]
+
+  theorem is_substable_nom_subst_nom {ψ : Form N} {s v : SVAR} {new old : NOM N} :
+      is_substable (ψ[new // old]) s v = is_substable ψ s v := by
+    induction ψ generalizing s v with
+    | nom a =>
+        by_cases ha : a = old <;> simp [nom_subst_nom, is_substable, ha]
+    | bind y ψ ih =>
+        simp only [nom_subst_nom, is_substable, is_free_nom_subst_nom]
+        by_cases hy : y = v
+        · by_cases hf : is_free v ψ <;> simp [hy, hf, ih]
+        · by_cases hf : is_free v ψ <;> simp [hy, hf, ih]
+    | impl a b iha ihb => simp [nom_subst_nom, is_substable, iha, ihb]
+    | box a ih => simp [nom_subst_nom, is_substable, ih]
+    | _ => simp [nom_subst_nom, is_substable]
+
+  theorem nom_svar_subst_comm_nom {ψ : Form N} {new old : NOM N} {s v : SVAR} :
+      (ψ[s // v])[new // old] = (ψ[new // old])[s // v] := by
+    induction ψ generalizing s v with
+    | svar z =>
+        by_cases hv : v = z <;> simp [subst_svar, nom_subst_nom, hv]
+    | impl a b iha ihb => simp [subst_svar, nom_subst_nom, iha, ihb]
+    | box a ih => simp [subst_svar, nom_subst_nom, ih]
+    | nom a =>
+        simp only [subst_svar, subst_nom, nom_subst_nom]
+        by_cases ha : a = old <;> simp [ha, subst_svar, subst_nom]
+    | bind z a ih =>
+        simp only [subst_svar, nom_subst_nom]
+        split_ifs <;> simp [subst_svar, nom_subst_nom, ih, *]
+    | _ => simp [subst_svar, nom_subst_nom]
+
+  theorem subst_nom_nom_subst {ψ : Form N} {s : NOM N} {v : SVAR} {new old : NOM N} :
+      (ψ[s // v])[new // old] = (ψ[new // old])[(if s = old then new else s) // v] := by
+    induction ψ generalizing s v with
+    | svar a =>
+        by_cases ha : v = a <;> by_cases hs : s = old <;> simp [subst_nom, nom_subst_nom, ha, hs, ↓reduceIte]
+    | nom a =>
+        by_cases ha : a = old <;> by_cases hs : s = old <;> simp [subst_nom, nom_subst_nom, ha, hs, ↓reduceIte]
+    | impl a b iha ihb => simp [subst_nom, nom_subst_nom, iha, ihb]
+    | box a ih => simp [subst_nom, nom_subst_nom, ih]
+    | bind z a ih =>
+        simp [subst_nom, nom_subst_nom, ↓reduceIte]
+        split_ifs <;> simp [subst_nom, nom_subst_nom, ih, *]
+    | _ => simp [subst_nom, nom_subst_nom]
+
+  lemma nom_subst_box {ψ : Form N} {new old : NOM N} :
+      nom_subst_nom (□ ψ) new old = □ (nom_subst_nom ψ new old) := by
+    simp [nom_subst_nom]
+
+  lemma nom_subst_diamond {ψ : Form N} {new old : NOM N} :
+      nom_subst_nom (◇ ψ) new old = ◇ (nom_subst_nom ψ new old) := by
+    simp [Form.diamond, nom_subst_nom, nom_subst_box]
+
+  theorem nom_subst_iterate_pos {ψ : Form N} {new old : NOM N} {m : ℕ} :
+      nom_subst_nom (iterate_pos m ψ) new old = iterate_pos m (nom_subst_nom ψ new old) := by
+    induction m generalizing ψ with
+    | zero => rfl
+    | succ k ih =>
+        conv_lhs => rw [iterate_pos, iterate_pos.loop]
+        conv_rhs => rw [iterate_pos, iterate_pos.loop]
+        rw [nom_subst_diamond]
+        simpa using ih
+
+  theorem nom_subst_iterate_nec {ψ : Form N} {new old : NOM N} {n : ℕ} :
+      nom_subst_nom (iterate_nec n ψ) new old = iterate_nec n (nom_subst_nom ψ new old) := by
+    induction n generalizing ψ with
+    | zero => rfl
+    | succ k ih =>
+        conv_lhs => rw [iterate_nec, iterate_nec.loop]
+        conv_rhs => rw [iterate_nec, iterate_nec.loop]
+        rw [nom_subst_box]
+        simpa using ih
+
+  lemma nom_subst_conj_svar {φ : Form N} {new old : NOM N} (v : SVAR) :
+      nom_subst_nom (v ⋀ φ) new old = v ⋀ nom_subst_nom φ new old := by
+    simp [Form.conj, Form.neg, Form.impl, nom_subst_nom]
+
+  lemma nom_subst_imp_svar {φ : Form N} {new old : NOM N} (v : SVAR) :
+      nom_subst_nom (v ⟶ φ) new old = v ⟶ nom_subst_nom φ new old := by
+    simp only [Form.impl, nom_subst_nom]
+
+  lemma nom_subst_iterate_pos_svar {φ : Form N} {new old : NOM N} (m : ℕ) (v : SVAR) :
+      nom_subst_nom (iterate_pos m (v ⋀ φ)) new old =
+        iterate_pos m (v ⋀ nom_subst_nom φ new old) := by
+    induction m generalizing φ with
+    | zero => simp [iterate_pos, iterate_pos.loop, Form.conj, Form.neg, Form.impl, nom_subst_nom]
+    | succ k ih =>
+        conv_lhs => rw [iterate_pos, iterate_pos.loop]
+        conv_rhs => rw [iterate_pos, iterate_pos.loop]
+        rw [nom_subst_diamond]
+        simpa using ih
+
+  lemma nom_subst_iterate_nec_svar {φ : Form N} {new old : NOM N} (n : ℕ) (v : SVAR) :
+      nom_subst_nom (iterate_nec n (v ⟶ φ)) new old =
+        iterate_nec n (v ⟶ nom_subst_nom φ new old) := by
+    induction n generalizing φ with
+    | zero => simp [iterate_nec, iterate_nec.loop, Form.impl, nom_subst_nom]
+    | succ k ih =>
+        conv_lhs => rw [iterate_nec, iterate_nec.loop]
+        conv_rhs => rw [iterate_nec, iterate_nec.loop]
+        rw [nom_subst_box]
+        simpa using ih
+
+  theorem nom_subst_ax_nom {φ : Form N} {v : SVAR} {m n : ℕ} {new old : NOM N} :
+      (all v, (iterate_pos m (v ⋀ φ) ⟶ iterate_nec n (v ⟶ φ)))[new // old] =
+        all v, (iterate_pos m (v ⋀ φ[new // old]) ⟶ iterate_nec n (v ⟶ φ[new // old])) := by
+    simp only [nom_subst_nom, nom_subst_iterate_pos_svar, nom_subst_iterate_nec_svar]
+
+  theorem nom_subst_ax_q2_nom {φ : Form N} {v : SVAR} {s new old : NOM N} :
+      ((all v, φ) ⟶ φ[s // v])[new // old] =
+        (all v, φ[new // old]) ⟶ (φ[new // old])[(if s = old then new else s) // v] := by
+    simp only [nom_subst_nom, subst_nom_nom_subst]
+
   section New_NOM
   lemma new_nom_gt      : nom_occurs i φ → i.letter < φ.new_nom.letter   := by
     induction φ with

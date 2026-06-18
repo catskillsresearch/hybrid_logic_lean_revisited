@@ -1,5 +1,6 @@
 import Hybrid.Substitutions
 import Hybrid.Proof
+import Hybrid.Tautology
 import Hybrid.ListUtils
 
 namespace Proof
@@ -367,13 +368,38 @@ def generalize_constants {φ : Form N} {x : SVAR} (i : NOM N) (h : x ≥ φ.new_
     . apply generalize_constants; assumption
     . apply generalize_constants_rev; assumption
 
-  /-- Forward direction only: rename nominal `j` to `i` throughout a derivation. -/
-  def rename_constants_fwd {φ : Form N} (j i : NOM N) (pf : Proof φ) : Proof (φ[j // i]) := by
-    let x := φ.new_var
-    have x_geq : x ≥ φ.new_var := Nat.le.refl
-    have l1 := generalize_constants i x_geq pf
-    have l2 := ax_q2_nom (φ[x // i]) x j
-    exact svar_svar_nom_subst x_geq ▸ mp l2 l1
+  lemma formulasIn_cast {α β : Form N} (h : α = β) (pf : Proof α) :
+      (h ▸ pf).formulasIn = pf.formulasIn := by subst h; rfl
+
+  lemma proof_noms_cast {α β : Form N} (h : α = β) (pf : Proof α) :
+      (h ▸ pf).proof_noms = pf.proof_noms := by subst h; rfl
+
+  /-- Forward rename: substitute nominal `new` for `old` structurally on `Proof`
+      (no `generalize_constants` + `ax_q2_nom` wrapper). -/
+  def rename_constants_fwd {φ : Form N} (new old : NOM N) (pf : Proof φ) : Proof (φ[new // old]) :=
+    match pf with
+    | .general v pf' => general v (rename_constants_fwd new old pf')
+    | .necess pf' => necess (rename_constants_fwd new old pf')
+    | .mp pf1 pf2 => mp (rename_constants_fwd new old pf1) (rename_constants_fwd new old pf2)
+    | .tautology ht => tautology (tautology_nom_subst ht new old)
+    | .ax_k => ax_k
+    | .ax_q1 φ' ψ h =>
+        ax_q1 (φ'[new // old]) (ψ[new // old]) (by simpa [is_free_nom_subst_nom] using h)
+    | .ax_q2_svar φ' v s p =>
+        (by
+          have eq : ((all v, φ') ⟶ φ'[s // v])[new // old] =
+              (all v, φ'[new // old]) ⟶ (φ'[new // old])[s // v] := by
+            simp only [nom_subst_nom, nom_svar_subst_comm_nom]
+          exact eq ▸ ax_q2_svar (φ'[new // old]) v s (by simpa [is_substable_nom_subst_nom] using p))
+    | .ax_q2_nom φ' v s =>
+        nom_subst_ax_q2_nom (φ := φ') (v := v) (s := s) (new := new) (old := old) ▸
+          ax_q2_nom (φ'[new // old]) v (if s = old then new else s)
+    | .ax_name v => ax_name v
+    | @ax_nom _ φ' v m n =>
+        nom_subst_ax_nom (φ := φ') (v := v) (m := m) (n := n) (new := new) (old := old) ▸
+          ax_nom (φ := φ'[new // old]) (v := v) m n
+    | .ax_brcn => ax_brcn
+
 
   lemma mem_formulasIn_self {φ : Form N} (pf : Proof φ) : φ ∈ pf.formulasIn := by
     induction pf with
@@ -383,476 +409,67 @@ def generalize_constants {φ : Form N} {x : SVAR} (i : NOM N) (h : x ≥ φ.new_
     | necess _ => simp [formulasIn]
     | mp _ _ _ _ => simp [formulasIn]
 
-  lemma proof_noms_cast {α β : Form N} (h : α = β) (pf : Proof α) :
-      (h ▸ pf).proof_noms = pf.proof_noms := by
-    subst h; rfl
-
-  private lemma mem_of_list_noms_subst {φ : Form N} (new old : NOM N) (pf : Proof φ) {k : NOM N}
-      (hk : k ∈ (φ[new // old]).list_noms) : k ∈ pf.proof_noms ∨ k = new := by
-    rcases list_noms_subst hk with ⟨hkφ, _⟩ | hknew
-    · exact Or.inl (by
-        simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-        exact ⟨φ, mem_formulasIn_self pf, hkφ⟩)
-    · exact Or.inr hknew
-
-  private lemma not_mem_old_of_list_noms_subst {φ : Form N} (new old : NOM N) (hne : new ≠ old) {k : NOM N}
-      (hk : k ∈ (φ[new // old]).list_noms) (hj : k = old) : False := by
-    rcases list_noms_subst hk with ⟨_, hne'⟩ | hnew
-    · exact hne' hj
-    · exact hne (Eq.symm (Eq.trans (Eq.symm hj) hnew))
-
-  private lemma mem_of_list_noms_q2_implication {ψ : Form N} {x : SVAR} (new old : NOM N) (hx : x ≥ ψ.new_var)
-      (pf : Proof ψ) {k : NOM N}
-      (hk : k ∈ ((all x, ψ[x // old]) ⟶ (ψ[x // old][new // x])).list_noms) :
-      k ∈ pf.proof_noms ∨ k = new := by
-    simp only [Form.list_noms, List.mem_dedup, List.mem_merge] at hk
-    rcases hk with hk | hk
-    · exact Or.inl (by
-        simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-        exact ⟨ψ, mem_formulasIn_self pf, (list_noms_nom_subst_svar hx hk).left⟩)
-    · exact mem_of_list_noms_subst new old pf (by
-        have : k ∈ (ψ[new // old]).list_noms := by rw [← svar_svar_nom_subst (φ := ψ) hx]; exact hk
-        exact this)
-
-  private lemma not_mem_old_of_list_noms_q2_implication {ψ : Form N} {x : SVAR} (new old : NOM N)
-      (hx : x ≥ ψ.new_var) (hne : new ≠ old) :
-      old ∉ ((all x, ψ[x // old]) ⟶ (ψ[x // old][new // x])).list_noms := by
-    intro h
-    simp only [Form.list_noms, List.mem_dedup, List.mem_merge] at h
-    rcases h with h | h
-    · exact (list_noms_nom_subst_svar hx h).2 rfl
-    · exact not_mem_old_of_list_noms_subst new old hne (by
-        have : old ∈ (ψ[new // old]).list_noms := by rw [← svar_svar_nom_subst (φ := ψ) hx]; exact h
-        exact this) rfl
-
-  private lemma mem_proof_noms_of_subst_list_noms {φ : Form N} {x : SVAR} (old : NOM N)
-      (h : x ≥ φ.new_var) (pf : Proof φ) {k : NOM N} (hk : k ∈ (φ[x // old]).list_noms) :
-      k ∈ pf.proof_noms := by
-    simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-    exact ⟨φ, mem_formulasIn_self pf, (list_noms_nom_subst_svar h hk).left⟩
-
-  private lemma mem_formulasIn_general {α : Form N} (v : SVAR) (pf : Proof α) {χ : Form N}
-      (hχ : χ ∈ pf.formulasIn) : χ ∈ (general v pf).formulasIn := by
-    simp [Proof.formulasIn, List.mem_cons]
-    exact Or.inr hχ
-
-  private theorem not_mem_proof_noms_generalize_constants {φ : Form N} {x : SVAR} (new old : NOM N)
-      (h : x ≥ φ.new_var) (hne : new ≠ old) (pf : Proof φ) :
-      old ∉ (generalize_constants old h pf).proof_noms := by
-    induction pf generalizing x with
-    | tautology _ =>
-        unfold generalize_constants
-        intro hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · rw [hχ] at hkχ
-          exact (list_noms_nom_subst_svar h hkχ).2 rfl
-        · rw [hχ] at hkχ
-          exact (list_noms_nom_subst_svar h hkχ).2 rfl
-        · simp at hχ
-    | @general ψ v pf ih =>
-        unfold generalize_constants
-        have hφ := h
-        simp only [nom_subst_svar, Form.new_var, max] at h ⊢
-        by_cases hc : (v + 1).letter > (Form.new_var ψ).letter
-        · simp [hc] at h
-          simp only [gt_iff_lt, ge_iff_le] at hc
-          have ih_h := Nat.le_of_lt (Nat.lt_of_lt_of_le hc h)
-          intro hk
-          dsimp [proof_noms, formulasIn] at hk
-          simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-          obtain ⟨χ, hχ, hkχ⟩ := hk
-          rcases hχ with hχ | hχ
-          · exact (list_noms_nom_subst_svar hφ (hχ ▸ hkχ)).2 rfl
-          · have hχ' := hχ
-            simp only [hc, if_pos hc, generalize_constants, Proof.formulasIn, general] at hχ'
-            rcases List.mem_cons.mp hχ' with heq | hmem''
-            · exact (list_noms_nom_subst_svar hφ (heq ▸ hkχ)).2 rfl
-            · have hχ'' := List.mem_cons_of_mem (List.mem_cons_of_mem hmem'')
-              exact absurd (by
-                simp only [proof_noms, List.mem_dedup, List.mem_flatMap, generalize_constants, hc, if_pos hc,
-                  Proof.formulasIn, general, List.mem_cons]
-                exact ⟨χ, hχ'', hkχ⟩) (ih ih_h)
-        · simp [hc] at h
-          have hxψ : x ≥ ψ.new_var := (new_var_geq2 hφ).2
-          intro hk
-          dsimp [proof_noms, formulasIn] at hk
-          simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-          obtain ⟨χ, hχ, hkχ⟩ := hk
-          rcases hχ with hχ | hχ
-          · exact (list_noms_nom_subst_svar hφ (hχ ▸ hkχ)).2 rfl
-          · have hχ' := hχ
-            simp only [hc, if_neg hc, generalize_constants, Proof.formulasIn, general] at hχ'
-            rcases List.mem_cons.mp hχ' with heq | hmem''
-            · exact (list_noms_nom_subst_svar hφ (heq ▸ hkχ)).2 rfl
-            · have hχ'' := List.mem_cons_of_mem (List.mem_cons_of_mem hmem'')
-              exact absurd (by
-                simp only [proof_noms, List.mem_dedup, List.mem_flatMap, generalize_constants, hc, if_neg hc,
-                  Proof.formulasIn, general, List.mem_cons]
-                exact ⟨χ, hχ'', hkχ⟩) (ih hxψ)
-    | @necess ψ pf ih =>
-        unfold generalize_constants
-        have hφ := h
-        simp only [nom_subst_svar, occurs] at h ⊢
-        intro hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ
-        · exact (list_noms_nom_subst_svar hφ (hχ ▸ hkχ)).2 rfl
-        · have hχ' := hχ
-          simp only [Proof.formulasIn, general, generalize_constants] at hχ'
-          rcases List.mem_cons.mp hχ' with heq | hmem'
-          · exact (list_noms_nom_subst_svar hφ (heq ▸ hkχ)).2 rfl
-          · rcases List.mem_cons.mp hmem' with heq | hmem''
-            · exact (list_noms_nom_subst_svar hφ (heq ▸ hkχ)).2 rfl
-            · have hχ'' := List.mem_cons_of_mem (List.mem_cons_of_mem hmem'')
-              exact absurd (by
-                simp only [proof_noms, List.mem_dedup, List.mem_flatMap, generalize_constants,
-                  Proof.formulasIn, general, List.mem_cons]
-                exact ⟨χ, hχ'', hkχ⟩) (ih h)
-    | @mp φ ψ pf1 pf2 ih1 ih2 =>
-        unfold generalize_constants
-        have hφ := h
-        let y := (φ ⟶ ψ).new_var
-        have ⟨ih1_x, ih2_x⟩ := new_var_geq1 (Nat.le.refl : y ≥ (φ ⟶ ψ).new_var)
-        intro hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ
-        · exact (list_noms_nom_subst_svar hφ (hχ ▸ hkχ)).2 rfl
-        · have hmem := hχ
-          simp only [List.mem_append, List.mem_cons] at hmem
-          rcases hmem with heq | hmem'
-          · exact (list_noms_nom_subst_svar hφ (heq ▸ hkχ)).2 rfl
-          · rcases hmem' with hmem' | hmem'
-            · exact absurd (by
-                simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-                exact ⟨χ, hmem', hkχ⟩) (ih1 ih1_x)
-            · exact absurd (by
-                simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-                exact ⟨χ, hmem', hkχ⟩) (ih2 ih2_x)
-    | ax_k =>
-        unfold generalize_constants
-        intro hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · rw [hχ] at hkχ
-          exact (list_noms_nom_subst_svar h hkχ).2 rfl
-        · rw [hχ] at hkχ
-          exact (list_noms_nom_subst_svar h hkχ).2 rfl
-        · simp at hχ
-    | ax_q1 _ _ _ =>
-        unfold generalize_constants
-        intro hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · rw [hχ] at hkχ
-          exact (list_noms_nom_subst_svar h hkχ).2 rfl
-        · rw [hχ] at hkχ
-          exact (list_noms_nom_subst_svar h hkχ).2 rfl
-        · simp at hχ
-    | ax_q2_svar _ _ _ _ =>
-        unfold generalize_constants
-        intro hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · exact (list_noms_nom_subst_svar h (hχ ▸ hkχ)).2 rfl
-        · exact (list_noms_nom_subst_svar h (hχ ▸ hkχ)).2 rfl
-        · exact hχ.elim
-    | ax_q2_nom _ _ _ =>
-        unfold generalize_constants
-        intro hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · exact (list_noms_nom_subst_svar h (hχ ▸ hkχ)).2 rfl
-        · exact (list_noms_nom_subst_svar h (hχ ▸ hkχ)).2 rfl
-        · exact hχ.elim
-    | ax_name _ =>
-        unfold generalize_constants
-        intro hk
-        dsimp [proof_noms, formulasIn, Form.list_noms, nom_subst_svar] at hk
-        rcases hk with ⟨_, _, hkχ⟩
-        exact hkχ
-    | ax_nom _ _ =>
-        unfold generalize_constants
-        simp only [nom_subst_svar, nec_subst_nom, pos_subst_nom] at h
-        intro hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · rw [hχ] at hkχ
-          exact (list_noms_nom_subst_svar h hkχ).2 rfl
-        · rw [hχ] at hkχ
-          exact (list_noms_nom_subst_svar h hkχ).2 rfl
-        · simp at hχ
-    | ax_brcn =>
-        unfold generalize_constants
-        intro hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · rw [hχ] at hkχ
-          exact (list_noms_nom_subst_svar h hkχ).2 rfl
-        · rw [hχ] at hkχ
-          exact (list_noms_nom_subst_svar h hkχ).2 rfl
-        · simp at hχ
-
-  private theorem mem_proof_noms_generalize_constants {φ : Form N} {x : SVAR} (old : NOM N)
-      (h : x ≥ φ.new_var) (pf : Proof φ) {k : NOM N}
-      (hk : k ∈ (generalize_constants old h pf).proof_noms) :
-      k ∈ pf.proof_noms ∨ k = old := by
-    induction pf generalizing x with
-    | @tautology φ ht =>
-        unfold generalize_constants at hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h (tautology ht) hkχ)
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h (tautology ht) hkχ)
-        · simp at hχ
-    | @general ψ v pf ih =>
-        unfold generalize_constants at hk
-        have hφ := h
-        simp only [nom_subst_svar, Form.new_var, max] at h ⊢
-        by_cases hc : (v + 1).letter > (Form.new_var ψ).letter
-        · simp [hc] at h
-          simp only [gt_iff_lt, ge_iff_le] at hc
-          have ih_h := Nat.le_of_lt (Nat.lt_of_lt_of_le hc h)
-          have hk' : k ∈ (generalize_constants old ih_h pf).proof_noms := by
-            unfold generalize_constants at hk ⊢
-            simp [hc, if_pos hc]
-          exact ih ih_h hk'
-        · simp [hc] at h
-          have hxψ : x ≥ ψ.new_var := (new_var_geq2 hφ).2
-          dsimp [proof_noms, formulasIn] at hk
-          obtain ⟨χ, hχ, hkχ⟩ := hk
-          rcases hχ with hχ | hχ
-          · rw [hχ] at hkχ
-            exact Or.inl (mem_proof_noms_of_subst_list_noms old hφ pf hkχ)
-          · have hmem := hχ
-            simp only [hc, if_neg hc, List.mem_cons] at hmem
-            rcases hmem with heq | hmem'
-            · rw [heq] at hkχ
-              exact Or.inl (mem_proof_noms_of_subst_list_noms old hφ pf hkχ)
-            · rcases ih hxψ (by
-                simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-                exact ⟨χ, hmem', hkχ⟩) with h | h
-              exact Or.inl h
-              exact Or.inr h
-    | @necess ψ pf ih =>
-        unfold generalize_constants at hk
-        have hφ := h
-        simp only [nom_subst_svar, occurs] at h ⊢
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old hφ pf hkχ)
-        · have hmem := hχ
-          simp only [List.mem_cons] at hmem
-          rcases hmem with heq | hmem'
-          · rw [heq] at hkχ
-            exact Or.inl (mem_proof_noms_of_subst_list_noms old hφ pf hkχ)
-          · rcases ih h (by
-              simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-              exact ⟨χ, hmem', hkχ⟩) with h | h
-            exact Or.inl h
-            exact Or.inr h
-    | @mp φ ψ pf1 pf2 ih1 ih2 =>
-        unfold generalize_constants at hk
-        have hφ := h
-        let y := (φ ⟶ ψ).new_var
-        have ⟨ih1_x, ih2_x⟩ := new_var_geq1 (Nat.le.refl : y ≥ (φ ⟶ ψ).new_var)
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old hφ (mp pf1 pf2) hkχ)
-        · have hmem := hχ
-          simp only [List.mem_append, List.mem_cons] at hmem
-          rcases hmem with heq | hmem'
-          · rw [heq] at hkχ
-            exact Or.inl (mem_proof_noms_of_subst_list_noms old hφ (mp pf1 pf2) hkχ)
-          · rcases hmem' with hmem' | hmem'
-            · rcases ih1 ih1_x (by
-                simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-                exact ⟨χ, hmem', hkχ⟩) with h | h
-              exact Or.inl h
-              exact Or.inr h
-            · rcases ih2 ih2_x (by
-                simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-                exact ⟨χ, hmem', hkχ⟩) with h | h
-              exact Or.inl h
-              exact Or.inr h
-    | ax_k =>
-        unfold generalize_constants at hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h ax_k hkχ)
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h ax_k hkχ)
-        · simp at hχ
-    | @ax_q1 φ ψ v h2 =>
-        unfold generalize_constants at hk
-        simp only [nom_subst_svar] at h
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h (ax_q1 φ ψ h2) hkχ)
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h (ax_q1 φ ψ h2) hkχ)
-        · simp at hχ
-    | @ax_q2_svar φ y v h2 =>
-        unfold generalize_constants at hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        have hmem := hχ
-        simp only [List.mem_cons] at hmem
-        rcases hmem with hmem | hmem | hmem
-        · rw [hmem] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h (ax_q2_svar φ y v h2) hkχ)
-        · rw [hmem] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h (ax_q2_svar φ y v h2) hkχ)
-        · simp at hmem
-    | @ax_q2_nom φ v j =>
-        unfold generalize_constants at hk
-        simp [nom_subst_svar] at h
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        have hmem := hχ
-        simp only [List.mem_cons] at hmem
-        rcases hmem with hmem | hmem | hmem
-        · rw [hmem] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h (ax_q2_nom φ v j) hkχ)
-        · rw [hmem] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h (ax_q2_nom φ v j) hkχ)
-        · simp at hmem
-    | ax_name _ =>
-        unfold generalize_constants at hk
-        dsimp [proof_noms, formulasIn, Form.list_noms, nom_subst_svar] at hk
-        rcases hk with ⟨_, _, hkχ⟩
-        exact False.elim hkχ
-    | @ax_nom φ v m n =>
-        unfold generalize_constants at hk
-        simp only [nom_subst_svar, nec_subst_nom, pos_subst_nom] at h
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h (ax_nom m n) hkχ)
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h (ax_nom m n) hkχ)
-        · simp at hχ
-    | ax_brcn =>
-        unfold generalize_constants at hk
-        dsimp [proof_noms, formulasIn] at hk
-        simp only [List.mem_dedup, List.mem_flatMap, List.mem_cons] at hk
-        obtain ⟨χ, hχ, hkχ⟩ := hk
-        rcases hχ with hχ | hχ | hχ
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h ax_brcn hkχ)
-        · rw [hχ] at hkχ
-          exact Or.inl (mem_proof_noms_of_subst_list_noms old h ax_brcn hkχ)
-        · simp at hχ
-
-  private lemma mem_proof_noms_mp_ax_q2 {ψ : Form N} {x : SVAR} (new old : NOM N) (hx : x ≥ ψ.new_var)
-      (pf' : Proof (all x, ψ[x // old])) (pf : Proof ψ)
-      (hgc : pf' = generalize_constants old hx pf) {k : NOM N}
-      (hk : k ∈ (Proof.mp (ax_q2_nom (ψ[x // old]) x new) pf').proof_noms) :
-      k ∈ pf.proof_noms ∨ k = new := by
-    dsimp [proof_noms, formulasIn] at hk
-    simp only [List.mem_dedup, List.mem_flatMap] at hk
-    obtain ⟨χ, hχ, hkχ⟩ := hk
-    simp only [List.mem_append, List.mem_cons, List.mem_singleton] at hχ
-    rcases hχ with hχ | hχ | hχ
-    · have hkψ : k ∈ ψ[new // old].list_noms := by
-        rw [← svar_svar_nom_subst (φ := ψ) hx]
-        exact hχ ▸ hkχ
-      rcases mem_of_list_noms_subst new old pf hkψ with h | h
-      · exact Or.inl h
-      · exact Or.inr h
-    · rcases mem_of_list_noms_q2_implication new old hx pf (hχ ▸ hkχ) with h | h
-      · exact Or.inl h
-      · exact Or.inr h
-    · have hk' : k ∈ (generalize_constants old hx pf).proof_noms := by
-        simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-        exact ⟨χ, hgc.symm ▸ hχ, hkχ⟩
-      rcases mem_proof_noms_generalize_constants old hx pf hk' with h | hkold
-      · exact Or.inl h
-      · by_cases heq : new = old
-        · exact Or.inr (Eq.trans hkold (Eq.symm heq))
-        · have hkpf' : k ∈ pf'.proof_noms := by
-            simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-            exact ⟨χ, hχ, hkχ⟩
-          exact absurd (hgc ▸ (hkold ▸ hkpf'))
-            (not_mem_proof_noms_generalize_constants new old hx heq pf)
-
-  private lemma not_mem_proof_noms_mp_ax_q2 {ψ : Form N} {x : SVAR} (new old : NOM N) (hx : x ≥ ψ.new_var)
-      (hne : new ≠ old) (pf' : Proof (all x, ψ[x // old])) (pf : Proof ψ)
-      (hgc : pf' = generalize_constants old hx pf) :
-      old ∉ (Proof.mp (ax_q2_nom (ψ[x // old]) x new) pf').proof_noms := by
-    intro hk
-    dsimp [proof_noms, formulasIn] at hk
-    simp only [List.mem_dedup, List.mem_flatMap] at hk
-    obtain ⟨χ, hχ, hkχ⟩ := hk
-    simp only [List.mem_append, List.mem_cons, List.mem_singleton] at hχ
-    rcases hχ with hχ | hχ | hχ
-    · rw [hχ] at hkχ
-      have h' : old ∈ ψ[new // old].list_noms := by rw [← svar_svar_nom_subst (φ := ψ) hx]; exact hkχ
-      exact not_mem_old_of_list_noms_subst new old hne h' rfl
-    · have hχ' := by simpa [formulasIn] using hχ
-      rw [hχ'] at hkχ
-      exact not_mem_old_of_list_noms_q2_implication new old hx hne hkχ
-    · have hmem : old ∈ pf'.proof_noms := by
-        simp only [proof_noms, List.mem_dedup, List.mem_flatMap]
-        exact ⟨χ, hχ, hkχ⟩
-      rw [hgc] at hmem
-      exact not_mem_proof_noms_generalize_constants new old hx hne pf hmem
+  theorem formulasIn_rename_constants_fwd {φ : Form N} (new old : NOM N) (pf : Proof φ) :
+      (rename_constants_fwd new old pf).formulasIn = pf.formulasIn.map (·[new // old]) := by
+    induction pf with
+    | general v pf ih => simp [rename_constants_fwd, Proof.formulasIn, ih]
+    | necess pf ih => simp [rename_constants_fwd, Proof.formulasIn, ih]
+    | @mp φ' ψ' pf1 pf2 ih1 ih2 =>
+        have htail :
+            (rename_constants_fwd new old pf1).formulasIn ++
+                (rename_constants_fwd new old pf2).formulasIn =
+              List.map (fun x => x[new // old]) pf1.formulasIn ++
+                List.map (fun x => x[new // old]) pf2.formulasIn := by
+              rw [ih1, ih2]
+        have h :=
+            show (mp (rename_constants_fwd new old pf1) (rename_constants_fwd new old pf2)).formulasIn =
+                (mp pf1 pf2).formulasIn.map (·[new // old]) from by
+              simp only [Proof.formulasIn, List.map, List.map_append]
+              exact congrArg (fun l => ψ'[new // old] :: l) htail
+        simpa [rename_constants_fwd] using h
+    | tautology _ => simp [rename_constants_fwd, Proof.formulasIn]
+    | ax_k => simp [rename_constants_fwd, Proof.formulasIn]
+    | ax_q1 _ _ _ => simp [rename_constants_fwd, Proof.formulasIn, nom_subst_nom]
+    | ax_q2_svar φ' v s p =>
+        have eq : ((all v, φ') ⟶ φ'[s // v])[new // old] =
+            (all v, φ'[new // old]) ⟶ (φ'[new // old])[s // v] := by
+          simp only [nom_subst_nom, nom_svar_subst_comm_nom]
+        have hfi := formulasIn_cast eq.symm (ax_q2_svar (φ'[new // old]) v s (by simpa [is_substable_nom_subst_nom] using p))
+        simp only [rename_constants_fwd, Proof.formulasIn, List.map, hfi, eq]
+    | ax_q2_nom φ' v s =>
+        have eq := nom_subst_ax_q2_nom (φ := φ') (v := v) (s := s) (new := new) (old := old)
+        have hfi := formulasIn_cast eq.symm (ax_q2_nom (φ'[new // old]) v (if s = old then new else s))
+        simp only [rename_constants_fwd, Proof.formulasIn, List.map, hfi, eq]
+    | ax_name _ => simp [rename_constants_fwd, Proof.formulasIn]
+    | @ax_nom φ' v m n =>
+        have eq := nom_subst_ax_nom (φ := φ') (v := v) (m := m) (n := n) (new := new) (old := old)
+        have hfi := formulasIn_cast eq.symm (ax_nom (φ := φ'[new // old]) (v := v) m n)
+        simp only [rename_constants_fwd, Proof.formulasIn, List.map, hfi, eq]
+    | ax_brcn => simp [rename_constants_fwd, Proof.formulasIn]
 
   lemma mem_proof_noms_rename_constants_fwd {φ : Form N} (new old : NOM N) (pf : Proof φ)
       {k : NOM N} (hk : k ∈ (rename_constants_fwd new old pf).proof_noms) :
       k ∈ pf.proof_noms ∨ k = new := by
-    have hx : φ.new_var ≥ φ.new_var := Nat.le.refl
-    unfold rename_constants_fwd at hk
-    simp_rw [proof_noms_cast (svar_svar_nom_subst hx (φ := φ))] at hk
-    have hgc : generalize_constants old hx pf = generalize_constants old hx pf := rfl
-    exact mem_proof_noms_mp_ax_q2 new old hx (generalize_constants old hx pf) pf hgc hk
+    simp only [Proof.proof_noms, List.mem_dedup, List.mem_flatMap] at hk ⊢
+    obtain ⟨χ, hχ, hkχ⟩ := hk
+    rw [formulasIn_rename_constants_fwd] at hχ
+    obtain ⟨χ', hχ', hχeq⟩ := List.mem_map.mp hχ
+    subst hχeq
+    rcases list_noms_subst hkχ with ⟨hk', _⟩ | hknew
+    · exact Or.inl ⟨χ', hχ', hk'⟩
+    · exact Or.inr hknew
 
   lemma not_mem_proof_noms_rename_constants_fwd {φ : Form N} (new old : NOM N) (pf : Proof φ)
       (hne : new ≠ old) : old ∉ (rename_constants_fwd new old pf).proof_noms := by
-    have hx : φ.new_var ≥ φ.new_var := Nat.le.refl
-    have hgc : generalize_constants old hx pf = generalize_constants old hx pf := rfl
     intro hk
-    unfold rename_constants_fwd at hk
-    simp_rw [proof_noms_cast (svar_svar_nom_subst hx (φ := φ))] at hk
-    exact not_mem_proof_noms_mp_ax_q2 new old hx hne (generalize_constants old hx pf) pf hgc hk
+    simp only [Proof.proof_noms, List.mem_dedup, List.mem_flatMap] at hk
+    obtain ⟨χ, hχ, hkχ⟩ := hk
+    rw [formulasIn_rename_constants_fwd] at hχ
+    obtain ⟨χ', _, hχeq⟩ := List.mem_map.mp hχ
+    subst hχeq
+    cases list_noms_subst hkχ with
+    | inl h => exact False.elim (h.2 rfl)
+    | inr h => exact hne h.symm
 
   def rename_constants (j i : NOM N) (h : nom_occurs j φ = false) : ⊢ φ iff ⊢ (φ[j // i]) := by
     apply TypeIff.intro

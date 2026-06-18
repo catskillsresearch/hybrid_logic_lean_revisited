@@ -7,6 +7,18 @@ structure Eval (N : Set ℕ) where
 
 def Tautology (φ : Form N) : Prop := ∀ e : Eval N, e.f φ = true
 
+theorem tautology_nom_subst {φ : Form N} (h : Tautology φ) (new old : NOM N) :
+    Tautology (φ[new // old]) := by
+  intro e
+  let f : Form N → Bool := fun ψ => e.f (ψ[new // old])
+  have p1 : f ⊥ = false := by simp [f, nom_subst_nom, e.p1]
+  have p2 : ∀ ψ χ, f (ψ ⟶ χ) = true ↔ (¬ f ψ = true ∨ f χ = true) := by
+    intro ψ χ
+    show e.f ((ψ ⟶ χ)[new // old]) = true ↔ _
+    simp only [nom_subst_nom, f]
+    exact e.p2 (ψ[new // old]) (χ[new // old])
+  exact h ⟨f, p1, p2⟩
+
 theorem e_dn {e : Eval N} : e.f (∼φ) = false ↔ e.f φ = true := by
   rw [Form.neg, ← Bool.not_eq_true, e.p2, e.p1]
   simp [Bool.not_eq_true]

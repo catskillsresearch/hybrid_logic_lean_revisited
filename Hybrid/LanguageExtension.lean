@@ -553,8 +553,8 @@ lemma Proof.mem_proof_noms_eliminate_one_alien {ψ : Form TotalSet} (pf : @Proof
     k ∈ pf.proof_noms ∨ k = base := by
   have hnocc := nom_occurs_false_of_form_noms_in_base hψ hAlien
   have hk' : k ∈ (rename_constants_fwd base j pf).proof_noms := by
-    simpa [Proof.eliminate_one_alien, hnocc] using hk
-  exact mem_proof_noms_rename_constants_fwd hk'
+    simpa [Proof.eliminate_one_alien, hnocc, proof_noms_cast] using hk
+  exact mem_proof_noms_rename_constants_fwd (new := base) (old := j) (pf := pf) hk'
 
 lemma Proof.not_mem_proof_noms_eliminate_one_alien {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
     (hψ : form_noms_in_base (N := NBase) ψ) (j base : NOM TotalSet)
@@ -563,9 +563,9 @@ lemma Proof.not_mem_proof_noms_eliminate_one_alien {ψ : Form TotalSet} (pf : @P
   have hnocc := nom_occurs_false_of_form_noms_in_base hψ hAlien
   intro h
   have h' : j ∈ (rename_constants_fwd base j pf).proof_noms := by
-    simpa [Proof.eliminate_one_alien, hnocc] using h
+    simpa [Proof.eliminate_one_alien, hnocc, proof_noms_cast] using h
   have hne : base ≠ j := fun heq => hAlien (heq ▸ _hb)
-  exact not_mem_proof_noms_rename_constants_fwd hne h'
+  exact not_mem_proof_noms_rename_constants_fwd (new := base) (old := j) (pf := pf) hne h'
 
 lemma Proof.all_noms_in_base_eliminate_go {ψ : Form TotalSet}
     (hψ : form_noms_in_base (N := NBase) ψ) (base : NOM TotalSet) (hb : nom_in_base (N := NBase) base) :
@@ -658,12 +658,58 @@ lemma form_noms_in_base_impl_right {a b : Form TotalSet} (h : form_noms_in_base 
     simp only [Form.list_noms, nom_occurs, Bool.or_eq_true, List.mem_dedup, List.mem_merge]
     exact Or.inr ((occurs_list_noms (φ := b)).mpr hj))
 
-/-- Pull an in-range `TotalSet` derivation back to the base language via `inv_t`.
-    Scaffold: mp/general/necess via explicit recursion; remaining admits on `ax_q2_nom`/`ax_brcn`. -/
-noncomputable def in_range_proof_back {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
-    (hall : ∀ χ ∈ pf.formulasIn, form_noms_in_base (N := NBase) χ) :
-    @Proof NBase ((@Form.inv_t NBase) ψ) := by
-  admit
+/-- Nominal substitution for a non-free variable is the identity. -/
+lemma subst_nom_notfree {N : Set ℕ} {a : Form N} {s : NOM N} {v : SVAR}
+    (h : is_free v a = false) : a[s // v] = a := by
+  induction a with
+  | svar z =>
+      simp only [is_free, beq_eq_false_iff_ne, ne_eq] at h
+      simp only [subst_nom]
+      rw [if_neg h]
+  | impl p q ihp ihq =>
+      simp only [is_free, Bool.or_eq_false_iff] at h
+      simp only [subst_nom, ihp h.1, ihq h.2]
+  | box p ih =>
+      simp only [is_free] at h
+      simp only [subst_nom, ih h]
+  | bind w p ih =>
+      simp only [subst_nom]
+      by_cases hvw : v = w
+      · rw [if_pos hvw]
+      · rw [if_neg hvw]
+        have hp : is_free v p = false := by
+          by_cases hf : is_free v p = true
+          · simp only [is_free, hf, Bool.and_true] at h
+            simp only [bne_eq_false_iff_eq] at h
+            exact absurd h.symm hvw
+          · simpa using hf
+        rw [ih hp]
+  | _ => rfl
+
+/-- If `v` occurs free in `a`, the substituted nominal `s` appears in `a[s // v]`. -/
+lemma nom_occurs_subst_nom_of_free {N : Set ℕ} {a : Form N} {s : NOM N} {v : SVAR}
+    (h : is_free v a = true) : nom_occurs s (a[s // v]) = true := by
+  induction a with
+  | svar z =>
+      simp only [is_free, beq_iff_eq] at h
+      subst h
+      simp [subst_nom, nom_occurs]
+  | impl p q ihp ihq =>
+      simp only [is_free, Bool.or_eq_true] at h
+      simp only [subst_nom, nom_occurs, Bool.or_eq_true]
+      rcases h with hp | hq
+      · exact Or.inl (ihp hp)
+      · exact Or.inr (ihq hq)
+  | box p ih =>
+      simp only [is_free] at h
+      simp only [subst_nom, nom_occurs]
+      exact ih h
+  | bind w p ih =>
+      simp only [is_free, Bool.and_eq_true, bne_iff_ne, ne_eq] at h
+      have hvw : v ≠ w := fun e => h.1 e.symm
+      simp only [subst_nom, if_neg hvw, nom_occurs]
+      exact ih h.2
+  | _ => simp [is_free] at h
 
 end Conservativity
 
@@ -732,6 +778,126 @@ theorem total_ax_nom {φ : Form N} {v : SVAR} {ψ : Form TotalSet} {m n : ℕ}
   simp only [Form.total, Form.conj, Form.neg, Form.diamond, total_iterate_pos,
              total_iterate_nec, total_in_range ⟨e2, he2⟩]
 
+/-- Pull an in-range `TotalSet` derivation back to the base language via `inv_t`.
+    Structural induction on the derivation: deduction rules recurse through
+    `inv_t_impl`/`inv_t_box`/`inv_t_bind`; axioms reconstruct via the `total_ax_*`
+    lemmas.  The `ax_q2_nom` case splits on whether the substituted nominal is in
+    the base language (it vanishes exactly when the bound variable is not free). -/
+noncomputable def in_range_proof_back {NBase : Set ℕ} {ψ : Form TotalSet} (pf : @Proof TotalSet ψ)
+    (hall : ∀ χ ∈ pf.formulasIn, form_noms_in_base (N := NBase) χ) :
+    @Proof NBase ((@Form.inv_t NBase) ψ) := by
+  revert hall
+  induction pf with
+  | @tautology a ht =>
+      intro hall
+      have hbase : form_noms_in_base (N := NBase) a := hall a (by simp [Proof.formulasIn])
+      apply Proof.tautology
+      rw [total_tautology, inv_t_eq_of_range' hbase]
+      exact ht
+  | @general χ v pf' ih =>
+      intro hall
+      have hbase : form_noms_in_base (N := NBase) χ :=
+        hall (all v, χ) (by simp [Proof.formulasIn])
+      have ihp := ih (fun c hc => hall c (by
+        simp only [Proof.formulasIn, List.mem_cons]; exact Or.inr hc))
+      rw [inv_t_bind hbase]
+      exact general v ihp
+  | @necess χ pf' ih =>
+      intro hall
+      have hbase : form_noms_in_base (N := NBase) χ :=
+        hall (□ χ) (by simp [Proof.formulasIn])
+      have ihp := ih (fun c hc => hall c (by
+        simp only [Proof.formulasIn, List.mem_cons]; exact Or.inr hc))
+      rw [inv_t_box hbase]
+      exact necess ihp
+  | @mp a b pf1 pf2 ih1 ih2 =>
+      intro hall
+      have hab : form_noms_in_base (N := NBase) (a ⟶ b) :=
+        hall (a ⟶ b) (by
+          simp only [Proof.formulasIn, List.mem_append, List.mem_cons]
+          exact Or.inl (Or.inr (mem_formulasIn_self pf1)))
+      have ha : form_noms_in_base (N := NBase) a :=
+        form_noms_in_base_impl_left hab
+      have hb : form_noms_in_base (N := NBase) b :=
+        form_noms_in_base_impl_right hab
+      have ihp1 := ih1 (fun c hc => hall c (by
+        simp only [Proof.formulasIn, List.mem_append, List.mem_cons]
+        exact Or.inl (Or.inr hc)))
+      have ihp2 := ih2 (fun c hc => hall c (by
+        simp only [Proof.formulasIn, List.mem_append, List.mem_cons]
+        exact Or.inr hc))
+      rw [inv_t_impl ha hb] at ihp1
+      exact mp ihp1 ihp2
+  | @ax_k a b =>
+      intro hall
+      have hbase : form_noms_in_base (N := NBase) (□(a ⟶ b) ⟶ (□a ⟶ □b)) :=
+        hall _ (by simp [Proof.formulasIn])
+      rw [total_ax_k (inv_t_eq_of_range' hbase)]
+      exact ax_k
+  | @ax_q1 a b v p =>
+      intro hall
+      have hbase : form_noms_in_base (N := NBase) ((all v, a ⟶ b) ⟶ (a ⟶ all v, b)) :=
+        hall _ (by simp [Proof.formulasIn])
+      have hab : form_noms_in_base (N := NBase) (a ⟶ b) :=
+        form_noms_in_base_impl_left hbase
+      have ha : form_noms_in_base (N := NBase) a :=
+        form_noms_in_base_impl_left hab
+      rw [total_ax_q1 (inv_t_eq_of_range' hbase)]
+      apply ax_q1
+      rw [← total_is_free, inv_t_eq_of_range' ha]
+      exact p
+  | @ax_q2_svar a v s p =>
+      intro hall
+      have hbase : form_noms_in_base (N := NBase) ((all v, a) ⟶ a[s // v]) :=
+        hall _ (by simp [Proof.formulasIn])
+      have ha : form_noms_in_base (N := NBase) a :=
+        form_noms_in_base_impl_left hbase
+      rw [total_ax_q2_svar (inv_t_eq_of_range' hbase)]
+      apply ax_q2_svar
+      rw [← total_is_substable, inv_t_eq_of_range' ha]
+      exact p
+  | @ax_q2_nom a v s =>
+      intro hall
+      have hbase : form_noms_in_base (N := NBase) ((all v, a) ⟶ a[s // v]) :=
+        hall _ (by simp [Proof.formulasIn])
+      have ha : form_noms_in_base (N := NBase) a :=
+        form_noms_in_base_impl_left hbase
+      have heq : ((@Form.inv_t NBase) ((all v, a) ⟶ a[s // v])).total = (all v, a) ⟶ a[s // v] :=
+        inv_t_eq_of_range' hbase
+      by_cases hfree : is_free v a = true
+      · have hsocc : nom_occurs s (a[s // v]) = true := nom_occurs_subst_nom_of_free hfree
+        have hslist : s ∈ (a[s // v]).list_noms := (occurs_list_noms (φ := a[s // v])).mp hsocc
+        have hs : nom_in_base (N := NBase) s :=
+          (form_noms_in_base_impl_right hbase) s hslist
+        rw [total_ax_q2_nom ha hs heq]
+        exact ax_q2_nom ((@Form.inv_t NBase) a) v (NOM.fromTotal s hs)
+      · have hnf : is_free v a = false := by simpa using hfree
+        have hav : a[s // v] = a := subst_nom_notfree hnf
+        rw [hav] at heq ⊢
+        rw [total_ax_q2_nom_end ha heq]
+        have hnf' : is_free v ((@Form.inv_t NBase) a) = false := by
+          rw [← total_is_free, inv_t_eq_of_range' ha]; exact hnf
+        exact iff_mp (all_iff_notfree hnf')
+  | @ax_name v =>
+      intro hall
+      have hbase : form_noms_in_base (N := NBase) (ex v, v) :=
+        hall _ (by simp [Proof.formulasIn])
+      rw [total_ax_name (inv_t_eq_of_range' hbase)]
+      exact ax_name v
+  | @ax_nom a v m n =>
+      intro hall
+      have hbase : form_noms_in_base (N := NBase)
+          (all v, iterate_pos m (v ⋀ a) ⟶ iterate_nec n (v ⟶ a)) :=
+        hall _ (by simp [Proof.formulasIn])
+      rw [total_ax_nom (inv_t_eq_of_range' hbase)]
+      exact ax_nom m n
+  | @ax_brcn a v =>
+      intro hall
+      have hbase : form_noms_in_base (N := NBase) ((all v, □ a) ⟶ (□ all v, a)) :=
+        hall _ (by simp [Proof.formulasIn])
+      rw [total_ax_brcn (inv_t_eq_of_range' hbase)]
+      exact ax_brcn
+
 noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
   apply TypeIff.intro
   . intro pf
@@ -769,6 +935,9 @@ noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
         apply Proof.necess
         assumption
   . intro pf
-    -- Blackburn pipeline (F2 alien elimination → F3 inv_t pullback).  Blocked on
-    -- `Proof.all_noms_in_base_eliminate_aliens` (F2) and `in_range_proof_back` (F3).
+    -- Blackburn pipeline.  F2 (`all_noms_in_base_eliminate_aliens` /
+    -- `form_noms_in_base_of_eliminate_aliens`) and F3 (`in_range_proof_back`) are
+    -- both proven; remaining work (F4) is wiring them together — eliminate aliens
+    -- from `pf` (needs a base nominal, i.e. `N` nonempty), then pull back via
+    -- `in_range_proof_back` and rewrite `(φ.total)⁻ = φ` through `total_inv_is_inv`.
     admit
