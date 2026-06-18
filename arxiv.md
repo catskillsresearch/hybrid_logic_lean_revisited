@@ -528,32 +528,47 @@ unworkable; it requires a globally fresh nominal that provably does not exist.
 **The correct route (Oltean's intended Henkin construction).** Build the witnessed successor
 *incrementally*, borrowing witnesses from `Δ`'s own witnessedness via `l313'` — which uses a
 fresh **variable** (`new_var`), not a fresh nominal. The hardest analytic lemma (`l313`/`l313'`)
-and `witness_conditionals` are **already proven** (`ExistenceLemma.lean`, live code). Remaining
-steps:
+and the witness-conditional accumulator are **already proven** (`ExistenceLemma.lean`, live code),
+and **`RegularLindenbaumLemma` already exists** (`Lindenbaum.lean`, general over any `N`). A
+reconnaissance pass turned up the precise obstruction and a concrete plan:
 
-1. **`RegularLindenbaumLemma`** (`Lindenbaum.lean`, NEW): plain MCS extension
-   `consistent Γ → ∃ Γ', Γ ⊆ Γ' ∧ MCS Γ'`. Straightforward: reuse `LindenbaumMCS`,
-   `LindenbaumConsistent`, `LindenbaumMaximal` (drop the `witnessed`/`enough_noms` clause from
-   `WitnessedLindenbaumLemma`).
-2. **`set_family` / `succesor_set`** (`ExistenceLemma.lean`, NEW — currently commented out with
-   `admit`s; this is the crux):
-   - *base* `n = 0`: `Γ₀ = {ψ} ∪ {χ │ □χ ∈ Δ}` is consistent — **already proven** as
-     `diamond_extension_consistent`; extend to an MCS via `RegularLindenbaumLemma`.
-   - *inductive step* `n+1`: ensure `enum n` is witnessed in the family, using
-     `l313'`/`witness_conditionals` (the `((ex x,χ)⟶χ[i//x])` conditionals) to add the Henkin
-     witness while preserving `Canonical.R Δ ·` and `ψ`-membership.
-   - *output property*: the limit set is (a) `Canonical.R`-successor of `Δ` (since
-     `{χ│□χ∈Δ} ⊆ Γ'`), (b) contains `ψ`, (c) `MCS`, and (d) **`witnessed`** — (d) is the genuine
-     hard goal (the point Oltean stalled on).
-3. **Rewire `diamond_succ_mcs`** (`CompletedModel.lean`): produce
-   `⟨Γ', Canonical.R Δ Γ', ψ ∈ Γ', MCS Γ', witnessed Γ'⟩` from `succesor_set` instead of
-   `WitnessedLindenbaumLemma`/`enough_noms_diamond_seed`, then **delete
-   `enough_noms_diamond_seed` and `diamond_extension_consistent`'s seed-only role is folded into
-   step 2's base case**.
+**The data-vs-`Prop` flaw.** `witness_conditionals` currently returns `∃ l, l ≠ [] ∧
+◇conjunction' l ∈ Δ` — a **`Prop`** — and `succesor_set`/`succesor_set'` extract the list with
+`.choose`. Because `Exists` is proof-irrelevant, `.choose` returns *some* list with that
+property, **not** the structured accumulating one the recursion built; the "the witness
+conditional for `enum n` is in the list" fact is then unrecoverable, and witnessedness cannot be
+proven. *This is exactly why the commented `set_family`/`succesor_set` stalled.* The fix is to
+return **data** (a `Subtype`/`Sigma`), preserving the list.
 
-Completing steps 1–3 turns the five TL `Partial` rows and the two I `Partial` rows
-(`cons_sat`, `Completeness`) green, finishing the whole development. This is a substantial,
-research-level construction (not a localized fix); step 2(d) is the deciding milestone.
+**Step plan (Step 1 done; Step 2 = the work; Step 3 mechanical):**
+
+- **2.0** Re-type the accumulator to
+  `{ l : List (Form TotalSet) // l ≠ [] ∧ ◇conjunction' l ∈ Δ }`, preserving the recursion
+  (`[ψ]` at the base, prepend `((ex x,σ)⟶σ[i//x])` from `l313'` at each existential step).
+- **2.1** Lemmas `wc_mono` (`(wc n).val` is a sublist of `(wc (n+1)).val`) and `wc_step`
+  (`enum n = ex x,σ → ∃ i, ((ex x,σ)⟶σ[i//x]) ∈ (wc (n+1)).val`).
+- **2.2** Define `succ_seed := {ψ} ∪ {χ │ □χ ∈ Δ} ∪ ⋃ₙ ↑(wc n).val`; prove `ψ ∈ succ_seed`
+  and `{χ│□χ∈Δ} ⊆ succ_seed`.
+- **2.3** `consistent succ_seed`: any finite `L ⊆ succ_seed` has its conditionals inside some
+  stage `wc N` (`wc_mono`), so `conjunction succ_seed L` is `⊢`-implied by
+  `conjunction' (wc N).val` together with the box-reduct; since `◇conjunction' (wc N).val ∈ Δ`,
+  the **already-proven `diamond_extension_consistent`** (applied to `conjunction' (wc N).val`)
+  gives consistency. (This is finitary bookkeeping over a generalization of
+  `diamond_extension_consistent`; the analytic content is done.)
+- **2.4** `RegularLindenbaumLemma succ_seed` → MCS `Γ' ⊇ succ_seed`.
+- **2.5** Output properties: **`Canonical.R Δ Γ'`** (box-reduct ⊆ `Γ'`); **`ψ ∈ Γ'`** (stage 0);
+  **`witnessed Γ'`** — `enum = f.invFun` is **surjective** (left inverse of an injection), so any
+  `ex x,σ ∈ Γ'` is `enum n`; at step `n+1` its conditional is in `succ_seed ⊆ Γ'`, and `MCS_mp`
+  gives `σ[i//x] ∈ Γ'`. *(2.5 witnessed is the milestone Oltean stalled on, but with the data
+  refactor it reduces to `MCS_mp` + surjectivity — tractable.)*
+- **2.6 (Step 3)** Rewire `diamond_succ_mcs` to return `⟨Γ', Canonical.R Δ Γ', ψ∈Γ', MCS Γ',
+  witnessed Γ'⟩` from this construction; **delete `enough_noms_diamond_seed`**
+  (`diamond_extension_consistent` is retained — it powers 2.3).
+
+Completing 2.0–2.6 turns the five TL `Partial` rows and the two I `Partial` rows
+(`cons_sat`, `Completeness`) green, finishing the whole development. The *new* technical content
+is the data refactor (2.0–2.1) and the compactness bookkeeping (2.3); no fundamental wall remains
+(the box-leak that kills `enough_noms` does not affect this route).
 
 *Attribution (cf. §1.3).* This step is **not** an application of Mishra's structural-freshness
 suggestion — that idea is decisive at the *root* Lindenbaum construction but inapplicable
@@ -791,12 +806,11 @@ while **F** awaits `pf_extended` ← for **I** only).
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.mcs_in_*_succ` | `mcs_in_witnessed_succ` / `completed_to_witnessed` / `mcs_in_completed_succ` | Pass |
 | TL · `CompletedModel.restrict_canonical_succ` | extend witnessed path along `Canonical.R` | Pass |
-| TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent (via `box_of_consequence` + `nec_mono`/`box_conj_mem`) | Pass |
-| TL · `CompletedModel.enough_noms_diamond_seed` | **FALSE as stated** (`{χ│□χ∈Δ}` contains `nom i ⟶ nom i` for every `i`, so no nominal is ever fresh — see §TL-fix). **To be deleted**, not proven. | Drop |
+| TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent (via `box_of_consequence` + `nec_mono`/`box_conj_mem`); also powers the compactness step in `succ_seed` consistency | Pass |
 | TL · `ExistenceLemma.l313` / `l313'` | push a witness conditional `((ex x,χ)⟶χ[i//x])` through `◇` using a fresh **variable** + `Δ`'s own witnessedness (no fresh nominal needed) | Pass |
 | TL · `ExistenceLemma.witness_conditionals` | accumulate witness conditionals so `◇conjunction' l ∈ Δ` | Pass |
-| TL · `Lindenbaum.RegularLindenbaumLemma` | **NEW** — plain MCS extension `consistent Γ → ∃ Γ', Γ ⊆ Γ' ∧ MCS Γ'` (assemble from `LindenbaumMCS`/`Consistent`/`Maximal`) | Not Yet |
-| TL · `ExistenceLemma.set_family` / `succesor_set` | **NEW (crux)** — witnessed ◇-successor of `Δ`: base consistency = `diamond_extension_consistent` ✅; inductive step (Henkin witnessing of `enum n`) + `witnessed Γ'` proof are the genuine remaining work (currently commented out with `admit`s) | Not Yet |
+| TL · `Lindenbaum.RegularLindenbaumLemma` | plain MCS extension `consistent Γ → ∃ Γ', Γ ⊆ Γ' ∧ MCS Γ'` (already present, general over any `N`) | Pass |
+| TL · `ExistenceLemma.set_family` / `succesor_set` | **NEW (crux)** — witnessed ◇-successor of `Δ`. Recon found the stall cause: the accumulator returns `Prop` and `.choose` loses the list. Plan (§TL-fix 2.0–2.5): re-type to `Subtype` (data), prove `wc_mono`/`wc_step`, define `succ_seed`, show consistency via compactness + `diamond_extension_consistent`, extend by `RegularLindenbaumLemma`, then `Canonical.R`/`ψ∈Γ'`/`witnessed` (witnessed = `MCS_mp` + `enum` surjectivity) | Not Yet |
 | TL · `CompletedModel.diamond_succ_mcs` | **to be rewired** off `enough_noms_diamond_seed` onto `succesor_set`; then yields `Canonical.R Δ Γ' ∧ ψ∈Γ' ∧ MCS Γ' ∧ witnessed Γ'` | Partial |
 | TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline via `diamond_succ_mcs` ⇒ blocked on the successor-existence crux | Partial |
 | TL · `Proof.not_nec_to_diamond` | `∼(□φ) ⟶ ◇∼φ` for MCS maximality step | Pass |
