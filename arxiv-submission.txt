@@ -1,0 +1,57 @@
+arXiv submission metadata
+==========================
+
+Paste these values into the arXiv submission form. They are kept ASCII + inline
+TeX so the database form accepts them (no raw Unicode math glyphs, no markdown).
+
+Title
+-----
+Finishing Oltean's Completeness Proof in Lean 4 for Hybrid Logic $L(\forall)$
+
+  - Use the straight ASCII apostrophe ' in "Oltean's" (not a curly quote).
+  - The quantifier is written as TeX ($L(\forall)$), which arXiv renders as L(forall);
+    do NOT paste the Unicode glyph U+2200.
+
+Authors
+-------
+Lars Warren Ericson (Catskills Research Company)
+ORCID: 0000-0001-8299-9361
+
+Categories
+----------
+Primary:   cs.LO (Logic in Computer Science)
+Secondary: math.LO (Logic)
+
+MSC 2020 class (MSC-class field)
+--------------------------------
+03B45 (Primary) 68V20, 68V15, 03B70, 03B35 (Secondary)
+
+  03B45  Modal logic (including the logic of norms)              [primary]
+  68V20  Formalization of mathematics in connection with theorem provers
+  68V15  Theorem proving (automated and interactive provers, deduction, ...)
+  03B70  Logic in computer science
+  03B35  Mechanization of proofs and logical operations
+  (optional extras: 03B15 Higher-order logic and type theory;
+                    03B22 Abstract deductive systems)
+
+ACM 1998 class (ACM-class field)
+--------------------------------
+F.4.1; I.2.3
+
+  F.4.1  [Mathematical Logic and Formal Languages]: Mathematical Logic --
+         Modal logic; Mechanical theorem proving; Proof theory          [primary]
+  I.2.3  [Artificial Intelligence]: Deduction and Theorem Proving --
+         Deduction; Metatheory
+
+Abstract (abstract field; <= 1920 chars, ASCII + inline TeX)
+------------------------------------------------------------
+We present a machine-checked completeness theorem, in Lean 4, for the hybrid logic $L(\forall)$: propositional modal logic with nominals, the satisfaction-style binder $\forall$, and the box modality. (Machine-checked completeness for basic hybrid logic, without binders, was pioneered by Asta Halkj\ae r From in Isabelle/HOL.) We build on Alex Oltean's 2023 Lean 4 formalization, which mechanized the syntax, semantics, Hilbert-style proof system, and soundness following Blackburn's Hybrid Completeness (1998), but left completeness unfinished. Finishing it requires manufacturing fresh names at two structurally different points, and our central finding is that they call for two different tools. (1) The root witnessed maximal consistent set, built by an extended Lindenbaum construction, needs at each step a nominal fresh for the whole set; the right tool is structural freshness: extend the language so an infinite supply of nominals is reserved by construction. We survey the design space (Oltean's odd/even encoding inside $\mathbb{N}$, the disjoint-sum $N \oplus \mathbb{N}$ parameterization suggested by Bud Mishra, and From's synthetic-completeness frameworks) and explain the encoding we adopt. (2) The witnessed $\Diamond$-successor of a maximal consistent set cannot be obtained this way: its canonical box-reduct provably mentions every nominal, so no reserved name is fresh. Here the right tool is one Oltean chose but left incomplete: an existence-lemma Henkin construction drawing each witness from the predecessor's witnessedness through a fresh state variable; we complete it with a data-carrying witness accumulator and a compactness argument. The theorem $\Gamma \models \varphi \to \Gamma \vdash \varphi$ is fully formalized: the development is sorry-free, and #print axioms reports only propext, Classical.choice, and Quot.sound. We port the development to Lean v4.30.0 / mathlib v4.30.0.
+
+Source package
+--------------
+Upload dist/arxiv_with_code_submit.zip (compiler: pdflatex).
+  - Lean listings render via the listings literate table (UTF-8 source kept verbatim).
+  - Mermaid diagrams ship as pre-rendered figures/*.pdf (AutoTeX cannot run mmdc).
+  - On "Add Files": Delete All before uploading (uploads merge, not replace).
+  - On "Review Files": if any lean-listings/*.lean or figures/*.pdf are marked for
+    deletion, UNCHECK them.
