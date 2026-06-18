@@ -31,10 +31,10 @@
 - [`Hybrid/Lindenbaum.lean`](#hybridlindenbaumlean) — 551 lines
 - [`Hybrid/LanguageExtension.lean`](#hybridlanguageextensionlean) — 975 lines
 - [`Hybrid/ExistenceLemma.lean`](#hybridexistencelemmalean) — 108 lines
-- [`Hybrid/CompletedModel.lean`](#hybridcompletedmodellean) — 881 lines
+- [`Hybrid/CompletedModel.lean`](#hybridcompletedmodellean) — 914 lines
 - [`Hybrid/Completeness.lean`](#hybridcompletenesslean) — 109 lines
 
-**Total:** 17 files, 7100 lines of Lean.
+**Total:** 17 files, 7133 lines of Lean.
 
 ---
 
@@ -326,10 +326,11 @@ flowchart TD
 chain calls on the successor seed `{ψ} ∪ {□χ ∈ Δ}`.
 
 *Figure 1c · TL · completed-model truth lemma.*
-Oltean's base cases and `truth_ex` compile; **□** and **∀** are new. The **□ →** direction and the **∀**
-not-free case are closed; **□ ←** runs through the diamond-successor pipeline below
-(two seed lemmas still open). **TruthLemma** is a structural `cases` assembly (`bind`
-delegates to partial `truth_all`).
+Oltean's base cases and `truth_ex` compile; **□** and **∀** are new. The **∀** case (`truth_all`)
+is now **fully closed** for both free and non-free `x` (uniform proof, dual to `truth_ex`);
+the **□ →** direction is closed and **□ ←** runs through the diamond-successor pipeline below
+(only `enough_noms_diamond_seed` still open). **TruthLemma** is assembled by well-founded
+recursion on `Form.depth`, which supplies `truth_all`'s depth-indexed induction hypothesis.
 
 ```mermaid
 flowchart TD
@@ -356,14 +357,12 @@ flowchart TD
   nnd --> box
 
   ainf["all_iff_notfree"]:::pass
-  base --> allNF["truth_all<br/>(x not free in ψ)"]:::pass
+  base --> allNF["truth_all<br/>(uniform: free + non-free x)"]:::pass
   ainf --> allNF
-  allNF --> allF["truth_all<br/>(x free: rename / truth_ex pattern)"]:::open
 
-  base --> TLm["TruthLemma<br/>(structural cases)"]:::partial
+  base --> TLm["TruthLemma<br/>(WF recursion on depth)"]:::partial
   box --> TLm
   allNF --> TLm
-  allF -.->|"blocks full TL"| TLm
 ```
 
 *Figure 1d · I · model existence.*
@@ -383,8 +382,7 @@ flowchart TD
   D --> E["sat_odd_noms' + sat_total"]:::pass
   E --> F["satisfiable Γ"]
   B -.->|"BLOCKED"| G["F · pf_extended ←"]
-  D -.->|"BLOCKED"| H1["diamond_extension_consistent<br/>· enough_noms_diamond_seed"]
-  D -.->|"BLOCKED"| H2["truth_all (x free in ψ)"]
+  D -.->|"BLOCKED"| H1["enough_noms_diamond_seed<br/>(single remaining hole)"]
 ```
 
 **The incoming state: where the holes are.** What Oltean left open is concentrated in the
@@ -497,16 +495,17 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or `l313'`.
   This path is now **complete**: `consistent_total` is proven and the `N`-nonempty hypothesis
   (needed to pick a base nominal for alien elimination) is threaded through `cons_sat` /
-  `Completeness`.  The only holes left in the whole development are the two **TL** rows.
+  `Completeness`.  The only hole left in the whole development is the single **TL** row
+  `enough_noms_diamond_seed`.
 - **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
   `truth_ex`) and the supporting valuation lemmas to the current `simp` normal forms.
   **`truth_box` and `truth_all` are new** — Oltean's archived development stops before the
-  modal/binder cases. `TruthLemma` is assembled by structural `cases` on `Form` (with a
-  separate `truth_ex` branch, since `ex` is not a `Form` constructor); the `bind` case
-  delegates to `truth_all`, which is closed when `x` is not free in `ψ` and still open
-  in the free case (rename / `truth_ex` pattern). Depends on **B**, **D**, **H** (and on
-  Kripke semantics and Soundness).
+  modal/binder cases. `TruthLemma` is assembled by well-founded recursion on `Form.depth`;
+  the `bind` case delegates to `truth_all`, now **fully closed** for both free and non-free
+  `x` (uniform `has_state_symbol` split + depth-indexed `ih`, dual to `truth_ex`). The one
+  remaining hole is `enough_noms_diamond_seed` (the **□ ←** diamond-successor seed freshness).
+  Depends on **B**, **D**, **H** (and on Kripke semantics and Soundness).
 - **I. Remove the final-completeness hole.** `Completeness`: `cons_sat` runs
   `consistent_total` → `ExtendedLindenbaumLemma (Set.total Γ)` → `TruthLemma` at the root
   witnessed MCS → `sat_odd_noms'` / `sat_total`; `Completeness` is then
@@ -741,24 +740,24 @@ while **F** awaits `pf_extended` ← for **I** only).
 | F · `LanguageExtension.syntactic_conservativity` | lift `Set.total Γ ⊢ φ.total` back to `Γ ⊢ φ` via `pf_extended` ← + `base_conjunction` | Pass |
 | F · `LanguageExtension.sat_total` / `Model.ofTotal` | `TotalSet` satisfaction → `Model N` | Pass |
 | F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
-| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Partial** |
+| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** — all `Partial` rows below now derive from a **single root hole**: **#1** `enough_noms_diamond_seed` (`truth_all` free case is now **Pass**) | **Partial** |
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.mcs_in_*_succ` | `mcs_in_witnessed_succ` / `completed_to_witnessed` / `mcs_in_completed_succ` | Pass |
 | TL · `CompletedModel.restrict_canonical_succ` | extend witnessed path along `Canonical.R` | Pass |
 | TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent (via `box_of_consequence` + `nec_mono`/`box_conj_mem`) | Pass |
-| TL · `CompletedModel.enough_noms_diamond_seed` | fresh nominals for witnessed Lindenbaum on seed | Not Yet |
-| TL · `CompletedModel.diamond_succ_mcs` | `WitnessedLindenbaumLemma` wired; needs rows above | Partial |
-| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline (blocked on diamond rows) | Partial |
+| TL · `CompletedModel.enough_noms_diamond_seed` | **ROOT HOLE #1** — fresh nominals for witnessed Lindenbaum on seed (needs model-layer reserve redesign) | Not Yet |
+| TL · `CompletedModel.diamond_succ_mcs` | `WitnessedLindenbaumLemma` wired; calls `enough_noms_diamond_seed` ⇒ blocked on **#1** | Partial |
+| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline via `diamond_succ_mcs` ⇒ blocked on **#1** | Partial |
 | TL · `Proof.not_nec_to_diamond` | `∼(□φ) ⟶ ◇∼φ` for MCS maximality step | Pass |
-| TL · `CompletedModel.truth_box` | □ case wired; ← blocked on diamond chain | Partial |
+| TL · `CompletedModel.truth_box` | □ case wired; ← via `diamond_completed_succ` ⇒ blocked on **#1** | Partial |
 | TL · `Proof.all_iff_notfree` | `(all x, ψ) ⟷ ψ` when `x` not free (Q1 + `ax_q2`) | Pass |
-| TL · `CompletedModel.truth_all` | not-free case closed; free case (`is_free x ψ`) still open | Partial |
-| TL · `CompletedModel.TruthLemma` | structural assembly; `bind` via partial `truth_all` | Partial |
-| **I** | **Final-completeness hole** | **Partial** |
+| TL · `CompletedModel.truth_all` | uniform proof (free + non-free `x`): nominal/svar symbol split + depth-indexed `ih`; forward via `ax_q2_nom`/`ax_q2_svar`, backward via `witnessed` on `ex x, ∼ψ` (`bind_dual`) | Pass |
+| TL · `CompletedModel.TruthLemma` | structural assembly via well-founded recursion on `Form.depth` (supplies `truth_all`'s depth-`ih`); ⇒ blocked only on **#1** (`box`) | Partial |
+| **I** | **Final-completeness hole** — both `Partial` rows derive from the single TL root **#1** (via `TruthLemma`); no I-local holes remain | **Partial** |
 | I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` via `syntactic_conservativity` (needs `N` nonempty, threaded through `cons_sat`/`Completeness`) | Pass |
-| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; now blocked only on the TL track via `TruthLemma`) | Partial |
+| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked only via `TruthLemma` on TL root **#1**) | Partial |
 | I · `Completeness.ModelExistence` | completeness ⟺ every consistent set is satisfiable | Pass |
-| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`; takes `N` nonempty) | Partial |
+| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`; takes `N` nonempty) ⇒ blocked via `TruthLemma` on **#1** | Partial |
 
 ---
 
@@ -7079,7 +7078,7 @@ def succesor_set (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : Δ.MCS) (wit
 
 ## `Hybrid/CompletedModel.lean`
 
-*881 lines.*
+*914 lines.*
 
 ```lean
 import Hybrid.ProofUtils
@@ -7920,36 +7919,62 @@ lemma truth_box {ψ : Form TotalSet} : ∀ {Θ : Set (Form TotalSet)}, (mcs : MC
       have hbot : Form.bttm ∈ Δ' := Proof.MCS_mp Δ'_mcs hneg hψmem
       exact Δ'_mcs.1 (Proof.Γ_premise hbot)
 
--- Truth lemma, `∀` case: when `x` is not free in `ψ`, `all x, ψ` agrees with `ψ`;
--- the free case uses the same rename/`ax_q2` pattern as `truth_ex`.
-lemma truth_all {ψ : Form TotalSet} : ∀ {Θ : Set (Form TotalSet)} {x : SVAR}, (mcs : MCS Θ) → (wit : witnessed Θ) →
-    (statement ψ mcs wit) → statement (all x, ψ) mcs wit := by
-  intro Θ x mcs wit ih Δ h_in
-  have ⟨Δ_mcs, _⟩ := (mcs_in_prop mcs wit h_in)
+-- Truth lemma, `∀` case.  Handled uniformly (free and non-free `x`) by the dual of the
+-- `truth_ex` machinery: in the completed model every state is named by a nominal or an
+-- svar (`has_state_symbol`), so each variant reduces to a substitution instance of `ψ`
+-- whose statement is available through the depth-indexed `ih`.  Forward uses the `ax_q2`
+-- instances; backward uses `witnessed` on `ex x, ∼ψ` (via `bind_dual`) for a contradiction.
+lemma truth_all {ψ : Form TotalSet} {x : SVAR} : ∀ {Θ : Set (Form TotalSet)}, (mcs : MCS Θ) → (wit : witnessed Θ) →
+    (∀ {χ : Form TotalSet}, χ.depth < (all x, ψ).depth → statement χ mcs wit) → statement (all x, ψ) mcs wit := by
+  intro Θ mcs wit ih Δ h_in
+  have ⟨Δ_mcs, Δ_wit⟩ := (mcs_in_prop mcs wit h_in)
   apply Iff.intro
-  · intro hall
+  · -- forward: `(all x, ψ) ∈ Δ → satisfaction`
+    intro hall
     simp only [Sat]
     intro g' hvar
-    by_cases hf : is_free x ψ = false
-    · have hψmem : ψ ∈ Δ :=
-        Proof.MCS_pf Δ_mcs (Proof.Γ_mp (Proof.Γ_theorem (@Proof.ax_q2_svar_instance x TotalSet ψ) Δ)
-          (Proof.Γ_premise hall))
-      have hsatψ : (StandardCompletedModel mcs wit, coe Δ mcs wit h_in, StandardCompletedI mcs wit) ⊨ ψ :=
-        (ih h_in).mp hψmem
-      have hequiv := @generalize_not_free x TotalSet ψ hf (StandardCompletedModel mcs wit)
-          (coe Δ mcs wit h_in) (StandardCompletedI mcs wit)
-      rw [iff_sat] at hequiv
-      have hsatall := hequiv.mp hsatψ
-      simp only [Sat] at hsatall ⊢
-      exact hsatall g' hvar
-    · admit
-  · intro hsat
-    by_cases hf : is_free x ψ = false
-    · have hsatψ : (StandardCompletedModel mcs wit, coe Δ mcs wit h_in, StandardCompletedI mcs wit) ⊨ ψ :=
-        hsat (StandardCompletedI mcs wit) (is_variant_refl x)
-      have hψmem : ψ ∈ Δ := (ih h_in).mpr hsatψ
-      exact (Proof.MCS_rw Δ_mcs (@Proof.all_iff_notfree TotalSet x ψ hf)).mpr hψmem
-    · admit
+    apply Or.elim (has_state_symbol (g' x))
+    · -- the variant value is named by a nominal `i`
+      intro ⟨i, sat_i⟩
+      have hmem : ψ[i//x] ∈ Δ :=
+        Proof.MCS_pf Δ_mcs (Proof.Γ_mp (Proof.Γ_theorem (Proof.ax_q2_nom ψ x i) Δ) (Proof.Γ_premise hall))
+      have hsatsub := ((@ih (ψ[i//x]) subst_depth_bind) h_in).mp hmem
+      exact (nom_substitution (is_variant_symm.mp hvar) sat_i.symm).mp hsatsub
+    · -- the variant value is named by an svar `y`; rename bound vars to substitute safely
+      intro ⟨y, sat_y⟩
+      have hpf : ⊢ ((all x, ψ) ⟶ ((ψ.replace_bound y)[y//x])) :=
+        Proof.hs
+          (Proof.mp Proof.b363 (Proof.general x (Proof.mp (Proof.tautology iff_elim_l) (rename_all_bound_pf ψ y))))
+          (Proof.ax_q2_svar (ψ.replace_bound y) x y (substable_after_replace ψ))
+      have hmem : ((ψ.replace_bound y)[y//x]) ∈ Δ :=
+        Proof.MCS_pf Δ_mcs (Proof.Γ_mp (Proof.Γ_theorem hpf Δ) (Proof.Γ_premise hall))
+      have hdepth : ((ψ.replace_bound y)[y//x]).depth < (all x, ψ).depth := by
+        rw [subst_depth', replace_bound_depth]; exact sub_depth_bind x ψ
+      have hsatsub := ((@ih ((ψ.replace_bound y)[y//x]) hdepth) h_in).mp hmem
+      have hsatrepl :=
+        (svar_substitution (substable_after_replace ψ) (is_variant_symm.mp hvar) sat_y.symm).mp hsatsub
+      have hren := rename_all_bound ψ y (StandardCompletedModel mcs wit) (coe Δ mcs wit h_in) g'
+      rw [iff_sat] at hren
+      exact hren.mpr hsatrepl
+  · -- backward: `satisfaction → (all x, ψ) ∈ Δ`
+    intro hsat
+    by_contra hnotmem
+    have hex : (ex x, ∼ψ) ∈ Δ := by
+      by_contra hc
+      have h2 : (∼(ex x, ∼ψ)) ∈ Δ := (Proof.MCS_max Δ_mcs).mp hc
+      exact hnotmem ((Proof.MCS_rw Δ_mcs Proof.bind_dual).mpr h2)
+    obtain ⟨i, hwit⟩ := Δ_wit hex
+    have hwit' : (∼(ψ[i//x])) ∈ Δ := by
+      have heq : (∼ψ)[i//x] = ∼(ψ[i//x]) := rfl
+      rwa [heq] at hwit
+    let g := Function.update (StandardCompletedI mcs wit) x ((StandardCompletedModel mcs wit).Vₙ i)
+    have hgvar : is_variant g (StandardCompletedI mcs wit) x := by
+      intro z hz; exact Function.update_of_ne (Ne.symm hz) _ _
+    have hgx : g x = (StandardCompletedModel mcs wit).Vₙ i := Function.update_self x _ _
+    have hsatg := hsat g hgvar
+    have hsatsub := (nom_substitution (is_variant_symm.mp hgvar) hgx).mpr hsatg
+    have hmem : ψ[i//x] ∈ Δ := ((@ih (ψ[i//x]) subst_depth_bind) h_in).mpr hsatsub
+    exact (Proof.MCS_max Δ_mcs).mpr hwit' hmem
 
 /-- The truth lemma: membership in an `MCS_in` state coincides with satisfaction in the
     completed model.  Structural cases use the `truth_*` lemmas; `ex` uses `truth_ex`. -/
@@ -7962,7 +7987,14 @@ theorem TruthLemma (φ : Form TotalSet) {Θ : Set (Form TotalSet)} (mcs : MCS Θ
   | svar x => exact truth_svar mcs wit
   | impl ψ χ => exact truth_impl (φ := ψ) (ψ := χ) mcs wit (TruthLemma ψ mcs wit) (TruthLemma χ mcs wit)
   | box ψ => exact truth_box mcs wit (TruthLemma ψ mcs wit)
-  | bind x ψ => exact truth_all (ψ := ψ) mcs wit (TruthLemma ψ mcs wit)
+  | bind x ψ => exact truth_all (ψ := ψ) (x := x) mcs wit (fun {χ} _ => TruthLemma χ mcs wit)
+termination_by φ.depth
+decreasing_by
+  all_goals first
+    | exact sub_depth_impl_l _ _
+    | exact sub_depth_impl_r _ _
+    | exact sub_depth_box _
+    | assumption
 ```
 
 ## `Hybrid/Completeness.lean`

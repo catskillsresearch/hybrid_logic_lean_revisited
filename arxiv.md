@@ -291,10 +291,11 @@ flowchart TD
 chain calls on the successor seed `{ψ} ∪ {□χ ∈ Δ}`.
 
 *Figure 1c · TL · completed-model truth lemma.*
-Oltean's base cases and `truth_ex` compile; **□** and **∀** are new. The **□ →** direction and the **∀**
-not-free case are closed; **□ ←** runs through the diamond-successor pipeline below
-(two seed lemmas still open). **TruthLemma** is a structural `cases` assembly (`bind`
-delegates to partial `truth_all`).
+Oltean's base cases and `truth_ex` compile; **□** and **∀** are new. The **∀** case (`truth_all`)
+is now **fully closed** for both free and non-free `x` (uniform proof, dual to `truth_ex`);
+the **□ →** direction is closed and **□ ←** runs through the diamond-successor pipeline below
+(only `enough_noms_diamond_seed` still open). **TruthLemma** is assembled by well-founded
+recursion on `Form.depth`, which supplies `truth_all`'s depth-indexed induction hypothesis.
 
 ```mermaid
 flowchart TD
@@ -321,14 +322,12 @@ flowchart TD
   nnd --> box
 
   ainf["all_iff_notfree"]:::pass
-  base --> allNF["truth_all<br/>(x not free in ψ)"]:::pass
+  base --> allNF["truth_all<br/>(uniform: free + non-free x)"]:::pass
   ainf --> allNF
-  allNF --> allF["truth_all<br/>(x free: rename / truth_ex pattern)"]:::open
 
-  base --> TLm["TruthLemma<br/>(structural cases)"]:::partial
+  base --> TLm["TruthLemma<br/>(WF recursion on depth)"]:::partial
   box --> TLm
   allNF --> TLm
-  allF -.->|"blocks full TL"| TLm
 ```
 
 *Figure 1d · I · model existence.*
@@ -348,8 +347,7 @@ flowchart TD
   D --> E["sat_odd_noms' + sat_total"]:::pass
   E --> F["satisfiable Γ"]
   B -.->|"BLOCKED"| G["F · pf_extended ←"]
-  D -.->|"BLOCKED"| H1["diamond_extension_consistent<br/>· enough_noms_diamond_seed"]
-  D -.->|"BLOCKED"| H2["truth_all (x free in ψ)"]
+  D -.->|"BLOCKED"| H1["enough_noms_diamond_seed<br/>(single remaining hole)"]
 ```
 
 **The incoming state: where the holes are.** What Oltean left open is concentrated in the
@@ -462,16 +460,17 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or `l313'`.
   This path is now **complete**: `consistent_total` is proven and the `N`-nonempty hypothesis
   (needed to pick a base nominal for alien elimination) is threaded through `cons_sat` /
-  `Completeness`.  The only holes left in the whole development are the two **TL** rows.
+  `Completeness`.  The only hole left in the whole development is the single **TL** row
+  `enough_noms_diamond_seed`.
 - **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
   `truth_ex`) and the supporting valuation lemmas to the current `simp` normal forms.
   **`truth_box` and `truth_all` are new** — Oltean's archived development stops before the
-  modal/binder cases. `TruthLemma` is assembled by structural `cases` on `Form` (with a
-  separate `truth_ex` branch, since `ex` is not a `Form` constructor); the `bind` case
-  delegates to `truth_all`, which is closed when `x` is not free in `ψ` and still open
-  in the free case (rename / `truth_ex` pattern). Depends on **B**, **D**, **H** (and on
-  Kripke semantics and Soundness).
+  modal/binder cases. `TruthLemma` is assembled by well-founded recursion on `Form.depth`;
+  the `bind` case delegates to `truth_all`, now **fully closed** for both free and non-free
+  `x` (uniform `has_state_symbol` split + depth-indexed `ih`, dual to `truth_ex`). The one
+  remaining hole is `enough_noms_diamond_seed` (the **□ ←** diamond-successor seed freshness).
+  Depends on **B**, **D**, **H** (and on Kripke semantics and Soundness).
 - **I. Remove the final-completeness hole.** `Completeness`: `cons_sat` runs
   `consistent_total` → `ExtendedLindenbaumLemma (Set.total Γ)` → `TruthLemma` at the root
   witnessed MCS → `sat_odd_noms'` / `sat_total`; `Completeness` is then
@@ -706,24 +705,24 @@ while **F** awaits `pf_extended` ← for **I** only).
 | F · `LanguageExtension.syntactic_conservativity` | lift `Set.total Γ ⊢ φ.total` back to `Γ ⊢ φ` via `pf_extended` ← + `base_conjunction` | Pass |
 | F · `LanguageExtension.sat_total` / `Model.ofTotal` | `TotalSet` satisfaction → `Model N` | Pass |
 | F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
-| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Partial** |
+| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** — all `Partial` rows below now derive from a **single root hole**: **#1** `enough_noms_diamond_seed` (`truth_all` free case is now **Pass**) | **Partial** |
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.mcs_in_*_succ` | `mcs_in_witnessed_succ` / `completed_to_witnessed` / `mcs_in_completed_succ` | Pass |
 | TL · `CompletedModel.restrict_canonical_succ` | extend witnessed path along `Canonical.R` | Pass |
 | TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent (via `box_of_consequence` + `nec_mono`/`box_conj_mem`) | Pass |
-| TL · `CompletedModel.enough_noms_diamond_seed` | fresh nominals for witnessed Lindenbaum on seed | Not Yet |
-| TL · `CompletedModel.diamond_succ_mcs` | `WitnessedLindenbaumLemma` wired; needs rows above | Partial |
-| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline (blocked on diamond rows) | Partial |
+| TL · `CompletedModel.enough_noms_diamond_seed` | **ROOT HOLE #1** — fresh nominals for witnessed Lindenbaum on seed (needs model-layer reserve redesign) | Not Yet |
+| TL · `CompletedModel.diamond_succ_mcs` | `WitnessedLindenbaumLemma` wired; calls `enough_noms_diamond_seed` ⇒ blocked on **#1** | Partial |
+| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline via `diamond_succ_mcs` ⇒ blocked on **#1** | Partial |
 | TL · `Proof.not_nec_to_diamond` | `∼(□φ) ⟶ ◇∼φ` for MCS maximality step | Pass |
-| TL · `CompletedModel.truth_box` | □ case wired; ← blocked on diamond chain | Partial |
+| TL · `CompletedModel.truth_box` | □ case wired; ← via `diamond_completed_succ` ⇒ blocked on **#1** | Partial |
 | TL · `Proof.all_iff_notfree` | `(all x, ψ) ⟷ ψ` when `x` not free (Q1 + `ax_q2`) | Pass |
-| TL · `CompletedModel.truth_all` | not-free case closed; free case (`is_free x ψ`) still open | Partial |
-| TL · `CompletedModel.TruthLemma` | structural assembly; `bind` via partial `truth_all` | Partial |
-| **I** | **Final-completeness hole** | **Partial** |
+| TL · `CompletedModel.truth_all` | uniform proof (free + non-free `x`): nominal/svar symbol split + depth-indexed `ih`; forward via `ax_q2_nom`/`ax_q2_svar`, backward via `witnessed` on `ex x, ∼ψ` (`bind_dual`) | Pass |
+| TL · `CompletedModel.TruthLemma` | structural assembly via well-founded recursion on `Form.depth` (supplies `truth_all`'s depth-`ih`); ⇒ blocked only on **#1** (`box`) | Partial |
+| **I** | **Final-completeness hole** — both `Partial` rows derive from the single TL root **#1** (via `TruthLemma`); no I-local holes remain | **Partial** |
 | I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` via `syntactic_conservativity` (needs `N` nonempty, threaded through `cons_sat`/`Completeness`) | Pass |
-| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; now blocked only on the TL track via `TruthLemma`) | Partial |
+| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked only via `TruthLemma` on TL root **#1**) | Partial |
 | I · `Completeness.ModelExistence` | completeness ⟺ every consistent set is satisfiable | Pass |
-| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`; takes `N` nonempty) | Partial |
+| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`; takes `N` nonempty) ⇒ blocked via `TruthLemma` on **#1** | Partial |
 
 ---
 

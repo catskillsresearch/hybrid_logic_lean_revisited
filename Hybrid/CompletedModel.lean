@@ -836,36 +836,62 @@ lemma truth_box {ψ : Form TotalSet} : ∀ {Θ : Set (Form TotalSet)}, (mcs : MC
       have hbot : Form.bttm ∈ Δ' := Proof.MCS_mp Δ'_mcs hneg hψmem
       exact Δ'_mcs.1 (Proof.Γ_premise hbot)
 
--- Truth lemma, `∀` case: when `x` is not free in `ψ`, `all x, ψ` agrees with `ψ`;
--- the free case uses the same rename/`ax_q2` pattern as `truth_ex`.
-lemma truth_all {ψ : Form TotalSet} : ∀ {Θ : Set (Form TotalSet)} {x : SVAR}, (mcs : MCS Θ) → (wit : witnessed Θ) →
-    (statement ψ mcs wit) → statement (all x, ψ) mcs wit := by
-  intro Θ x mcs wit ih Δ h_in
-  have ⟨Δ_mcs, _⟩ := (mcs_in_prop mcs wit h_in)
+-- Truth lemma, `∀` case.  Handled uniformly (free and non-free `x`) by the dual of the
+-- `truth_ex` machinery: in the completed model every state is named by a nominal or an
+-- svar (`has_state_symbol`), so each variant reduces to a substitution instance of `ψ`
+-- whose statement is available through the depth-indexed `ih`.  Forward uses the `ax_q2`
+-- instances; backward uses `witnessed` on `ex x, ∼ψ` (via `bind_dual`) for a contradiction.
+lemma truth_all {ψ : Form TotalSet} {x : SVAR} : ∀ {Θ : Set (Form TotalSet)}, (mcs : MCS Θ) → (wit : witnessed Θ) →
+    (∀ {χ : Form TotalSet}, χ.depth < (all x, ψ).depth → statement χ mcs wit) → statement (all x, ψ) mcs wit := by
+  intro Θ mcs wit ih Δ h_in
+  have ⟨Δ_mcs, Δ_wit⟩ := (mcs_in_prop mcs wit h_in)
   apply Iff.intro
-  · intro hall
+  · -- forward: `(all x, ψ) ∈ Δ → satisfaction`
+    intro hall
     simp only [Sat]
     intro g' hvar
-    by_cases hf : is_free x ψ = false
-    · have hψmem : ψ ∈ Δ :=
-        Proof.MCS_pf Δ_mcs (Proof.Γ_mp (Proof.Γ_theorem (@Proof.ax_q2_svar_instance x TotalSet ψ) Δ)
-          (Proof.Γ_premise hall))
-      have hsatψ : (StandardCompletedModel mcs wit, coe Δ mcs wit h_in, StandardCompletedI mcs wit) ⊨ ψ :=
-        (ih h_in).mp hψmem
-      have hequiv := @generalize_not_free x TotalSet ψ hf (StandardCompletedModel mcs wit)
-          (coe Δ mcs wit h_in) (StandardCompletedI mcs wit)
-      rw [iff_sat] at hequiv
-      have hsatall := hequiv.mp hsatψ
-      simp only [Sat] at hsatall ⊢
-      exact hsatall g' hvar
-    · admit
-  · intro hsat
-    by_cases hf : is_free x ψ = false
-    · have hsatψ : (StandardCompletedModel mcs wit, coe Δ mcs wit h_in, StandardCompletedI mcs wit) ⊨ ψ :=
-        hsat (StandardCompletedI mcs wit) (is_variant_refl x)
-      have hψmem : ψ ∈ Δ := (ih h_in).mpr hsatψ
-      exact (Proof.MCS_rw Δ_mcs (@Proof.all_iff_notfree TotalSet x ψ hf)).mpr hψmem
-    · admit
+    apply Or.elim (has_state_symbol (g' x))
+    · -- the variant value is named by a nominal `i`
+      intro ⟨i, sat_i⟩
+      have hmem : ψ[i//x] ∈ Δ :=
+        Proof.MCS_pf Δ_mcs (Proof.Γ_mp (Proof.Γ_theorem (Proof.ax_q2_nom ψ x i) Δ) (Proof.Γ_premise hall))
+      have hsatsub := ((@ih (ψ[i//x]) subst_depth_bind) h_in).mp hmem
+      exact (nom_substitution (is_variant_symm.mp hvar) sat_i.symm).mp hsatsub
+    · -- the variant value is named by an svar `y`; rename bound vars to substitute safely
+      intro ⟨y, sat_y⟩
+      have hpf : ⊢ ((all x, ψ) ⟶ ((ψ.replace_bound y)[y//x])) :=
+        Proof.hs
+          (Proof.mp Proof.b363 (Proof.general x (Proof.mp (Proof.tautology iff_elim_l) (rename_all_bound_pf ψ y))))
+          (Proof.ax_q2_svar (ψ.replace_bound y) x y (substable_after_replace ψ))
+      have hmem : ((ψ.replace_bound y)[y//x]) ∈ Δ :=
+        Proof.MCS_pf Δ_mcs (Proof.Γ_mp (Proof.Γ_theorem hpf Δ) (Proof.Γ_premise hall))
+      have hdepth : ((ψ.replace_bound y)[y//x]).depth < (all x, ψ).depth := by
+        rw [subst_depth', replace_bound_depth]; exact sub_depth_bind x ψ
+      have hsatsub := ((@ih ((ψ.replace_bound y)[y//x]) hdepth) h_in).mp hmem
+      have hsatrepl :=
+        (svar_substitution (substable_after_replace ψ) (is_variant_symm.mp hvar) sat_y.symm).mp hsatsub
+      have hren := rename_all_bound ψ y (StandardCompletedModel mcs wit) (coe Δ mcs wit h_in) g'
+      rw [iff_sat] at hren
+      exact hren.mpr hsatrepl
+  · -- backward: `satisfaction → (all x, ψ) ∈ Δ`
+    intro hsat
+    by_contra hnotmem
+    have hex : (ex x, ∼ψ) ∈ Δ := by
+      by_contra hc
+      have h2 : (∼(ex x, ∼ψ)) ∈ Δ := (Proof.MCS_max Δ_mcs).mp hc
+      exact hnotmem ((Proof.MCS_rw Δ_mcs Proof.bind_dual).mpr h2)
+    obtain ⟨i, hwit⟩ := Δ_wit hex
+    have hwit' : (∼(ψ[i//x])) ∈ Δ := by
+      have heq : (∼ψ)[i//x] = ∼(ψ[i//x]) := rfl
+      rwa [heq] at hwit
+    let g := Function.update (StandardCompletedI mcs wit) x ((StandardCompletedModel mcs wit).Vₙ i)
+    have hgvar : is_variant g (StandardCompletedI mcs wit) x := by
+      intro z hz; exact Function.update_of_ne (Ne.symm hz) _ _
+    have hgx : g x = (StandardCompletedModel mcs wit).Vₙ i := Function.update_self x _ _
+    have hsatg := hsat g hgvar
+    have hsatsub := (nom_substitution (is_variant_symm.mp hgvar) hgx).mpr hsatg
+    have hmem : ψ[i//x] ∈ Δ := ((@ih (ψ[i//x]) subst_depth_bind) h_in).mpr hsatsub
+    exact (Proof.MCS_max Δ_mcs).mpr hwit' hmem
 
 /-- The truth lemma: membership in an `MCS_in` state coincides with satisfaction in the
     completed model.  Structural cases use the `truth_*` lemmas; `ex` uses `truth_ex`. -/
@@ -878,4 +904,11 @@ theorem TruthLemma (φ : Form TotalSet) {Θ : Set (Form TotalSet)} (mcs : MCS Θ
   | svar x => exact truth_svar mcs wit
   | impl ψ χ => exact truth_impl (φ := ψ) (ψ := χ) mcs wit (TruthLemma ψ mcs wit) (TruthLemma χ mcs wit)
   | box ψ => exact truth_box mcs wit (TruthLemma ψ mcs wit)
-  | bind x ψ => exact truth_all (ψ := ψ) mcs wit (TruthLemma ψ mcs wit)
+  | bind x ψ => exact truth_all (ψ := ψ) (x := x) mcs wit (fun {χ} _ => TruthLemma χ mcs wit)
+termination_by φ.depth
+decreasing_by
+  all_goals first
+    | exact sub_depth_impl_l _ _
+    | exact sub_depth_impl_r _ _
+    | exact sub_depth_box _
+    | assumption
