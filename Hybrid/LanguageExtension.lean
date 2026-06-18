@@ -898,7 +898,7 @@ noncomputable def in_range_proof_back {NBase : Set ℕ} {ψ : Form TotalSet} (pf
       rw [total_ax_brcn (inv_t_eq_of_range' hbase)]
       exact ax_brcn
 
-noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
+noncomputable def pf_extended {φ : Form N} (hN : N.Nonempty) : ⊢ φ iff ⊢ φ.total := by
   apply TypeIff.intro
   . intro pf
     induction pf with
@@ -935,9 +935,41 @@ noncomputable def pf_extended {φ : Form N} : ⊢ φ iff ⊢ φ.total := by
         apply Proof.necess
         assumption
   . intro pf
-    -- Blackburn pipeline.  F2 (`all_noms_in_base_eliminate_aliens` /
-    -- `form_noms_in_base_of_eliminate_aliens`) and F3 (`in_range_proof_back`) are
-    -- both proven; remaining work (F4) is wiring them together — eliminate aliens
-    -- from `pf` (needs a base nominal, i.e. `N` nonempty), then pull back via
-    -- `in_range_proof_back` and rewrite `(φ.total)⁻ = φ` through `total_inv_is_inv`.
-    admit
+    -- Blackburn pipeline (F4): `φ.total` has only base nominals, so eliminate the
+    -- alien nominals introduced inside `pf` (F2), pull the resulting in-range
+    -- derivation back to the base language (F3), and rewrite `(φ.total)⁻ = φ`.
+    have hψ : form_noms_in_base (N := N) φ.total := form_noms_in_base_total φ
+    have result :=
+      in_range_proof_back
+        (pf.eliminate_aliens hψ (base_nom_total hN) (base_nom_total_in_base hN) pf.proof_noms)
+        (Proof.form_noms_in_base_of_eliminate_aliens N pf hψ
+          (base_nom_total hN) (base_nom_total_in_base hN))
+    rwa [total_inv_is_inv φ] at result
+
+/-- Totalization distributes over conjunction. -/
+lemma total_conj {a b : Form N} : (a ⋀ b).total = a.total ⋀ b.total := by
+  simp [Form.conj, Form.neg, Form.total]
+
+/-- A conjunction of `Set.total Γ`-members is itself the totalization of a
+    conjunction of `Γ`-members.  Returns the base list as data (via choice) so it
+    can feed the `SyntacticConsequence` Σ-type. -/
+noncomputable def base_conjunction {Γ : Set (Form N)} (L : List (Set.total Γ)) :
+    { L' : List Γ // conjunction (Set.total Γ) L = (conjunction Γ L').total } := by
+  induction L with
+  | nil => exact ⟨[], by simp [conjunction, Form.total]⟩
+  | cons h t ih =>
+      obtain ⟨L', hL'⟩ := ih
+      have hspec := h.2.choose_spec
+      exact ⟨⟨h.2.choose, hspec.1⟩ :: L',
+        (congrArg₂ Form.conj hspec.2 hL').trans total_conj.symm⟩
+
+/-- **Backward conservativity on `SyntacticConsequence`.**  A totalized
+    consequence `Set.total Γ ⊢ φ.total` pulls back to `Γ ⊢ φ` (needs `N` nonempty
+    to eliminate alien nominals via `pf_extended`). -/
+noncomputable def syntactic_conservativity {Γ : Set (Form N)} {φ : Form N}
+    (hN : N.Nonempty) (h : (Set.total Γ) ⊢ φ.total) : Γ ⊢ φ := by
+  obtain ⟨L, pf⟩ := h
+  obtain ⟨L', hL'⟩ := base_conjunction L
+  rw [hL'] at pf
+  have pf' : ⊢ ((conjunction Γ L' ⟶ φ).total) := pf
+  exact ⟨L', (pf_extended hN).mpr pf'⟩

@@ -191,7 +191,7 @@ flowchart TD
     C["C · Formula countability / enumeration"]
     D["D · Bound-variable renaming"]
     E["E · odd_noms homomorphism<br/>(structural refactor)"]:::crux
-    F["F · Language extension<br/>(total_* + pf_extended)"]
+    F["F · Language extension<br/>(total_* + pf_extended)<br/>(Pass)"]:::done
     G["G · Witnessed Lindenbaum<br/>(Pass)"]:::done
     TL["TL · Completed-model truth lemma<br/>(partial: □← · ∀ free)"]
     H["H · Existence lemma (l313')"]:::done
@@ -264,11 +264,12 @@ flowchart LR
   tot["Form.total / odd_noms"]:::pass --> fwd["pf_extended →<br/>⊢ φ ⇒ ⊢ φ.total"]:::pass
   tot --> bax["backward axiom replay<br/>(6/7 axiom cases)"]:::pass
   bax --> f1["F1 · ax_q2_nom pullback<br/>total_subst_nom_pullback<br/>total_ax_q2_nom"]:::pass
-  f1 --> f2a["F2 · inventory + rename<br/>form_noms_in_base · eliminate_aliens"]:::partial
-  f2a --> f2b["F2 · all_noms_in_base_eliminate_aliens"]:::open
-  f2b --> f3["F3 · inv_t pullback<br/>in_range_proof_back"]:::open
-  f3 --> back["pf_extended ←<br/>⊢ φ.total ⇒ ⊢ φ"]:::open
-  back --> ct["I · consistent_total"]:::open
+  f1 --> f2a["F2 · inventory + rename<br/>form_noms_in_base · eliminate_aliens"]:::pass
+  f2a --> f2b["F2 · all_noms_in_base_eliminate_aliens"]:::pass
+  f2b --> f3["F3 · inv_t pullback<br/>in_range_proof_back"]:::pass
+  f3 --> back["pf_extended ←<br/>⊢ φ.total ⇒ ⊢ φ (N nonempty)"]:::pass
+  back --> sc["F · syntactic_conservativity<br/>Set.total Γ ⊢ φ.total ⇒ Γ ⊢ φ"]:::pass
+  sc --> ct["I · consistent_total"]:::open
   sat["sat_total / Model.ofTotal"]:::pass --> pull["pull satisfaction<br/>TotalSet → Model N"]:::pass
 ```
 
@@ -455,10 +456,12 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
 - **F. Remove the language-extension / theorem-preservation holes.**
   `LanguageExtension`: structural `total_*` lemmas, `l416`, and `pf_extended`
   (Prop. 4.1.7: derivations survive the language expansion). The **`total_*` block is
-  largely independent of **G** and **H**; the remaining **`pf_extended` ←** (conservativity:
-  F1 `ax_q2_nom` pullback **Pass**; F2 alien elimination **Partial**; F3 `inv_t` pullback
-  **Not Yet**) is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or
-  `l313'`.
+  largely independent of **G** and **H**. **`pf_extended` ←** (conservativity:
+  F1 `ax_q2_nom` pullback, F2 alien elimination, F3 `inv_t` pullback) is now **complete**,
+  together with `syntactic_conservativity` (the `Set.total Γ ⊢ φ.total ⇒ Γ ⊢ φ` lift). This
+  is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or `l313'`.
+  The only remaining step on this path is threading the `N`-nonempty hypothesis (needed to
+  pick a base nominal for alien elimination) through `consistent_total` / `cons_sat`.
 - **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
   `truth_ex`) and the supporting valuation lemmas to the current `simp` normal forms.
@@ -673,7 +676,7 @@ while **F** awaits `pf_extended` ← for **I** only).
 | **H** | **Existence-lemma hole** | **Pass** |
 | H · `Substitutions.subst_nom_noop` / `rename_svar_nom` | freshness rewrite lemmas | Pass |
 | H · `ExistenceLemma.l313'` | diamond-witness property for successor states | Pass |
-| **F** | **Language-extension / theorem-preservation holes** | **Partial** |
+| **F** | **Language-extension / theorem-preservation holes** | **Pass** |
 | F · `LanguageExtension.total_subst_svar` | `total` inverts svar substitution | Pass |
 | F · `LanguageExtension.total_tautology` | `Tautology φ ↔ Tautology φ.total` | Pass |
 | F · `LanguageExtension.total_subst_svar'` | `total` commutes with svar subst | Pass |
@@ -694,12 +697,12 @@ while **F** awaits `pf_extended` ← for **I** only).
 | F · `LanguageExtension.nom_occurs_false_of_form_noms_in_base` | alien letters absent from in-range formulas | Pass |
 | F · `LanguageExtension.nom_subst_nom_nocc` | `nom_subst_nom ψ new old = ψ` when `nom_occurs old ψ = false` (replace `old` with `new`) | Pass |
 | F · `LanguageExtension.Proof.eliminate_one_alien` / `Proof.eliminate_aliens` | Blackburn rename alien `j` ↦ `base` via `rename_constants_fwd base j` | Pass |
-| F · `LanguageExtension.Proof.all_noms_in_base_eliminate_aliens` | after alien loop, every `proof_noms` letter lies in `N` | Not Yet |
+| F · `LanguageExtension.Proof.all_noms_in_base_eliminate_aliens` | after alien loop, every `proof_noms` letter lies in `N` | Pass |
 | F · `LanguageExtension.inv_t_impl` / `inv_t_box` / `inv_t_bind` | `inv_t` commutes with connectives on in-range formulas | Pass |
-| F · `LanguageExtension.in_range_proof_back` (axiom replay) | `inv_t` pullback: tautology + `ax_k/q1/name/nom` (+ `ax_brcn`/`ax_q2_svar`/`ax_q2_nom`) | Not Yet |
-| F · `LanguageExtension.in_range_proof_back` (`mp` / `general` / `necess`) | explicit `pf.size` recursion (no structural IH on `Proof`) | Not Yet |
-| F · `LanguageExtension.pf_extended` (←) | wire F2 → F3: `eliminate_aliens` then `in_range_proof_back` | Not Yet |
-| F · `LanguageExtension` / `SyntacticConsequence` conservativity | lift `Γ ⊢ φ` to `Set.total Γ ⊢ φ.total` (needs `pf_extended` ←) | Not Yet |
+| F · `LanguageExtension.in_range_proof_back` (axiom replay) | `inv_t` pullback: tautology + `ax_k/q1/name/nom`/`ax_brcn`/`ax_q2_svar`/`ax_q2_nom` (split on vanishing alien) | Pass |
+| F · `LanguageExtension.in_range_proof_back` (`mp` / `general` / `necess`) | structural induction on `Proof` (deduction rules via `inv_t_impl/box/bind`) | Pass |
+| F · `LanguageExtension.pf_extended` (←) | wire F2 → F3: `eliminate_aliens` then `in_range_proof_back` (needs `N` nonempty) | Pass |
+| F · `LanguageExtension.syntactic_conservativity` | lift `Set.total Γ ⊢ φ.total` back to `Γ ⊢ φ` via `pf_extended` ← + `base_conjunction` | Pass |
 | F · `LanguageExtension.sat_total` / `Model.ofTotal` | `TotalSet` satisfaction → `Model N` | Pass |
 | F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
 | **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** | **Partial** |
@@ -716,7 +719,7 @@ while **F** awaits `pf_extended` ← for **I** only).
 | TL · `CompletedModel.truth_all` | not-free case closed; free case (`is_free x ψ`) still open | Partial |
 | TL · `CompletedModel.TruthLemma` | structural assembly; `bind` via partial `truth_all` | Partial |
 | **I** | **Final-completeness hole** | **Partial** |
-| I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` (needs `pf_extended` ←) | Not Yet |
+| I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` (ready: `syntactic_conservativity`; needs `N` nonempty threaded through `cons_sat`) | Not Yet |
 | I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked on rows above) | Partial |
 | I · `Completeness.ModelExistence` | completeness ⟺ every consistent set is satisfiable | Pass |
 | I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`) | Partial |
