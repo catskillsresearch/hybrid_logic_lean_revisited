@@ -64,17 +64,21 @@ theorem ModelExistence {N : Set ℕ} : completeness_statement N ↔ cons_sat_sta
 section ConsSat
 
 /-- Lift consistency from the base language to the totalized set on `TotalSet`.
-    **Blocker:** needs `pf_extended` backward (conservativity) on `SyntacticConsequence`. -/
-lemma consistent_total (Γ : Set (Form N)) (h : consistent Γ) : consistent (Set.total Γ) := by
-  admit
+    Backward conservativity (`syntactic_conservativity`) pulls a hypothetical
+    `Set.total Γ ⊢ ⊥` back to `Γ ⊢ ⊥`.  Requires `N` nonempty to pick a base
+    nominal for alien elimination. -/
+lemma consistent_total (Γ : Set (Form N)) (hN : N.Nonempty) (h : consistent Γ) :
+    consistent (Set.total Γ) := by
+  intro hcon
+  exact h (syntactic_conservativity hN (φ := (⊥ : Form N)) hcon)
 
 /-- **Model-existence / `cons_sat` core.**  Pipeline:
     1. `consistent_total` — lift consistency to `Set.total Γ`
     2. `ExtendedLindenbaumLemma` — extend to a witnessed MCS `Θ` with `(Set.total Γ).odd_noms ⊆ Θ`
     3. `TruthLemma` at the root state `Θ`
     4. `sat_odd_noms'` + `sat_total` — pull satisfaction back to `Form N` / `Model N` -/
-theorem cons_sat (Γ : Set (Form N)) (h : consistent Γ) : satisfiable Γ := by
-  have hcons' := consistent_total Γ h
+theorem cons_sat (Γ : Set (Form N)) (hN : N.Nonempty) (h : consistent Γ) : satisfiable Γ := by
+  have hcons' := consistent_total Γ hN h
   obtain ⟨Θ, hsub, hmcs, hwit⟩ := ExtendedLindenbaumLemma (Set.total Γ) hcons'
   let M := StandardCompletedModel hmcs hwit
   let g := StandardCompletedI hmcs hwit
@@ -95,10 +99,11 @@ theorem cons_sat (Γ : Set (Form N)) (h : consistent Γ) : satisfiable Γ := by
 
 end ConsSat
 
-noncomputable def Completeness : (∀ (Γ : Set (Form N)) (φ : Form N), Γ ⊨ φ → Γ ⊢ φ) := by
+noncomputable def Completeness (hN : N.Nonempty) :
+    (∀ (Γ : Set (Form N)) (φ : Form N), Γ ⊨ φ → Γ ⊢ φ) := by
   intros h1 h2 h3; apply Exists.choose
   revert h1 h2 h3
   rw [←completeness_statement, ModelExistence]
   unfold cons_sat_statement
   intro Γ h
-  exact cons_sat Γ h
+  exact cons_sat Γ hN h

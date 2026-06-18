@@ -32,9 +32,9 @@
 - [`Hybrid/LanguageExtension.lean`](#hybridlanguageextensionlean) — 975 lines
 - [`Hybrid/ExistenceLemma.lean`](#hybridexistencelemmalean) — 108 lines
 - [`Hybrid/CompletedModel.lean`](#hybridcompletedmodellean) — 881 lines
-- [`Hybrid/Completeness.lean`](#hybridcompletenesslean) — 104 lines
+- [`Hybrid/Completeness.lean`](#hybridcompletenesslean) — 109 lines
 
-**Total:** 17 files, 7095 lines of Lean.
+**Total:** 17 files, 7100 lines of Lean.
 
 ---
 
@@ -304,7 +304,7 @@ flowchart LR
   f2b --> f3["F3 · inv_t pullback<br/>in_range_proof_back"]:::pass
   f3 --> back["pf_extended ←<br/>⊢ φ.total ⇒ ⊢ φ (N nonempty)"]:::pass
   back --> sc["F · syntactic_conservativity<br/>Set.total Γ ⊢ φ.total ⇒ Γ ⊢ φ"]:::pass
-  sc --> ct["I · consistent_total"]:::open
+  sc --> ct["I · consistent_total<br/>(Pass, N nonempty)"]:::pass
   sat["sat_total / Model.ofTotal"]:::pass --> pull["pull satisfaction<br/>TotalSet → Model N"]:::pass
 ```
 
@@ -495,8 +495,9 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   F1 `ax_q2_nom` pullback, F2 alien elimination, F3 `inv_t` pullback) is now **complete**,
   together with `syntactic_conservativity` (the `Set.total Γ ⊢ φ.total ⇒ Γ ⊢ φ` lift). This
   is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or `l313'`.
-  The only remaining step on this path is threading the `N`-nonempty hypothesis (needed to
-  pick a base nominal for alien elimination) through `consistent_total` / `cons_sat`.
+  This path is now **complete**: `consistent_total` is proven and the `N`-nonempty hypothesis
+  (needed to pick a base nominal for alien elimination) is threaded through `cons_sat` /
+  `Completeness`.  The only holes left in the whole development are the two **TL** rows.
 - **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
   `truth_ex`) and the supporting valuation lemmas to the current `simp` normal forms.
@@ -754,10 +755,10 @@ while **F** awaits `pf_extended` ← for **I** only).
 | TL · `CompletedModel.truth_all` | not-free case closed; free case (`is_free x ψ`) still open | Partial |
 | TL · `CompletedModel.TruthLemma` | structural assembly; `bind` via partial `truth_all` | Partial |
 | **I** | **Final-completeness hole** | **Partial** |
-| I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` (ready: `syntactic_conservativity`; needs `N` nonempty threaded through `cons_sat`) | Not Yet |
-| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked on rows above) | Partial |
+| I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` via `syntactic_conservativity` (needs `N` nonempty, threaded through `cons_sat`/`Completeness`) | Pass |
+| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; now blocked only on the TL track via `TruthLemma`) | Partial |
 | I · `Completeness.ModelExistence` | completeness ⟺ every consistent set is satisfiable | Pass |
-| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`) | Partial |
+| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`; takes `N` nonempty) | Partial |
 
 ---
 
@@ -7966,7 +7967,7 @@ theorem TruthLemma (φ : Form TotalSet) {Θ : Set (Form TotalSet)} (mcs : MCS Θ
 
 ## `Hybrid/Completeness.lean`
 
-*104 lines.*
+*109 lines.*
 
 ```lean
 import Hybrid.Soundness
@@ -8035,17 +8036,21 @@ theorem ModelExistence {N : Set ℕ} : completeness_statement N ↔ cons_sat_sta
 section ConsSat
 
 /-- Lift consistency from the base language to the totalized set on `TotalSet`.
-    **Blocker:** needs `pf_extended` backward (conservativity) on `SyntacticConsequence`. -/
-lemma consistent_total (Γ : Set (Form N)) (h : consistent Γ) : consistent (Set.total Γ) := by
-  admit
+    Backward conservativity (`syntactic_conservativity`) pulls a hypothetical
+    `Set.total Γ ⊢ ⊥` back to `Γ ⊢ ⊥`.  Requires `N` nonempty to pick a base
+    nominal for alien elimination. -/
+lemma consistent_total (Γ : Set (Form N)) (hN : N.Nonempty) (h : consistent Γ) :
+    consistent (Set.total Γ) := by
+  intro hcon
+  exact h (syntactic_conservativity hN (φ := (⊥ : Form N)) hcon)
 
 /-- **Model-existence / `cons_sat` core.**  Pipeline:
     1. `consistent_total` — lift consistency to `Set.total Γ`
     2. `ExtendedLindenbaumLemma` — extend to a witnessed MCS `Θ` with `(Set.total Γ).odd_noms ⊆ Θ`
     3. `TruthLemma` at the root state `Θ`
     4. `sat_odd_noms'` + `sat_total` — pull satisfaction back to `Form N` / `Model N` -/
-theorem cons_sat (Γ : Set (Form N)) (h : consistent Γ) : satisfiable Γ := by
-  have hcons' := consistent_total Γ h
+theorem cons_sat (Γ : Set (Form N)) (hN : N.Nonempty) (h : consistent Γ) : satisfiable Γ := by
+  have hcons' := consistent_total Γ hN h
   obtain ⟨Θ, hsub, hmcs, hwit⟩ := ExtendedLindenbaumLemma (Set.total Γ) hcons'
   let M := StandardCompletedModel hmcs hwit
   let g := StandardCompletedI hmcs hwit
@@ -8066,12 +8071,13 @@ theorem cons_sat (Γ : Set (Form N)) (h : consistent Γ) : satisfiable Γ := by
 
 end ConsSat
 
-noncomputable def Completeness : (∀ (Γ : Set (Form N)) (φ : Form N), Γ ⊨ φ → Γ ⊢ φ) := by
+noncomputable def Completeness (hN : N.Nonempty) :
+    (∀ (Γ : Set (Form N)) (φ : Form N), Γ ⊨ φ → Γ ⊢ φ) := by
   intros h1 h2 h3; apply Exists.choose
   revert h1 h2 h3
   rw [←completeness_statement, ModelExistence]
   unfold cons_sat_statement
   intro Γ h
-  exact cons_sat Γ h
+  exact cons_sat Γ hN h
 ```
 

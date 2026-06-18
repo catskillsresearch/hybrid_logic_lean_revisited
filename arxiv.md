@@ -269,7 +269,7 @@ flowchart LR
   f2b --> f3["F3 · inv_t pullback<br/>in_range_proof_back"]:::pass
   f3 --> back["pf_extended ←<br/>⊢ φ.total ⇒ ⊢ φ (N nonempty)"]:::pass
   back --> sc["F · syntactic_conservativity<br/>Set.total Γ ⊢ φ.total ⇒ Γ ⊢ φ"]:::pass
-  sc --> ct["I · consistent_total"]:::open
+  sc --> ct["I · consistent_total<br/>(Pass, N nonempty)"]:::pass
   sat["sat_total / Model.ofTotal"]:::pass --> pull["pull satisfaction<br/>TotalSet → Model N"]:::pass
 ```
 
@@ -460,8 +460,9 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   F1 `ax_q2_nom` pullback, F2 alien elimination, F3 `inv_t` pullback) is now **complete**,
   together with `syntactic_conservativity` (the `Set.total Γ ⊢ φ.total ⇒ Γ ⊢ φ` lift). This
   is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or `l313'`.
-  The only remaining step on this path is threading the `N`-nonempty hypothesis (needed to
-  pick a base nominal for alien elimination) through `consistent_total` / `cons_sat`.
+  This path is now **complete**: `consistent_total` is proven and the `N`-nonempty hypothesis
+  (needed to pick a base nominal for alien elimination) is threaded through `cons_sat` /
+  `Completeness`.  The only holes left in the whole development are the two **TL** rows.
 - **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
   `truth_ex`) and the supporting valuation lemmas to the current `simp` normal forms.
@@ -719,10 +720,10 @@ while **F** awaits `pf_extended` ← for **I** only).
 | TL · `CompletedModel.truth_all` | not-free case closed; free case (`is_free x ψ`) still open | Partial |
 | TL · `CompletedModel.TruthLemma` | structural assembly; `bind` via partial `truth_all` | Partial |
 | **I** | **Final-completeness hole** | **Partial** |
-| I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` (ready: `syntactic_conservativity`; needs `N` nonempty threaded through `cons_sat`) | Not Yet |
-| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked on rows above) | Partial |
+| I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` via `syntactic_conservativity` (needs `N` nonempty, threaded through `cons_sat`/`Completeness`) | Pass |
+| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; now blocked only on the TL track via `TruthLemma`) | Partial |
 | I · `Completeness.ModelExistence` | completeness ⟺ every consistent set is satisfiable | Pass |
-| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`) | Partial |
+| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`; takes `N` nonempty) | Partial |
 
 ---
 
