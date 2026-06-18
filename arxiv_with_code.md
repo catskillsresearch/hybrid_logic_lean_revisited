@@ -30,11 +30,11 @@
 - [`Hybrid/FormCountable.lean`](#hybridformcountablelean) — 220 lines
 - [`Hybrid/Lindenbaum.lean`](#hybridlindenbaumlean) — 551 lines
 - [`Hybrid/LanguageExtension.lean`](#hybridlanguageextensionlean) — 975 lines
-- [`Hybrid/ExistenceLemma.lean`](#hybridexistencelemmalean) — 108 lines
-- [`Hybrid/CompletedModel.lean`](#hybridcompletedmodellean) — 914 lines
+- [`Hybrid/ExistenceLemma.lean`](#hybridexistencelemmalean) — 183 lines
+- [`Hybrid/CompletedModel.lean`](#hybridcompletedmodellean) — 954 lines
 - [`Hybrid/Completeness.lean`](#hybridcompletenesslean) — 109 lines
 
-**Total:** 17 files, 7133 lines of Lean.
+**Total:** 17 files, 7248 lines of Lean.
 
 ---
 
@@ -58,9 +58,16 @@ nominal, the language is extended so that an infinite supply of nominals is rese
 design space for realizing this idea in a proof assistant — Oltean's odd/even
 encoding inside ℕ, the disjoint-sum (`N ⊕ ℕ`) parameterization suggested by Bud
 Mishra, and the abstract synthetic-completeness frameworks of Asta Halkjær From — and
-explain the encoding choice that makes the remaining proofs tractable. We also port
-the development from Oltean's original June-2023 Lean nightly to Lean v4.30.0 /
-mathlib v4.30.0.
+explain the encoding choice that makes the remaining proofs tractable. Structural
+freshness is decisive for the *root* maximal-consistent-set construction; the separate
+witnessed ◇-*successor* step is closed not by freshness (the canonical box-reduct of an
+MCS mentions every nominal) but by completing Oltean's existence-lemma route — an
+incremental Henkin construction that draws each witness from the predecessor's own
+witnessedness through a fresh *state variable*. With both in place the completeness
+theorem `Γ ⊨ φ → Γ ⊢ φ` is fully formalized: the development is `sorry`-free, and
+`#print axioms Completeness` reports only `propext`, `Classical.choice`, and `Quot.sound`.
+We also port the development from Oltean's original June-2023 Lean nightly to Lean
+v4.30.0 / mathlib v4.30.0.
 
 ---
 
@@ -187,8 +194,12 @@ lemmas. Oltean's `set_family` / `succesor_set` scaffolding for this was left inc
 fresh names. So the honest division of credit is this: **Mishra's reservation idea is the
 right and decisive tool for the root Lindenbaum construction, while Oltean's
 existence-lemma construction is the right tool for the witnessed successor — and the work
-that remains is to complete Oltean's construction, not to extend Mishra's to a place it
-does not reach.** (The detailed plan is §TL-fix.)
+that remained was to complete Oltean's construction, not to extend Mishra's to a place it
+does not reach.** That construction is now complete (§TL-fix): the accumulating witness
+family is re-typed to carry *data*, a finite-bounding (compactness) argument over
+`diamond_extension_consistent` proves the seed consistent, and `RegularLindenbaumLemma`
+delivers the witnessed successor MCS. With this last step in place **the entire completeness
+theorem is formalized with no remaining `sorry`/`admit`.**
 
 ### 1.4 Contribution
 
@@ -357,9 +368,10 @@ chain calls on the successor seed `{ψ} ∪ {□χ ∈ Δ}`.
 Oltean's base cases and `truth_ex` compile; **□** and **∀** are new. The **∀** case (`truth_all`)
 is now **fully closed** for both free and non-free `x` (uniform proof, dual to `truth_ex`);
 the **□ →** direction is closed and **□ ←** runs through the diamond-successor pipeline below
-(only the witnessed ◇-successor existence lemma still open; the `enough_noms_diamond_seed`
-shortcut is **false** — see **§TL-fix**). **TruthLemma** is assembled by well-founded
-recursion on `Form.depth`, which supplies `truth_all`'s depth-indexed induction hypothesis.
+(the witnessed ◇-successor existence lemma is now **complete** via the §TL-fix Henkin
+construction; the false `enough_noms_diamond_seed` shortcut has been deleted). **TruthLemma**
+is assembled by well-founded recursion on `Form.depth`, which supplies `truth_all`'s
+depth-indexed induction hypothesis. The whole truth lemma is now `sorry`-free.
 
 ```mermaid
 flowchart TD
@@ -526,18 +538,20 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or `l313'`.
   This path is now **complete**: `consistent_total` is proven and the `N`-nonempty hypothesis
   (needed to pick a base nominal for alien elimination) is threaded through `cons_sat` /
-  `Completeness`.  The only obstacle left in the whole development is the **TL** witnessed
-  ◇-successor existence lemma (`enough_noms_diamond_seed` is false; see **§TL-fix**).
+  `Completeness`.  The former last obstacle — the **TL** witnessed ◇-successor existence
+  lemma — is now discharged by the §TL-fix Henkin construction (`enough_noms_diamond_seed`
+  was false and has been deleted), so the development is complete.
 - **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
   `truth_ex`) and the supporting valuation lemmas to the current `simp` normal forms.
   **`truth_box` and `truth_all` are new** — Oltean's archived development stops before the
   modal/binder cases. `TruthLemma` is assembled by well-founded recursion on `Form.depth`;
-  the `bind` case delegates to `truth_all`, now **fully closed** for both free and non-free
-  `x` (uniform `has_state_symbol` split + depth-indexed `ih`, dual to `truth_ex`). The one
-  remaining obstacle is the **□ ←** witnessed ◇-successor existence lemma. The current
-  `enough_noms_diamond_seed` shortcut is **false** and must be replaced by the `l313'`/`set_family`
-  Henkin route — see **§TL-fix** for the disproof and the detailed step plan.
+  the   `bind` case delegates to `truth_all`, now **fully closed** for both free and non-free
+  `x` (uniform `has_state_symbol` split + depth-indexed `ih`, dual to `truth_ex`). The
+  **□ ←** witnessed ◇-successor existence lemma — the former last obstacle — is now closed
+  by the `l313'`-based Henkin construction (`succ_seed` + `RegularLindenbaumLemma`); the
+  false `enough_noms_diamond_seed` shortcut has been deleted. See **§TL-fix** for the
+  disproof and the completed construction.
   Depends on **B**, **D**, **H** (and on Kripke semantics and Soundness).
 - **I. Remove the final-completeness hole.** `Completeness`: `cons_sat` runs
   `consistent_total` → `ExtendedLindenbaumLemma (Set.total Γ)` → `TruthLemma` at the root
@@ -548,7 +562,12 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
 The substantive mathematics is concentrated in **E**–**I**; **B**–**D** are essentially
 mechanical leaf lemmas. **E** is the crux, for the encoding reasons discussed in §1.3.
 
-### §TL-fix · The witnessed ◇-successor existence lemma (the last obstacle)
+### §TL-fix · The witnessed ◇-successor existence lemma (resolved)
+
+> **Status: complete.** The construction below is fully formalized; `enough_noms_diamond_seed`
+> has been deleted and `diamond_succ_mcs` is rewired onto it. `#print axioms Completeness`
+> reports only `propext, Classical.choice, Quot.sound`. The step plan is retained as the
+> record of how the last obstacle was discharged.
 
 **Why `enough_noms_diamond_seed` is false (not just hard).** The lemma claims
 `enough_noms ({ψ} ∪ {χ │ □χ ∈ Δ})`, whose first conjunct (`enough_noms`, `Lindenbaum.lean`)
@@ -575,34 +594,37 @@ conditional for `enum n` is in the list" fact is then unrecoverable, and witness
 proven. *This is exactly why the commented `set_family`/`succesor_set` stalled.* The fix is to
 return **data** (a `Subtype`/`Sigma`), preserving the list.
 
-**Step plan (Step 1 done; Step 2 = the work; Step 3 mechanical):**
+**How it was discharged (all steps done):**
 
-- **2.0** Re-type the accumulator to
-  `{ l : List (Form TotalSet) // l ≠ [] ∧ ◇conjunction' l ∈ Δ }`, preserving the recursion
-  (`[ψ]` at the base, prepend `((ex x,σ)⟶σ[i//x])` from `l313'` at each existential step).
-- **2.1** Lemmas `wc_mono` (`(wc n).val` is a sublist of `(wc (n+1)).val`) and `wc_step`
-  (`enum n = ex x,σ → ∃ i, ((ex x,σ)⟶σ[i//x]) ∈ (wc (n+1)).val`).
-- **2.2** Define `succ_seed := {ψ} ∪ {χ │ □χ ∈ Δ} ∪ ⋃ₙ ↑(wc n).val`; prove `ψ ∈ succ_seed`
-  and `{χ│□χ∈Δ} ⊆ succ_seed`.
-- **2.3** `consistent succ_seed`: any finite `L ⊆ succ_seed` has its conditionals inside some
-  stage `wc N` (`wc_mono`), so `conjunction succ_seed L` is `⊢`-implied by
-  `conjunction' (wc N).val` together with the box-reduct; since `◇conjunction' (wc N).val ∈ Δ`,
-  the **already-proven `diamond_extension_consistent`** (applied to `conjunction' (wc N).val`)
-  gives consistency. (This is finitary bookkeeping over a generalization of
-  `diamond_extension_consistent`; the analytic content is done.)
-- **2.4** `RegularLindenbaumLemma succ_seed` → MCS `Γ' ⊇ succ_seed`.
-- **2.5** Output properties: **`Canonical.R Δ Γ'`** (box-reduct ⊆ `Γ'`); **`ψ ∈ Γ'`** (stage 0);
-  **`witnessed Γ'`** — `enum = f.invFun` is **surjective** (left inverse of an injection), so any
-  `ex x,σ ∈ Γ'` is `enum n`; at step `n+1` its conditional is in `succ_seed ⊆ Γ'`, and `MCS_mp`
-  gives `σ[i//x] ∈ Γ'`. *(2.5 witnessed is the milestone Oltean stalled on, but with the data
-  refactor it reduces to `MCS_mp` + surjectivity — tractable.)*
-- **2.6 (Step 3)** Rewire `diamond_succ_mcs` to return `⟨Γ', Canonical.R Δ Γ', ψ∈Γ', MCS Γ',
-  witnessed Γ'⟩` from this construction; **delete `enough_noms_diamond_seed`**
+- **2.0 ✓** Re-typed the accumulator (`wcond` / `wcond_step`, `ExistenceLemma.lean`) to
+  `{ l : List (Form N) // l ≠ [] ∧ ◇conjunction' l ∈ Δ }`, preserving the recursion
+  (`[ψ]` at the base, prepend `((ex x,σ)⟶σ[i//x])` from `l313'` at each existential step). The
+  index `i` is `l313'`'s `.choose`; crucially the *list* is now data, so its members are
+  recoverable.
+- **2.1 ✓** `wcond_succ_mem` / `wcond_mono` (stage membership is monotone in the index) and
+  `wcond_step_mem` (`enum n = ex x,σ → ∃ i, ((ex x,σ)⟶σ[i//x]) ∈ (wcond (n+1)).val`, proved by
+  iota-reducing `wcond_step` on the literal `ex x,σ`).
+- **2.2 ✓** `succ_seed := {χ │ □χ ∈ Δ} ∪ {χ │ ∃ n, χ ∈ (wcond n).val}` (so `ψ ∈ succ_seed`
+  at stage 0, and `{χ│□χ∈Δ} ⊆ succ_seed`).
+- **2.3 ✓** `succ_seed_consistent` (`CompletedModel.lean`): `seed_list_bound` puts any finite
+  `L ⊆ succ_seed` inside the box-reduct together with a single stage `wcond N` (`wcond_mono`);
+  then `box-reduct ∪ {conjunction' (wcond N).val}` derives `conjunction succ_seed L`
+  (`conj'_imp_mem` for the conditionals, `Γ_premise` for the box part), and since
+  `◇conjunction' (wcond N).val ∈ Δ`, `diamond_extension_consistent` (applied to that
+  conjunction) closes it — the same `box_of_consequence`/`MCS_mp` finish as the base case.
+- **2.4 ✓** `RegularLindenbaumLemma succ_seed` → MCS `Γ' ⊇ succ_seed`.
+- **2.5 ✓** Output properties: **`Canonical.R Δ Γ'`** (box-reduct ⊆ `Γ'`); **`ψ ∈ Γ'`** (stage 0);
+  **`witnessed Γ'`** — `enum = f.invFun` is surjective (left inverse of the injection from
+  `exists_injective_nat`), so any `ex x,σ ∈ Γ'` is `enum (f (ex x,σ))`; its conditional is in
+  `wcond (·+1) ⊆ succ_seed ⊆ Γ'`, and `MCS_mp` yields `σ[i//x] ∈ Γ'`. *(This is the milestone
+  Oltean stalled on; with the data refactor it reduces to `MCS_mp` + surjectivity.)*
+- **2.6 ✓ (Step 3)** `diamond_succ_mcs` now returns `⟨Γ', Canonical.R Δ Γ', ψ∈Γ', MCS Γ',
+  witnessed Γ'⟩` from this construction; `enough_noms_diamond_seed` is **deleted**
   (`diamond_extension_consistent` is retained — it powers 2.3).
 
-Completing 2.0–2.6 turns the five TL `Partial` rows and the two I `Partial` rows
-(`cons_sat`, `Completeness`) green, finishing the whole development. The *new* technical content
-is the data refactor (2.0–2.1) and the compactness bookkeeping (2.3); no fundamental wall remains
+Steps 2.0–2.6 turned the TL `Partial` rows and the two I `Partial` rows (`cons_sat`,
+`Completeness`) green, finishing the whole development. The decisive new technical content was
+the data refactor (2.0–2.1) and the compactness bookkeeping (2.3); no fundamental wall remained
 (the box-leak that kills `enough_noms` does not affect this route).
 
 *Attribution (cf. §1.3).* This step is **not** an application of Mishra's structural-freshness
@@ -610,7 +632,7 @@ suggestion — that idea is decisive at the *root* Lindenbaum construction but i
 here, since the box-reduct `{χ │ □χ ∈ Δ}` mentions every nominal (`□(nom j ⟶ nom j) ∈ Δ` for
 all `j`). The witnessed successor is instead built by **Oltean's existence-lemma direction**
 (`l313'`, fresh *variable* + `Δ`'s witnessedness), which was correct but left incomplete; the
-work here is to finish it.
+work here was to finish it — now done.
 
 ---
 
@@ -837,27 +859,29 @@ while **F** awaits `pf_extended` ← for **I** only).
 | F · `LanguageExtension.syntactic_conservativity` | lift `Set.total Γ ⊢ φ.total` back to `Γ ⊢ φ` via `pf_extended` ← + `base_conjunction` | Pass |
 | F · `LanguageExtension.sat_total` / `Model.ofTotal` | `TotalSet` satisfaction → `Model N` | Pass |
 | F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
-| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** — all `Partial` rows derive from a **single root obstacle**: the witnessed ◇-successor existence lemma. **`enough_noms_diamond_seed` is FALSE as stated** (see §TL-fix) and must be replaced by the `l313'`/`set_family` Henkin route. | **Partial** |
+| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** — **now fully closed**. The former root obstacle (witnessed ◇-successor existence) is discharged by the §TL-fix Henkin construction; `enough_noms_diamond_seed` (false as stated) has been deleted. | **Pass** |
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.mcs_in_*_succ` | `mcs_in_witnessed_succ` / `completed_to_witnessed` / `mcs_in_completed_succ` | Pass |
 | TL · `CompletedModel.restrict_canonical_succ` | extend witnessed path along `Canonical.R` | Pass |
-| TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent (via `box_of_consequence` + `nec_mono`/`box_conj_mem`); also powers the compactness step in `succ_seed` consistency | Pass |
+| TL · `CompletedModel.diamond_extension_consistent` | `{ψ}∪{□χ∈Δ}` consistent (via `box_of_consequence` + `nec_mono`/`box_conj_mem`); also powers the compactness step in `succ_seed_consistent` | Pass |
 | TL · `ExistenceLemma.l313` / `l313'` | push a witness conditional `((ex x,χ)⟶χ[i//x])` through `◇` using a fresh **variable** + `Δ`'s own witnessedness (no fresh nominal needed) | Pass |
-| TL · `ExistenceLemma.witness_conditionals` | accumulate witness conditionals so `◇conjunction' l ∈ Δ` | Pass |
-| TL · `Lindenbaum.RegularLindenbaumLemma` | plain MCS extension `consistent Γ → ∃ Γ', Γ ⊆ Γ' ∧ MCS Γ'` (already present, general over any `N`) | Pass |
-| TL · `ExistenceLemma.set_family` / `succesor_set` | **NEW (crux)** — witnessed ◇-successor of `Δ`. Recon found the stall cause: the accumulator returns `Prop` and `.choose` loses the list. Plan (§TL-fix 2.0–2.5): re-type to `Subtype` (data), prove `wc_mono`/`wc_step`, define `succ_seed`, show consistency via compactness + `diamond_extension_consistent`, extend by `RegularLindenbaumLemma`, then `Canonical.R`/`ψ∈Γ'`/`witnessed` (witnessed = `MCS_mp` + `enum` surjectivity) | Not Yet |
-| TL · `CompletedModel.diamond_succ_mcs` | **to be rewired** off `enough_noms_diamond_seed` onto `succesor_set`; then yields `Canonical.R Δ Γ' ∧ ψ∈Γ' ∧ MCS Γ' ∧ witnessed Γ'` | Partial |
-| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline via `diamond_succ_mcs` ⇒ blocked on the successor-existence crux | Partial |
+| TL · `ExistenceLemma.wcond` / `wcond_step` | **NEW** — accumulating witness-conditional family, returning **data** (`Subtype` carrying the list), with `◇conjunction' l ∈ Δ` invariant | Pass |
+| TL · `ExistenceLemma.wcond_mono` / `wcond_step_mem` | **NEW** — stage monotonicity + per-step Henkin witness membership | Pass |
+| TL · `Lindenbaum.RegularLindenbaumLemma` | plain MCS extension `consistent Γ → ∃ Γ', Γ ⊆ Γ' ∧ MCS Γ'` (general over any `N`) | Pass |
+| TL · `ExistenceLemma.succ_seed` / `seed_list_bound` | **NEW** — witnessed ◇-successor seed (box-reduct ∪ witness conditionals) + finite-bounding (compactness) lemma | Pass |
+| TL · `CompletedModel.succ_seed_consistent` | **NEW** — consistency of `succ_seed` via compactness + `diamond_extension_consistent` | Pass |
+| TL · `CompletedModel.diamond_succ_mcs` | **rewired** onto `succ_seed` + `RegularLindenbaumLemma`: yields `Canonical.R Δ Γ' ∧ ψ∈Γ' ∧ MCS Γ' ∧ witnessed Γ'` (witnessed via `MCS_mp` + `enum` surjectivity) | Pass |
+| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline via `diamond_succ_mcs` | Pass |
 | TL · `Proof.not_nec_to_diamond` | `∼(□φ) ⟶ ◇∼φ` for MCS maximality step | Pass |
-| TL · `CompletedModel.truth_box` | □ case wired; ← via `diamond_completed_succ` ⇒ blocked on the successor-existence crux | Partial |
+| TL · `CompletedModel.truth_box` | □ case: → via `R_nec` on witnessed/canonical successors; ← via MCS maximality + `diamond_completed_succ` | Pass |
 | TL · `Proof.all_iff_notfree` | `(all x, ψ) ⟷ ψ` when `x` not free (Q1 + `ax_q2`) | Pass |
 | TL · `CompletedModel.truth_all` | uniform proof (free + non-free `x`): nominal/svar symbol split + depth-indexed `ih`; forward via `ax_q2_nom`/`ax_q2_svar`, backward via `witnessed` on `ex x, ∼ψ` (`bind_dual`) | Pass |
-| TL · `CompletedModel.TruthLemma` | structural assembly via well-founded recursion on `Form.depth` (supplies `truth_all`'s depth-`ih`); ⇒ blocked only on the successor-existence crux (`box`) | Partial |
-| **I** | **Final-completeness hole** — both `Partial` rows derive from the single TL successor-existence crux (via `TruthLemma`); no I-local holes remain | **Partial** |
+| TL · `CompletedModel.TruthLemma` | structural assembly via well-founded recursion on `Form.depth` (supplies `truth_all`'s depth-`ih`) | Pass |
+| **I** | **Final-completeness** — fully closed; depends on TL (`TruthLemma`), now complete | **Pass** |
 | I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` via `syntactic_conservativity` (needs `N` nonempty, threaded through `cons_sat`/`Completeness`) | Pass |
-| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked only via `TruthLemma` on the TL successor-existence crux) | Partial |
+| I · `Completeness.cons_sat` | model-existence pipeline | Pass |
 | I · `Completeness.ModelExistence` | completeness ⟺ every consistent set is satisfiable | Pass |
-| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`; takes `N` nonempty) ⇒ blocked via `TruthLemma` on the successor-existence crux | Partial |
+| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`; takes `N` nonempty) — **the development is now `sorry`-free; `#print axioms Completeness` = `propext, Classical.choice, Quot.sound`** | Pass |
 
 ---
 
@@ -7067,7 +7091,7 @@ noncomputable def syntactic_conservativity {Γ : Set (Form N)} {φ : Form N}
 
 ## `Hybrid/ExistenceLemma.lean`
 
-*108 lines.*
+*183 lines.*
 
 ```lean
 import Hybrid.Lindenbaum
@@ -7130,59 +7154,134 @@ lemma l313' {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ) (mem : ◇φ
 -- ◇ (((ex x, ψ)⟶ψ[y//x])⋀φ)
 -- ◇ ((ex x, ψ⟶ψ[i//x])⋀φ)
 
-def witness_conditionals (enum : ℕ → Form N) (n : ℕ) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ) (mem : ◇φ ∈ Δ) : ∃ (l : List (Form N)), l ≠ [] ∧ ◇conjunction' l ∈ Δ :=
-  match n with
-  | 0   => by exists [φ]; exact ⟨by simp, by simpa only [conjunction'] using mem⟩
-  | n+1 => by
-           let ⟨prev_l, prev_nnil, prev_mem⟩ := witness_conditionals enum n mcs wit mem
-           let ψ_n := enum n
-           have := l313' mcs wit prev_mem ψ_n
-           match ψ_n with
-           | ex x, ψ_n  =>
-              let ⟨i_n, curr_mem⟩ := this
-              exact ⟨((ex x, ψ_n) ⟶ ψ_n[i_n//x]) :: prev_l, by simp, by rw [conjunction']; exact curr_mem; exact prev_nnil⟩
-           | _        => exact ⟨prev_l, prev_nnil, prev_mem⟩
+-- ===========================================================================
+-- §TL-fix · Witnessed ◇-successor existence lemma (the Henkin construction).
+--
+-- `enough_noms_diamond_seed` is FALSE (the box-reduct `{χ│□χ∈Δ}` mentions every
+-- nominal, since `□(nom j ⟶ nom j) ∈ Δ`).  The correct route is Oltean's
+-- existence-lemma direction: build the witnessed successor incrementally from
+-- `Δ`'s own witnessedness via `l313'`, accumulating Henkin *witness conditionals*
+-- `((ex x,σ) ⟶ σ[i//x])`.  The accumulator must carry *data* (the actual list),
+-- so we return a `Subtype`, not a `Prop` (the latter, with `.choose`, loses the
+-- structured list and is exactly why the original `set_family` stalled).
+-- ===========================================================================
 
-def succesor_set' (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ) (mem : ◇φ ∈ Δ) : Set (Form N) :=
-  {ψ | □ψ ∈ Δ} ∪ {φ | ∃ n : ℕ, φ ∈ (witness_conditionals enum n mcs wit mem).choose}
+-- `conjunction'` on a nonempty tail is a top-level conjunction.
+lemma conjunction'_cons {a : Form N} {l : List (Form N)} (h : l ≠ []) :
+    conjunction' (a :: l) = a ⋀ conjunction' l := by
+  cases l with
+  | nil => exact absurd rfl h
+  | cons b l' => rfl
 
+-- Every member of a list is provable from the list's conjunction.
+def conj'_imp_mem {a : Form N} : ∀ {l : List (Form N)}, a ∈ l → ⊢ (conjunction' l ⟶ a) := by
+  intro l hmem
+  induction l with
+  | nil => exact absurd hmem (by simp)
+  | cons h t ih =>
+      cases t with
+      | nil =>
+          have hah : a = h := by simpa using hmem
+          subst hah
+          simp only [conjunction']
+          exact tautology imp_refl
+      | cons b t' =>
+          rw [conjunction'_cons (by simp)]
+          by_cases hc : a = h
+          · subst hc; exact tautology conj_elim_l
+          · have htl : a ∈ b :: t' := by
+              rcases List.mem_cons.mp hmem with h' | h'
+              · exact absurd h' hc
+              · exact h'
+            exact hs (tautology conj_elim_r) (ih htl)
 
+-- One incremental step: if `φ = ex x,ψ`, prepend a Henkin witness conditional
+-- (whose existence is `l313'`); otherwise leave the accumulator unchanged.
+noncomputable def wcond_step {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    (p : { l : List (Form N) // l ≠ [] ∧ ◇conjunction' l ∈ Δ }) (φ : Form N) :
+    { l : List (Form N) // l ≠ [] ∧ ◇conjunction' l ∈ Δ } :=
+  match φ with
+  | ex x, ψ =>
+      let hwc := l313' mcs wit p.2.2 (ex x, ψ)
+      ⟨((ex x, ψ) ⟶ ψ[hwc.choose // x]) :: p.val,
+        ⟨by simp, by rw [conjunction'_cons p.2.1]; exact hwc.choose_spec⟩⟩
+  | _ => p
 
-/-
-def Set.has_wit_of (Γ : Set (Form N)) : Form → Prop
-  | ex x, φ => ∃ (i : NOM), (ex x, φ ⟶ φ[i//x]) ∈ Γ
-  | _       => True
+-- The accumulating family of witness-conditional lists (data, indexed by ℕ).
+noncomputable def wcond (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) : (n : ℕ) → { l : List (Form N) // l ≠ [] ∧ ◇conjunction' l ∈ Δ }
+  | 0     => ⟨[φ], ⟨by simp, by simpa only [conjunction'] using mem⟩⟩
+  | n + 1 => wcond_step mcs wit (wcond enum mcs wit mem n) (enum n)
 
-def Set.list_wit {Γ : Set (Form N)} (enum : ℕ → Form N) (n : ℕ) (h : ∀ i : ℕ, i < n → Γ.has_wit_of (enum i)) : List (Form N) :=
-  match n with
-  | 0   =>    []
-  | n+1 =>    sorry
+-- Each stage is contained in the next (membership is monotone in the index).
+lemma wcond_succ_mem (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) {a : Form N} {n : ℕ}
+    (h : a ∈ (wcond enum mcs wit mem n).val) : a ∈ (wcond enum mcs wit mem (n + 1)).val := by
+  show a ∈ (wcond_step mcs wit (wcond enum mcs wit mem n) (enum n)).val
+  unfold wcond_step
+  split <;> first | exact List.mem_cons_of_mem _ h | exact h
 
-theorem set_family (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : Δ.MCS) (wit : Δ.witnessed) (mem : ◇φ ∈ Δ) :
-  (n : ℕ) → (∃ Γ : Set (Form N), Canonical.R Δ Γ ∧ φ ∈ Γ ∧ ∀ i : ℕ, i < n → Γ.has_wit_of (enum i))
-  | 0     => by
-      let Γ₀ := {φ} ∪ {ψ | □ψ ∈ Δ}
-      have : Γ₀.consistent := by admit
-      have ⟨Γ₀', incl, l_mcs⟩ := RegularLindenbaumLemma Γ₀ this
-      exists Γ₀'
-      apply And.intro
-      . simp only [Canonical, restrict_by, mcs, l_mcs, true_and]
-        intro φ mem
-        apply incl; apply Or.inr; simp
-        exact mem
-      . simp; apply incl; simp
-  | n+1   => by
-      have ⟨Γ_ih, ⟨R_ih, ⟨mem_ih, wit_ih⟩⟩⟩ := set_family enum mcs wit mem n
-      admit
+lemma wcond_mono (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) {a : Form N} {m n : ℕ} (hmn : m ≤ n)
+    (h : a ∈ (wcond enum mcs wit mem m).val) : a ∈ (wcond enum mcs wit mem n).val := by
+  induction hmn with
+  | refl => exact h
+  | step _ ih => exact wcond_succ_mem enum mcs wit mem ih
 
-def succesor_set (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : Δ.MCS) (wit : Δ.witnessed) (mem : ◇φ ∈ Δ) : Set (Form N) :=
-  {φ | ∃ n : ℕ, φ ∈ (set_family enum mcs wit mem n).choose}
--/
+-- If `enum n` is the existential `ex x,σ`, the next stage carries a witness
+-- conditional `(ex x,σ) ⟶ σ[i//x]` for some nominal `i`.
+lemma wcond_step_mem (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) (n : ℕ) (x : SVAR) (σ : Form N) (h : enum n = (ex x, σ)) :
+    ∃ i : NOM N, ((ex x, σ) ⟶ σ[i // x]) ∈ (wcond enum mcs wit mem (n + 1)).val := by
+  show ∃ i : NOM N, ((ex x, σ) ⟶ σ[i // x]) ∈
+      (wcond_step mcs wit (wcond enum mcs wit mem n) (enum n)).val
+  rw [h]
+  exact ⟨(l313' mcs wit (wcond enum mcs wit mem n).2.2 (ex x, σ)).choose,
+         List.mem_cons_self⟩
+
+-- Conjoin a derivable family of premises into one derivation of their conjunction.
+def Γ_conjunction_of_premises {Γ S : Set (Form N)} (L : List S)
+    (h : ∀ x ∈ L, Γ ⊢ x.val) : Γ ⊢ conjunction S L := by
+  induction L with
+  | nil =>
+      show Γ ⊢ (⊥ ⟶ ⊥)
+      exact Γ_theorem (tautology imp_refl) Γ
+  | cons hd tl ih =>
+      rw [conjunction]
+      exact Γ_conj_intro (h hd (List.mem_cons_self))
+        (ih (fun x hx => h x (List.mem_cons_of_mem _ hx)))
+
+-- The diamond-successor seed: the canonical box-reduct of `Δ` together with the
+-- accumulated Henkin witness conditionals (and the diamond formula `φ` at stage 0).
+noncomputable def succ_seed (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) : Set (Form N) :=
+  {χ | □χ ∈ Δ} ∪ {χ | ∃ n : ℕ, χ ∈ (wcond enum mcs wit mem n).val}
+
+-- Compactness bookkeeping: any finite list drawn from `succ_seed` is bounded —
+-- every element is in the box-reduct or in a single stage `wcond N`.
+lemma seed_list_bound (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) (L : List ↑(succ_seed enum mcs wit mem)) :
+    ∃ N : ℕ, ∀ x ∈ L, (□ x.val ∈ Δ) ∨ x.val ∈ (wcond enum mcs wit mem N).val := by
+  induction L with
+  | nil => exact ⟨0, by simp⟩
+  | cons h t ih =>
+      obtain ⟨N, hN⟩ := ih
+      rcases h.2 with hbox | ⟨n, hn⟩
+      · refine ⟨N, fun x hx => ?_⟩
+        rcases List.mem_cons.mp hx with rfl | hxt
+        · exact Or.inl hbox
+        · exact hN x hxt
+      · refine ⟨max n N, fun x hx => ?_⟩
+        rcases List.mem_cons.mp hx with rfl | hxt
+        · exact Or.inr (wcond_mono enum mcs wit mem (le_max_left n N) hn)
+        · rcases hN x hxt with hb | hw
+          · exact Or.inl hb
+          · exact Or.inr (wcond_mono enum mcs wit mem (le_max_right n N) hw)
 ```
 
 ## `Hybrid/CompletedModel.lean`
 
-*914 lines.*
+*954 lines.*
 
 ```lean
 import Hybrid.ProofUtils
@@ -7193,6 +7292,7 @@ import Hybrid.Tautology
 -- about renaming bound vars:
 import Hybrid.RenameBound
 import Hybrid.Lindenbaum
+import Hybrid.ExistenceLemma
 
 open Classical
 
@@ -7894,13 +7994,6 @@ lemma completed_canonical {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit 
     (hΔ : Δ.MCS_in mcs wit) (hR : (CompletedModel mcs wit).R Δ Δ') : Canonical.R Δ Δ' :=
   (completed_to_witnessed mcs wit hΔ hR).2.2
 
-/-- Freshness for the diamond successor seed `{ψ} ∪ {χ | □χ ∈ Δ}`.
-    Requires the Henkin `set_family` infrastructure (`witnessed Δ`, `◇ψ ∈ Δ`). -/
-lemma enough_noms_diamond_seed {Δ : Set (Form TotalSet)} (ψ : Form TotalSet)
-    (wit : witnessed Δ) (hdia : ◇ψ ∈ Δ) :
-    enough_noms ({ψ} ∪ {χ | □χ ∈ Δ}) := by
-  admit
-
 /-- K-distribution lifted to theorems: `□` is monotone under provable implication. -/
 def nec_mono {N : Set ℕ} {a b : Form N} (h : ⊢ (a ⟶ b)) : ⊢ (□ a ⟶ □ b) :=
   Proof.mp Proof.ax_k (Proof.necess h)
@@ -7946,19 +8039,65 @@ theorem diamond_extension_consistent {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (
   have hdia' : (□ (ψ ⟶ ⊥) ⟶ ⊥) ∈ Δ := hdia
   exact mcs.1 (Proof.Γ_premise (Proof.MCS_mp mcs hdia' hbox))
 
-/-- Lindenbaum extension of the successor seed: an MCS `Γ'` with `Canonical.R Δ Γ'` and `ψ ∈ Γ'`. -/
+/-- Consistency of the witnessed-successor seed `succ_seed` (the canonical box-reduct
+    together with all accumulated Henkin witness conditionals).  This is the compactness
+    step of the §TL-fix construction: any finite subset lands in a single stage `wcond N`,
+    whose conjunction `◇`-belongs to `Δ`, so `diamond_extension_consistent` applies. -/
+theorem succ_seed_consistent {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {ψ : Form TotalSet} (hdia : ◇ψ ∈ Δ) (enum : ℕ → Form TotalSet) :
+    consistent (succ_seed enum mcs wit hdia) := by
+  intro hbot
+  obtain ⟨L, pf⟩ := hbot
+  obtain ⟨N, hbound⟩ := seed_list_bound enum mcs wit hdia L
+  set cN := conjunction' (wcond enum mcs wit hdia N).val with hcN
+  -- `box-reduct ∪ {cN}` derives every premise in `L`, hence their conjunction.
+  have hconj : ({χ | □ χ ∈ Δ} ∪ {cN}) ⊢ conjunction (succ_seed enum mcs wit hdia) L := by
+    apply Γ_conjunction_of_premises
+    intro x hx
+    by_cases hw : x.val ∈ (wcond enum mcs wit hdia N).val
+    · have h1 : ({cN} : Set (Form TotalSet)) ⊢ x.val :=
+        Proof.Γ_mp (Proof.Γ_theorem (conj'_imp_mem hw) {cN}) (Proof.Γ_premise rfl)
+      exact Proof.increasing_consequence h1 (fun a ha => Or.inr ha)
+    · have hb : □ x.val ∈ Δ := (hbound x hx).resolve_right hw
+      exact Proof.Γ_premise (Or.inl hb)
+  have hbox_bot : ({χ | □ χ ∈ Δ} ∪ {cN}) ⊢ (⊥ : Form TotalSet) :=
+    Proof.Γ_mp (Proof.Γ_theorem pf _) hconj
+  have hB : {χ | □ χ ∈ Δ} ⊢ (cN ⟶ ⊥) := Proof.Deduction.mpr hbox_bot
+  have hbox : □ (cN ⟶ ⊥) ∈ Δ := box_of_consequence mcs hB
+  have hdiaN : (□ (cN ⟶ ⊥) ⟶ ⊥) ∈ Δ := (wcond enum mcs wit hdia N).2.2
+  exact mcs.1 (Proof.Γ_premise (Proof.MCS_mp mcs hdiaN hbox))
+
+/-- Witnessed ◇-successor existence lemma (replaces the false `enough_noms_diamond_seed`).
+    From `◇ψ ∈ Δ` build an MCS `Γ'` with `Canonical.R Δ Γ'`, `ψ ∈ Γ'`, and `witnessed Γ'`,
+    via Oltean's Henkin construction (`succ_seed` + `RegularLindenbaumLemma`). -/
 theorem diamond_succ_mcs {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (wit : witnessed Δ) (ψ : Form TotalSet)
     (hdia : ◇ψ ∈ Δ) :
     ∃ Γ' : Set (Form TotalSet),
       Canonical.R Δ Γ' ∧ ψ ∈ Γ' ∧ MCS Γ' ∧ witnessed Γ' := by
-  let Γ₀ := {ψ} ∪ {χ | □χ ∈ Δ}
-  have hcons := diamond_extension_consistent mcs ψ hdia
-  have hnom := enough_noms_diamond_seed ψ wit hdia
-  obtain ⟨Γ', hsub, hmcs, hwit⟩ := WitnessedLindenbaumLemma Γ₀ hcons hnom
-  refine ⟨Γ', ?_, hsub (Or.inl (Set.mem_singleton ψ)), hmcs, hwit⟩
-  simp only [Canonical, restrict_by, mcs, hmcs, true_and]
-  intro φ hbox
-  exact hsub (Or.inr (by simp [hbox]))
+  obtain ⟨f, f_inj⟩ := exists_injective_nat (Form TotalSet)
+  let enum := f.invFun
+  have enum_inv : ∀ φ, enum (f φ) = φ := fun φ => f.leftInverse_invFun f_inj φ
+  have hcons := succ_seed_consistent mcs wit hdia enum
+  obtain ⟨Γ', hsub, hmcs⟩ := RegularLindenbaumLemma (succ_seed enum mcs wit hdia) hcons
+  refine ⟨Γ', ?_, ?_, hmcs, ?_⟩
+  · -- `Canonical.R Δ Γ'`: the box-reduct of `Δ` is contained in `Γ'`.
+    simp only [Canonical, restrict_by, mcs, hmcs, true_and]
+    intro χ hbox
+    exact hsub (Or.inl hbox)
+  · -- `ψ ∈ Γ'`: `ψ` is at stage 0 of the witness family.
+    refine hsub (Or.inr ⟨0, ?_⟩)
+    show ψ ∈ [ψ]
+    exact List.mem_cons_self
+  · -- `witnessed Γ'`: every existential in `Γ'` is `enum n`, and stage `n+1` carries its witness.
+    intro χ hχ
+    split
+    · next x σ =>
+        have hχ' : (ex x, σ) ∈ Γ' := hχ
+        obtain ⟨i, hi⟩ :=
+          wcond_step_mem enum mcs wit hdia (f (ex x, σ)) x σ (enum_inv (ex x, σ))
+        have hcond : ((ex x, σ) ⟶ σ[i // x]) ∈ Γ' := hsub (Or.inr ⟨f (ex x, σ) + 1, hi⟩)
+        exact ⟨i, Proof.MCS_mp hmcs hcond hχ'⟩
+    · assumption
 
 /-- Extend a restrict-by-witnessed path along one canonical step. -/
 lemma restrict_canonical_succ {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit : witnessed Θ)

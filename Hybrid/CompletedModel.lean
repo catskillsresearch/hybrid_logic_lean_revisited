@@ -6,6 +6,7 @@ import Hybrid.Tautology
 -- about renaming bound vars:
 import Hybrid.RenameBound
 import Hybrid.Lindenbaum
+import Hybrid.ExistenceLemma
 
 open Classical
 
@@ -707,13 +708,6 @@ lemma completed_canonical {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit 
     (hΔ : Δ.MCS_in mcs wit) (hR : (CompletedModel mcs wit).R Δ Δ') : Canonical.R Δ Δ' :=
   (completed_to_witnessed mcs wit hΔ hR).2.2
 
-/-- Freshness for the diamond successor seed `{ψ} ∪ {χ | □χ ∈ Δ}`.
-    Requires the Henkin `set_family` infrastructure (`witnessed Δ`, `◇ψ ∈ Δ`). -/
-lemma enough_noms_diamond_seed {Δ : Set (Form TotalSet)} (ψ : Form TotalSet)
-    (wit : witnessed Δ) (hdia : ◇ψ ∈ Δ) :
-    enough_noms ({ψ} ∪ {χ | □χ ∈ Δ}) := by
-  admit
-
 /-- K-distribution lifted to theorems: `□` is monotone under provable implication. -/
 def nec_mono {N : Set ℕ} {a b : Form N} (h : ⊢ (a ⟶ b)) : ⊢ (□ a ⟶ □ b) :=
   Proof.mp Proof.ax_k (Proof.necess h)
@@ -759,19 +753,65 @@ theorem diamond_extension_consistent {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (
   have hdia' : (□ (ψ ⟶ ⊥) ⟶ ⊥) ∈ Δ := hdia
   exact mcs.1 (Proof.Γ_premise (Proof.MCS_mp mcs hdia' hbox))
 
-/-- Lindenbaum extension of the successor seed: an MCS `Γ'` with `Canonical.R Δ Γ'` and `ψ ∈ Γ'`. -/
+/-- Consistency of the witnessed-successor seed `succ_seed` (the canonical box-reduct
+    together with all accumulated Henkin witness conditionals).  This is the compactness
+    step of the §TL-fix construction: any finite subset lands in a single stage `wcond N`,
+    whose conjunction `◇`-belongs to `Δ`, so `diamond_extension_consistent` applies. -/
+theorem succ_seed_consistent {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {ψ : Form TotalSet} (hdia : ◇ψ ∈ Δ) (enum : ℕ → Form TotalSet) :
+    consistent (succ_seed enum mcs wit hdia) := by
+  intro hbot
+  obtain ⟨L, pf⟩ := hbot
+  obtain ⟨N, hbound⟩ := seed_list_bound enum mcs wit hdia L
+  set cN := conjunction' (wcond enum mcs wit hdia N).val with hcN
+  -- `box-reduct ∪ {cN}` derives every premise in `L`, hence their conjunction.
+  have hconj : ({χ | □ χ ∈ Δ} ∪ {cN}) ⊢ conjunction (succ_seed enum mcs wit hdia) L := by
+    apply Γ_conjunction_of_premises
+    intro x hx
+    by_cases hw : x.val ∈ (wcond enum mcs wit hdia N).val
+    · have h1 : ({cN} : Set (Form TotalSet)) ⊢ x.val :=
+        Proof.Γ_mp (Proof.Γ_theorem (conj'_imp_mem hw) {cN}) (Proof.Γ_premise rfl)
+      exact Proof.increasing_consequence h1 (fun a ha => Or.inr ha)
+    · have hb : □ x.val ∈ Δ := (hbound x hx).resolve_right hw
+      exact Proof.Γ_premise (Or.inl hb)
+  have hbox_bot : ({χ | □ χ ∈ Δ} ∪ {cN}) ⊢ (⊥ : Form TotalSet) :=
+    Proof.Γ_mp (Proof.Γ_theorem pf _) hconj
+  have hB : {χ | □ χ ∈ Δ} ⊢ (cN ⟶ ⊥) := Proof.Deduction.mpr hbox_bot
+  have hbox : □ (cN ⟶ ⊥) ∈ Δ := box_of_consequence mcs hB
+  have hdiaN : (□ (cN ⟶ ⊥) ⟶ ⊥) ∈ Δ := (wcond enum mcs wit hdia N).2.2
+  exact mcs.1 (Proof.Γ_premise (Proof.MCS_mp mcs hdiaN hbox))
+
+/-- Witnessed ◇-successor existence lemma (replaces the false `enough_noms_diamond_seed`).
+    From `◇ψ ∈ Δ` build an MCS `Γ'` with `Canonical.R Δ Γ'`, `ψ ∈ Γ'`, and `witnessed Γ'`,
+    via Oltean's Henkin construction (`succ_seed` + `RegularLindenbaumLemma`). -/
 theorem diamond_succ_mcs {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (wit : witnessed Δ) (ψ : Form TotalSet)
     (hdia : ◇ψ ∈ Δ) :
     ∃ Γ' : Set (Form TotalSet),
       Canonical.R Δ Γ' ∧ ψ ∈ Γ' ∧ MCS Γ' ∧ witnessed Γ' := by
-  let Γ₀ := {ψ} ∪ {χ | □χ ∈ Δ}
-  have hcons := diamond_extension_consistent mcs ψ hdia
-  have hnom := enough_noms_diamond_seed ψ wit hdia
-  obtain ⟨Γ', hsub, hmcs, hwit⟩ := WitnessedLindenbaumLemma Γ₀ hcons hnom
-  refine ⟨Γ', ?_, hsub (Or.inl (Set.mem_singleton ψ)), hmcs, hwit⟩
-  simp only [Canonical, restrict_by, mcs, hmcs, true_and]
-  intro φ hbox
-  exact hsub (Or.inr (by simp [hbox]))
+  obtain ⟨f, f_inj⟩ := exists_injective_nat (Form TotalSet)
+  let enum := f.invFun
+  have enum_inv : ∀ φ, enum (f φ) = φ := fun φ => f.leftInverse_invFun f_inj φ
+  have hcons := succ_seed_consistent mcs wit hdia enum
+  obtain ⟨Γ', hsub, hmcs⟩ := RegularLindenbaumLemma (succ_seed enum mcs wit hdia) hcons
+  refine ⟨Γ', ?_, ?_, hmcs, ?_⟩
+  · -- `Canonical.R Δ Γ'`: the box-reduct of `Δ` is contained in `Γ'`.
+    simp only [Canonical, restrict_by, mcs, hmcs, true_and]
+    intro χ hbox
+    exact hsub (Or.inl hbox)
+  · -- `ψ ∈ Γ'`: `ψ` is at stage 0 of the witness family.
+    refine hsub (Or.inr ⟨0, ?_⟩)
+    show ψ ∈ [ψ]
+    exact List.mem_cons_self
+  · -- `witnessed Γ'`: every existential in `Γ'` is `enum n`, and stage `n+1` carries its witness.
+    intro χ hχ
+    split
+    · next x σ =>
+        have hχ' : (ex x, σ) ∈ Γ' := hχ
+        obtain ⟨i, hi⟩ :=
+          wcond_step_mem enum mcs wit hdia (f (ex x, σ)) x σ (enum_inv (ex x, σ))
+        have hcond : ((ex x, σ) ⟶ σ[i // x]) ∈ Γ' := hsub (Or.inr ⟨f (ex x, σ) + 1, hi⟩)
+        exact ⟨i, Proof.MCS_mp hmcs hcond hχ'⟩
+    · assumption
 
 /-- Extend a restrict-by-witnessed path along one canonical step. -/
 lemma restrict_canonical_succ {Θ Δ Δ' : Set (Form TotalSet)} (mcs : MCS Θ) (wit : witnessed Θ)

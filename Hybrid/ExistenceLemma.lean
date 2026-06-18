@@ -58,51 +58,126 @@ lemma l313' {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ) (mem : ◇φ
 -- ◇ (((ex x, ψ)⟶ψ[y//x])⋀φ)
 -- ◇ ((ex x, ψ⟶ψ[i//x])⋀φ)
 
-def witness_conditionals (enum : ℕ → Form N) (n : ℕ) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ) (mem : ◇φ ∈ Δ) : ∃ (l : List (Form N)), l ≠ [] ∧ ◇conjunction' l ∈ Δ :=
-  match n with
-  | 0   => by exists [φ]; exact ⟨by simp, by simpa only [conjunction'] using mem⟩
-  | n+1 => by
-           let ⟨prev_l, prev_nnil, prev_mem⟩ := witness_conditionals enum n mcs wit mem
-           let ψ_n := enum n
-           have := l313' mcs wit prev_mem ψ_n
-           match ψ_n with
-           | ex x, ψ_n  =>
-              let ⟨i_n, curr_mem⟩ := this
-              exact ⟨((ex x, ψ_n) ⟶ ψ_n[i_n//x]) :: prev_l, by simp, by rw [conjunction']; exact curr_mem; exact prev_nnil⟩
-           | _        => exact ⟨prev_l, prev_nnil, prev_mem⟩
+-- ===========================================================================
+-- §TL-fix · Witnessed ◇-successor existence lemma (the Henkin construction).
+--
+-- `enough_noms_diamond_seed` is FALSE (the box-reduct `{χ│□χ∈Δ}` mentions every
+-- nominal, since `□(nom j ⟶ nom j) ∈ Δ`).  The correct route is Oltean's
+-- existence-lemma direction: build the witnessed successor incrementally from
+-- `Δ`'s own witnessedness via `l313'`, accumulating Henkin *witness conditionals*
+-- `((ex x,σ) ⟶ σ[i//x])`.  The accumulator must carry *data* (the actual list),
+-- so we return a `Subtype`, not a `Prop` (the latter, with `.choose`, loses the
+-- structured list and is exactly why the original `set_family` stalled).
+-- ===========================================================================
 
-def succesor_set' (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ) (mem : ◇φ ∈ Δ) : Set (Form N) :=
-  {ψ | □ψ ∈ Δ} ∪ {φ | ∃ n : ℕ, φ ∈ (witness_conditionals enum n mcs wit mem).choose}
+-- `conjunction'` on a nonempty tail is a top-level conjunction.
+lemma conjunction'_cons {a : Form N} {l : List (Form N)} (h : l ≠ []) :
+    conjunction' (a :: l) = a ⋀ conjunction' l := by
+  cases l with
+  | nil => exact absurd rfl h
+  | cons b l' => rfl
 
+-- Every member of a list is provable from the list's conjunction.
+def conj'_imp_mem {a : Form N} : ∀ {l : List (Form N)}, a ∈ l → ⊢ (conjunction' l ⟶ a) := by
+  intro l hmem
+  induction l with
+  | nil => exact absurd hmem (by simp)
+  | cons h t ih =>
+      cases t with
+      | nil =>
+          have hah : a = h := by simpa using hmem
+          subst hah
+          simp only [conjunction']
+          exact tautology imp_refl
+      | cons b t' =>
+          rw [conjunction'_cons (by simp)]
+          by_cases hc : a = h
+          · subst hc; exact tautology conj_elim_l
+          · have htl : a ∈ b :: t' := by
+              rcases List.mem_cons.mp hmem with h' | h'
+              · exact absurd h' hc
+              · exact h'
+            exact hs (tautology conj_elim_r) (ih htl)
 
+-- One incremental step: if `φ = ex x,ψ`, prepend a Henkin witness conditional
+-- (whose existence is `l313'`); otherwise leave the accumulator unchanged.
+noncomputable def wcond_step {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    (p : { l : List (Form N) // l ≠ [] ∧ ◇conjunction' l ∈ Δ }) (φ : Form N) :
+    { l : List (Form N) // l ≠ [] ∧ ◇conjunction' l ∈ Δ } :=
+  match φ with
+  | ex x, ψ =>
+      let hwc := l313' mcs wit p.2.2 (ex x, ψ)
+      ⟨((ex x, ψ) ⟶ ψ[hwc.choose // x]) :: p.val,
+        ⟨by simp, by rw [conjunction'_cons p.2.1]; exact hwc.choose_spec⟩⟩
+  | _ => p
 
-/-
-def Set.has_wit_of (Γ : Set (Form N)) : Form → Prop
-  | ex x, φ => ∃ (i : NOM), (ex x, φ ⟶ φ[i//x]) ∈ Γ
-  | _       => True
+-- The accumulating family of witness-conditional lists (data, indexed by ℕ).
+noncomputable def wcond (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) : (n : ℕ) → { l : List (Form N) // l ≠ [] ∧ ◇conjunction' l ∈ Δ }
+  | 0     => ⟨[φ], ⟨by simp, by simpa only [conjunction'] using mem⟩⟩
+  | n + 1 => wcond_step mcs wit (wcond enum mcs wit mem n) (enum n)
 
-def Set.list_wit {Γ : Set (Form N)} (enum : ℕ → Form N) (n : ℕ) (h : ∀ i : ℕ, i < n → Γ.has_wit_of (enum i)) : List (Form N) :=
-  match n with
-  | 0   =>    []
-  | n+1 =>    sorry
+-- Each stage is contained in the next (membership is monotone in the index).
+lemma wcond_succ_mem (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) {a : Form N} {n : ℕ}
+    (h : a ∈ (wcond enum mcs wit mem n).val) : a ∈ (wcond enum mcs wit mem (n + 1)).val := by
+  show a ∈ (wcond_step mcs wit (wcond enum mcs wit mem n) (enum n)).val
+  unfold wcond_step
+  split <;> first | exact List.mem_cons_of_mem _ h | exact h
 
-theorem set_family (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : Δ.MCS) (wit : Δ.witnessed) (mem : ◇φ ∈ Δ) :
-  (n : ℕ) → (∃ Γ : Set (Form N), Canonical.R Δ Γ ∧ φ ∈ Γ ∧ ∀ i : ℕ, i < n → Γ.has_wit_of (enum i))
-  | 0     => by
-      let Γ₀ := {φ} ∪ {ψ | □ψ ∈ Δ}
-      have : Γ₀.consistent := by admit
-      have ⟨Γ₀', incl, l_mcs⟩ := RegularLindenbaumLemma Γ₀ this
-      exists Γ₀'
-      apply And.intro
-      . simp only [Canonical, restrict_by, mcs, l_mcs, true_and]
-        intro φ mem
-        apply incl; apply Or.inr; simp
-        exact mem
-      . simp; apply incl; simp
-  | n+1   => by
-      have ⟨Γ_ih, ⟨R_ih, ⟨mem_ih, wit_ih⟩⟩⟩ := set_family enum mcs wit mem n
-      admit
+lemma wcond_mono (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) {a : Form N} {m n : ℕ} (hmn : m ≤ n)
+    (h : a ∈ (wcond enum mcs wit mem m).val) : a ∈ (wcond enum mcs wit mem n).val := by
+  induction hmn with
+  | refl => exact h
+  | step _ ih => exact wcond_succ_mem enum mcs wit mem ih
 
-def succesor_set (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : Δ.MCS) (wit : Δ.witnessed) (mem : ◇φ ∈ Δ) : Set (Form N) :=
-  {φ | ∃ n : ℕ, φ ∈ (set_family enum mcs wit mem n).choose}
--/
+-- If `enum n` is the existential `ex x,σ`, the next stage carries a witness
+-- conditional `(ex x,σ) ⟶ σ[i//x]` for some nominal `i`.
+lemma wcond_step_mem (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) (n : ℕ) (x : SVAR) (σ : Form N) (h : enum n = (ex x, σ)) :
+    ∃ i : NOM N, ((ex x, σ) ⟶ σ[i // x]) ∈ (wcond enum mcs wit mem (n + 1)).val := by
+  show ∃ i : NOM N, ((ex x, σ) ⟶ σ[i // x]) ∈
+      (wcond_step mcs wit (wcond enum mcs wit mem n) (enum n)).val
+  rw [h]
+  exact ⟨(l313' mcs wit (wcond enum mcs wit mem n).2.2 (ex x, σ)).choose,
+         List.mem_cons_self⟩
+
+-- Conjoin a derivable family of premises into one derivation of their conjunction.
+def Γ_conjunction_of_premises {Γ S : Set (Form N)} (L : List S)
+    (h : ∀ x ∈ L, Γ ⊢ x.val) : Γ ⊢ conjunction S L := by
+  induction L with
+  | nil =>
+      show Γ ⊢ (⊥ ⟶ ⊥)
+      exact Γ_theorem (tautology imp_refl) Γ
+  | cons hd tl ih =>
+      rw [conjunction]
+      exact Γ_conj_intro (h hd (List.mem_cons_self))
+        (ih (fun x hx => h x (List.mem_cons_of_mem _ hx)))
+
+-- The diamond-successor seed: the canonical box-reduct of `Δ` together with the
+-- accumulated Henkin witness conditionals (and the diamond formula `φ` at stage 0).
+noncomputable def succ_seed (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) : Set (Form N) :=
+  {χ | □χ ∈ Δ} ∪ {χ | ∃ n : ℕ, χ ∈ (wcond enum mcs wit mem n).val}
+
+-- Compactness bookkeeping: any finite list drawn from `succ_seed` is bounded —
+-- every element is in the box-reduct or in a single stage `wcond N`.
+lemma seed_list_bound (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : MCS Δ) (wit : witnessed Δ)
+    {φ : Form N} (mem : ◇φ ∈ Δ) (L : List ↑(succ_seed enum mcs wit mem)) :
+    ∃ N : ℕ, ∀ x ∈ L, (□ x.val ∈ Δ) ∨ x.val ∈ (wcond enum mcs wit mem N).val := by
+  induction L with
+  | nil => exact ⟨0, by simp⟩
+  | cons h t ih =>
+      obtain ⟨N, hN⟩ := ih
+      rcases h.2 with hbox | ⟨n, hn⟩
+      · refine ⟨N, fun x hx => ?_⟩
+        rcases List.mem_cons.mp hx with rfl | hxt
+        · exact Or.inl hbox
+        · exact hN x hxt
+      · refine ⟨max n N, fun x hx => ?_⟩
+        rcases List.mem_cons.mp hx with rfl | hxt
+        · exact Or.inr (wcond_mono enum mcs wit mem (le_max_left n N) hn)
+        · rcases hN x hxt with hb | hw
+          · exact Or.inl hb
+          · exact Or.inr (wcond_mono enum mcs wit mem (le_max_right n N) hw)
