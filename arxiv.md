@@ -124,8 +124,36 @@ nominals," the witnessed Lindenbaum lemma) waits on it. The lesson — which we 
 in §7 — is that the obstruction to finishing Oltean's proof is a *representation*
 choice for the language expansion, not the Henkin/Mishra idea itself; replacing the
 list-substitution remapping with a plain structural map over the syntax tree makes the
-homomorphism lemmas immediate and lets the rest of Oltean's scaffolding go through.
+homomorphism lemmas immediate and lets most of Oltean's scaffolding go through.
 This is the thread the rest of the paper follows.
+
+A third realization, which became sharp only once the encoding was fixed and the rest of
+the development compiled, is that the proof invokes freshness in **two structurally
+different places**, and Mishra's reservation principle is decisive for one of them and
+simply inapplicable to the other. At the **root**, the extended Lindenbaum lemma must
+witness an *infinite* consistent set, and there Mishra's structural reserve — Oltean's
+`odd_noms`, the `N ⊕ ℕ` split internalized in ℕ — is exactly the right and decisive tool;
+that part is complete. But the **truth lemma's ◇-case** must, for each `◇ψ ∈ Δ`, produce a
+*witnessed* successor MCS containing `ψ` together with the box-reduct `{χ │ □χ ∈ Δ}`, and
+here reservation does not help — for a reason that has nothing to do with the size of the
+name supply. For *every* nominal `j` whatsoever, `nom j ⟶ nom j` is a tautology, so
+`□(nom j ⟶ nom j)` is a theorem and lies in every MCS `Δ`; hence the box-reduct already
+mentions *all* nominals, reserved ones included. No structural reserve can make a name
+fresh for that set. The shortcut that tried to force the successor through the same
+reserve-based Lindenbaum machinery (the lemma `enough_noms_diamond_seed`) is therefore not
+merely unproved but **false**.
+
+The remedy for the successor step is **not** Mishra's, and it is precisely the direction
+**Oltean had already taken**: build the successor by an *existence lemma* in the classical
+Henkin style, drawing each witness from `Δ`'s *own* witnessedness through a fresh *state
+variable* (`new_var`) rather than a reserved nominal — the (already proven) `l313`/`l313'`
+lemmas. Oltean's `set_family` / `succesor_set` scaffolding for this was left incomplete (as
+`admit`s), but the *approach* was correct; what remained was to finish it, not to find more
+fresh names. So the honest division of credit is this: **Mishra's reservation idea is the
+right and decisive tool for the root Lindenbaum construction, while Oltean's
+existence-lemma construction is the right tool for the witnessed successor — and the work
+that remains is to complete Oltean's construction, not to extend Mishra's to a place it
+does not reach.** (The detailed plan is §TL-fix.)
 
 ### 1.4 Contribution
 
@@ -294,7 +322,8 @@ chain calls on the successor seed `{ψ} ∪ {□χ ∈ Δ}`.
 Oltean's base cases and `truth_ex` compile; **□** and **∀** are new. The **∀** case (`truth_all`)
 is now **fully closed** for both free and non-free `x` (uniform proof, dual to `truth_ex`);
 the **□ →** direction is closed and **□ ←** runs through the diamond-successor pipeline below
-(only `enough_noms_diamond_seed` still open). **TruthLemma** is assembled by well-founded
+(only the witnessed ◇-successor existence lemma still open; the `enough_noms_diamond_seed`
+shortcut is **false** — see **§TL-fix**). **TruthLemma** is assembled by well-founded
 recursion on `Form.depth`, which supplies `truth_all`'s depth-indexed induction hypothesis.
 
 ```mermaid
@@ -306,12 +335,14 @@ flowchart TD
   base["truth_bttm · prop · nom · svar · impl · ex"]:::pass
   succ["mcs_in_witnessed_succ · completed_to_witnessed · mcs_in_completed_succ"]:::pass
 
-  cons["diamond_extension_consistent<br/>(set_family base)"]:::open
-  nom["enough_noms_diamond_seed"]:::open
-  WL["WitnessedLindenbaumLemma (G)"]:::pass
-  cons --> dsc["diamond_succ_mcs"]:::partial
-  nom --> dsc
-  WL --> dsc
+  l313["l313 / l313' · witness_conditionals<br/>(Henkin witnesses, PROVEN)"]:::pass
+  cons["diamond_extension_consistent<br/>(set_family base, PROVEN)"]:::pass
+  reg["RegularLindenbaumLemma<br/>(NEW, step 1)"]:::open
+  sf["set_family / succesor_set<br/>(NEW crux, step 2 — incl. witnessed Γ')"]:::open
+  l313 --> sf
+  cons --> sf
+  reg --> sf
+  sf --> dsc["diamond_succ_mcs<br/>(rewire, step 3)"]:::partial
   dsc --> rcs["restrict_canonical_succ<br/>(witnessed Δ' input)"]:::pass
   rcs --> dcs["diamond_completed_succ"]:::partial
   nnd["not_nec_to_diamond"]:::pass
@@ -347,7 +378,7 @@ flowchart TD
   D --> E["sat_odd_noms' + sat_total"]:::pass
   E --> F["satisfiable Γ"]
   B -.->|"BLOCKED"| G["F · pf_extended ←"]
-  D -.->|"BLOCKED"| H1["enough_noms_diamond_seed<br/>(single remaining hole)"]
+  D -.->|"BLOCKED"| H1["witnessed ◇-successor existence<br/>(set_family / succesor_set — §TL-fix)"]
 ```
 
 **The incoming state: where the holes are.** What Oltean left open is concentrated in the
@@ -460,8 +491,8 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   is load-bearing for **I** (`consistent_total`), not for `ExtendedLindenbaumLemma` or `l313'`.
   This path is now **complete**: `consistent_total` is proven and the `N`-nonempty hypothesis
   (needed to pick a base nominal for alien elimination) is threaded through `cons_sat` /
-  `Completeness`.  The only hole left in the whole development is the single **TL** row
-  `enough_noms_diamond_seed`.
+  `Completeness`.  The only obstacle left in the whole development is the **TL** witnessed
+  ◇-successor existence lemma (`enough_noms_diamond_seed` is false; see **§TL-fix**).
 - **TL. Re-fit the completed-model truth lemma.** `CompletedModel`: restore Oltean's
   truth-lemma cases (`truth_bttm`, `truth_prop`, `truth_nom`, `truth_svar`, `truth_impl`,
   `truth_ex`) and the supporting valuation lemmas to the current `simp` normal forms.
@@ -469,7 +500,9 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
   modal/binder cases. `TruthLemma` is assembled by well-founded recursion on `Form.depth`;
   the `bind` case delegates to `truth_all`, now **fully closed** for both free and non-free
   `x` (uniform `has_state_symbol` split + depth-indexed `ih`, dual to `truth_ex`). The one
-  remaining hole is `enough_noms_diamond_seed` (the **□ ←** diamond-successor seed freshness).
+  remaining obstacle is the **□ ←** witnessed ◇-successor existence lemma. The current
+  `enough_noms_diamond_seed` shortcut is **false** and must be replaced by the `l313'`/`set_family`
+  Henkin route — see **§TL-fix** for the disproof and the detailed step plan.
   Depends on **B**, **D**, **H** (and on Kripke semantics and Soundness).
 - **I. Remove the final-completeness hole.** `Completeness`: `cons_sat` runs
   `consistent_total` → `ExtendedLindenbaumLemma (Set.total Γ)` → `TruthLemma` at the root
@@ -479,6 +512,55 @@ original `Tautology.lean` already carries the thirteen `admit`s below.)
 
 The substantive mathematics is concentrated in **E**–**I**; **B**–**D** are essentially
 mechanical leaf lemmas. **E** is the crux, for the encoding reasons discussed in §1.3.
+
+### §TL-fix · The witnessed ◇-successor existence lemma (the last obstacle)
+
+**Why `enough_noms_diamond_seed` is false (not just hard).** The lemma claims
+`enough_noms ({ψ} ∪ {χ │ □χ ∈ Δ})`, whose first conjunct (`enough_noms`, `Lindenbaum.lean`)
+demands a nominal `i` occurring in **no** formula of the set. But for *every* nominal `i`,
+`nom i ⟶ nom i` is a tautology, so `⊢ □(nom i ⟶ nom i)` by necessitation, so
+`□(nom i ⟶ nom i) ∈ Δ` for any MCS `Δ`; hence `(nom i ⟶ nom i) ∈ {χ │ □χ ∈ Δ}` and
+`nom_occurs i (nom i ⟶ nom i) = true`. So `all_nocc i` fails for *every* `i`: the box-reduct
+of any MCS mentions all nominals, and there is no reserve to be had — independent of how `Δ`
+was built. The `WitnessedLindenbaumLemma`-on-the-seed approach is therefore structurally
+unworkable; it requires a globally fresh nominal that provably does not exist.
+
+**The correct route (Oltean's intended Henkin construction).** Build the witnessed successor
+*incrementally*, borrowing witnesses from `Δ`'s own witnessedness via `l313'` — which uses a
+fresh **variable** (`new_var`), not a fresh nominal. The hardest analytic lemma (`l313`/`l313'`)
+and `witness_conditionals` are **already proven** (`ExistenceLemma.lean`, live code). Remaining
+steps:
+
+1. **`RegularLindenbaumLemma`** (`Lindenbaum.lean`, NEW): plain MCS extension
+   `consistent Γ → ∃ Γ', Γ ⊆ Γ' ∧ MCS Γ'`. Straightforward: reuse `LindenbaumMCS`,
+   `LindenbaumConsistent`, `LindenbaumMaximal` (drop the `witnessed`/`enough_noms` clause from
+   `WitnessedLindenbaumLemma`).
+2. **`set_family` / `succesor_set`** (`ExistenceLemma.lean`, NEW — currently commented out with
+   `admit`s; this is the crux):
+   - *base* `n = 0`: `Γ₀ = {ψ} ∪ {χ │ □χ ∈ Δ}` is consistent — **already proven** as
+     `diamond_extension_consistent`; extend to an MCS via `RegularLindenbaumLemma`.
+   - *inductive step* `n+1`: ensure `enum n` is witnessed in the family, using
+     `l313'`/`witness_conditionals` (the `((ex x,χ)⟶χ[i//x])` conditionals) to add the Henkin
+     witness while preserving `Canonical.R Δ ·` and `ψ`-membership.
+   - *output property*: the limit set is (a) `Canonical.R`-successor of `Δ` (since
+     `{χ│□χ∈Δ} ⊆ Γ'`), (b) contains `ψ`, (c) `MCS`, and (d) **`witnessed`** — (d) is the genuine
+     hard goal (the point Oltean stalled on).
+3. **Rewire `diamond_succ_mcs`** (`CompletedModel.lean`): produce
+   `⟨Γ', Canonical.R Δ Γ', ψ ∈ Γ', MCS Γ', witnessed Γ'⟩` from `succesor_set` instead of
+   `WitnessedLindenbaumLemma`/`enough_noms_diamond_seed`, then **delete
+   `enough_noms_diamond_seed` and `diamond_extension_consistent`'s seed-only role is folded into
+   step 2's base case**.
+
+Completing steps 1–3 turns the five TL `Partial` rows and the two I `Partial` rows
+(`cons_sat`, `Completeness`) green, finishing the whole development. This is a substantial,
+research-level construction (not a localized fix); step 2(d) is the deciding milestone.
+
+*Attribution (cf. §1.3).* This step is **not** an application of Mishra's structural-freshness
+suggestion — that idea is decisive at the *root* Lindenbaum construction but inapplicable
+here, since the box-reduct `{χ │ □χ ∈ Δ}` mentions every nominal (`□(nom j ⟶ nom j) ∈ Δ` for
+all `j`). The witnessed successor is instead built by **Oltean's existence-lemma direction**
+(`l313'`, fresh *variable* + `Δ`'s witnessedness), which was correct but left incomplete; the
+work here is to finish it.
 
 ---
 
@@ -705,34 +787,42 @@ while **F** awaits `pf_extended` ← for **I** only).
 | F · `LanguageExtension.syntactic_conservativity` | lift `Set.total Γ ⊢ φ.total` back to `Γ ⊢ φ` via `pf_extended` ← + `base_conjunction` | Pass |
 | F · `LanguageExtension.sat_total` / `Model.ofTotal` | `TotalSet` satisfaction → `Model N` | Pass |
 | F · `LanguageExtension.Set.total` | base-language image under `Form.total` | Pass |
-| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** — all `Partial` rows below now derive from a **single root hole**: **#1** `enough_noms_diamond_seed` (`truth_all` free case is now **Pass**) | **Partial** |
+| **TL** | **Canonical-model truth lemma (`CompletedModel.lean`)** — all `Partial` rows derive from a **single root obstacle**: the witnessed ◇-successor existence lemma. **`enough_noms_diamond_seed` is FALSE as stated** (see §TL-fix) and must be replaced by the `l313'`/`set_family` Henkin route. | **Partial** |
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.mcs_in_*_succ` | `mcs_in_witnessed_succ` / `completed_to_witnessed` / `mcs_in_completed_succ` | Pass |
 | TL · `CompletedModel.restrict_canonical_succ` | extend witnessed path along `Canonical.R` | Pass |
 | TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent (via `box_of_consequence` + `nec_mono`/`box_conj_mem`) | Pass |
-| TL · `CompletedModel.enough_noms_diamond_seed` | **ROOT HOLE #1** — fresh nominals for witnessed Lindenbaum on seed (needs model-layer reserve redesign) | Not Yet |
-| TL · `CompletedModel.diamond_succ_mcs` | `WitnessedLindenbaumLemma` wired; calls `enough_noms_diamond_seed` ⇒ blocked on **#1** | Partial |
-| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline via `diamond_succ_mcs` ⇒ blocked on **#1** | Partial |
+| TL · `CompletedModel.enough_noms_diamond_seed` | **FALSE as stated** (`{χ│□χ∈Δ}` contains `nom i ⟶ nom i` for every `i`, so no nominal is ever fresh — see §TL-fix). **To be deleted**, not proven. | Drop |
+| TL · `ExistenceLemma.l313` / `l313'` | push a witness conditional `((ex x,χ)⟶χ[i//x])` through `◇` using a fresh **variable** + `Δ`'s own witnessedness (no fresh nominal needed) | Pass |
+| TL · `ExistenceLemma.witness_conditionals` | accumulate witness conditionals so `◇conjunction' l ∈ Δ` | Pass |
+| TL · `Lindenbaum.RegularLindenbaumLemma` | **NEW** — plain MCS extension `consistent Γ → ∃ Γ', Γ ⊆ Γ' ∧ MCS Γ'` (assemble from `LindenbaumMCS`/`Consistent`/`Maximal`) | Not Yet |
+| TL · `ExistenceLemma.set_family` / `succesor_set` | **NEW (crux)** — witnessed ◇-successor of `Δ`: base consistency = `diamond_extension_consistent` ✅; inductive step (Henkin witnessing of `enum n`) + `witnessed Γ'` proof are the genuine remaining work (currently commented out with `admit`s) | Not Yet |
+| TL · `CompletedModel.diamond_succ_mcs` | **to be rewired** off `enough_noms_diamond_seed` onto `succesor_set`; then yields `Canonical.R Δ Γ' ∧ ψ∈Γ' ∧ MCS Γ' ∧ witnessed Γ'` | Partial |
+| TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline via `diamond_succ_mcs` ⇒ blocked on the successor-existence crux | Partial |
 | TL · `Proof.not_nec_to_diamond` | `∼(□φ) ⟶ ◇∼φ` for MCS maximality step | Pass |
-| TL · `CompletedModel.truth_box` | □ case wired; ← via `diamond_completed_succ` ⇒ blocked on **#1** | Partial |
+| TL · `CompletedModel.truth_box` | □ case wired; ← via `diamond_completed_succ` ⇒ blocked on the successor-existence crux | Partial |
 | TL · `Proof.all_iff_notfree` | `(all x, ψ) ⟷ ψ` when `x` not free (Q1 + `ax_q2`) | Pass |
 | TL · `CompletedModel.truth_all` | uniform proof (free + non-free `x`): nominal/svar symbol split + depth-indexed `ih`; forward via `ax_q2_nom`/`ax_q2_svar`, backward via `witnessed` on `ex x, ∼ψ` (`bind_dual`) | Pass |
-| TL · `CompletedModel.TruthLemma` | structural assembly via well-founded recursion on `Form.depth` (supplies `truth_all`'s depth-`ih`); ⇒ blocked only on **#1** (`box`) | Partial |
-| **I** | **Final-completeness hole** — both `Partial` rows derive from the single TL root **#1** (via `TruthLemma`); no I-local holes remain | **Partial** |
+| TL · `CompletedModel.TruthLemma` | structural assembly via well-founded recursion on `Form.depth` (supplies `truth_all`'s depth-`ih`); ⇒ blocked only on the successor-existence crux (`box`) | Partial |
+| **I** | **Final-completeness hole** — both `Partial` rows derive from the single TL successor-existence crux (via `TruthLemma`); no I-local holes remain | **Partial** |
 | I · `Completeness.consistent_total` | `consistent Γ → consistent (Set.total Γ)` via `syntactic_conservativity` (needs `N` nonempty, threaded through `cons_sat`/`Completeness`) | Pass |
-| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked only via `TruthLemma` on TL root **#1**) | Partial |
+| I · `Completeness.cons_sat` | model-existence pipeline (fully wired; blocked only via `TruthLemma` on the TL successor-existence crux) | Partial |
 | I · `Completeness.ModelExistence` | completeness ⟺ every consistent set is satisfiable | Pass |
-| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`; takes `N` nonempty) ⇒ blocked via `TruthLemma` on **#1** | Partial |
+| I · `Completeness.Completeness` | `Γ ⊨ φ → Γ ⊢ φ` (assembled from `cons_sat` + `ModelExistence`; takes `N` nonempty) ⇒ blocked via `TruthLemma` on the successor-existence crux | Partial |
 
 ---
 
 ## Acknowledgments
 
 - **Alex Oltean** — the original formalization, proof architecture, and thesis, on
-  which this work directly builds.
+  which this work directly builds; in particular the *existence-lemma* direction for the
+  witnessed ◇-successor (`l313`/`l313'`, fresh-variable Henkin witnessing) is the correct
+  approach for the truth lemma's modal case and is the route we complete (see §TL-fix).
 - **Patrick Blackburn** — *Hybrid Completeness* (1998), the mathematical source.
-- **Bud Mishra** — for suggesting the disjoint-sum (`N ⊕ ℕ`) Henkin construction for
-  structurally guaranteed fresh witnesses.
+- **Bud Mishra** — for suggesting the disjoint-sum (`N ⊕ ℕ`) structural-freshness Henkin
+  construction, which is the decisive tool for the **root** extended Lindenbaum lemma
+  (witnessing an infinite consistent set). It does not, and is not meant to, address the
+  separate ◇-successor step, whose obstruction is not a freshness problem (see §1.3).
 - The theorem-proving community, and in particular **Asta Halkjær From**, for recent
   Isabelle/HOL work on synthetic completeness for hybrid and modal logics.
 
