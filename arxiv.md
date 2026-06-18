@@ -8,13 +8,12 @@
 
 ## Abstract
 
-We present the first machine-checked completeness theorem for hybrid logic in
-**Lean 4**, and — to our knowledge — the first in any proof assistant for a *binding*
-hybrid logic: the system *L(∀)*, propositional modal logic enriched with nominals, the
-satisfaction-style universal binder ∀, and the box modality. (Machine-checked
-completeness for *basic* hybrid logic — nominals and satisfaction operators, without
-binders — was pioneered by Asta Halkjær From in Isabelle/HOL.) We build directly on
-Alex Oltean's 2023 Lean 4 formalization. Oltean mechanized the syntax, semantics, Hilbert-style proof
+We present a machine-checked completeness theorem, in **Lean 4**, for the hybrid logic
+*L(∀)* — propositional modal logic enriched with nominals, the satisfaction-style
+universal binder ∀, and the box modality. (Machine-checked completeness for *basic*
+hybrid logic — nominals and satisfaction operators, without binders — was pioneered by
+Asta Halkjær From in Isabelle/HOL.) We build directly on Alex Oltean's 2023 Lean 4
+formalization. Oltean mechanized the syntax, semantics, Hilbert-style proof
 system, and **soundness** following Blackburn's *Hybrid Completeness* (1998) and laid
 out a clear route to completeness, but left the theorem itself unfinished. Finishing it
 requires manufacturing fresh names at two structurally different points of the proof,
@@ -700,9 +699,10 @@ choice determines how painful the surrounding lemmas are.
   reusable completeness infrastructure. Our target differs in the *object logic*:
   *L(∀)* is a **binding** hybrid logic (the satisfaction-style universal binder ∀),
   proved complete here via a Hilbert system rather than a tableau or natural-deduction
-  calculus. We make no priority claim over From for hybrid logic in general; our claim
-  is the first mechanized completeness for a *binding* hybrid logic, and the first for
-  any hybrid logic in Lean.
+  calculus. We make no priority claim over From for hybrid logic in general; we are
+  simply not aware of a prior mechanized completeness proof for a *binding* hybrid
+  logic, or of any hybrid-logic completeness in Lean, and we leave that bookkeeping to
+  the reader.
 - Earlier Lean modal-logic formalizations: a Henkin-style completeness proof for **S5**
   (Bentzen 2021), **Public Announcement Logic / PAL-S5** (Li 2020), and **Matching
   Logic** in Lean (Cheval & Macovei 2023). We are not aware of a prior completeness
