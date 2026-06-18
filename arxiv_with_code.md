@@ -749,31 +749,106 @@ choice determines how painful the surrounding lemmas are.
 
 ## 6. The Lean 4 development
 
-*(To be completed.)* Module structure (dependency order): `Util`, `Form`, `Tautology`,
-`Substitutions`, `FormCountable`, `Proof`, `ListUtils`, `Truth`, `ProofUtils`,
-`Soundness`, `RenameBound`, `Lindenbaum`, `LanguageExtension`, `ExistenceLemma`,
-`CompletedModel`, `Completeness`.
+The development is **17 modules, ≈7,245 lines** of Lean 4, pinned to **Lean v4.30.0 /
+mathlib v4.30.0**. The complete source is inlined in Appendix A; per-declaration status
+is tabulated in §9. In `Hybrid.lean` import order the modules group into four layers:
 
-Toolchain: Lean v4.30.0, mathlib v4.30.0.
+- **Syntax and substitution.** `Util`, `Form` (formulas, `Form.depth`), `Tautology`
+  (propositional reasoning), and `Substitutions` (state-variable and nominal
+  substitution `φ[i // x]`) fix the object language.
+- **Proof system and soundness.** `Proof` (the Hilbert calculus, `MCS`, `consistent`,
+  `witnessed`), `ProofUtils` and `ListUtils` (derived rules, `conjunction`, deduction
+  theorem, `MCS_mp`, `box_of_consequence`), `Truth` (Kripke semantics, `⊨`), and
+  `Soundness` (`⊢ φ → ⊨ φ`).
+- **The freshness machinery.** `RenameBound` and `FormCountable` (bound-variable
+  renaming and a Gödel-style enumeration of `Form`), `Lindenbaum`
+  (`RegularLindenbaumLemma`, and the witnessed extension `LindenbaumWitnessed` /
+  `ExtendedLindenbaumLemma`), and `LanguageExtension` — the structural-freshness layer
+  (`Form.odd_noms`, the conservativity certificate `pf_extended : ⊢ φ ↔ ⊢ φ⁺`,
+  `syntactic_conservativity`, and the alien-elimination route feeding
+  `consistent_total`).
+- **Canonical model and completeness.** `ExistenceLemma` (the witnessed
+  ◇-successor: `l313'`, the data-carrying accumulator `wcond`, the seed `succ_seed`,
+  and its consistency `succ_seed_consistent`), `CompletedModel` (`diamond_succ_mcs`,
+  and the truth lemma `TruthLemma` assembled by well-founded recursion on `Form.depth`,
+  with the universal case `truth_all` and the modal case `truth_box`), and
+  `Completeness` (the theorem `Γ ⊨ φ → Γ ⊢ φ`, assembled from model existence and
+  contraposition, taking `N` nonempty for alien elimination).
 
-> *[Describe the closed lemmas: `odd_impl`/`pf_odd_noms_set`, `ExtendedLindenbaumLemma`,
-> `LindenbaumWitnessed`, the existence lemma, and `Completeness`, once finished.]*
+The two load-bearing constructions are exactly the two discussed in §1 and §3–§4.
+*Structural freshness* (`LanguageExtension.odd_noms` + `ExtendedLindenbaumLemma`)
+supplies the root witnessed MCS; the *existence-lemma Henkin route*
+(`wcond`/`succ_seed`/`succ_seed_consistent` → `diamond_succ_mcs`) supplies the witnessed
+◇-successor. The development is **`sorry`-free**, and `#print axioms Completeness`
+reports only `propext`, `Classical.choice`, and `Quot.sound`.
 
 ---
 
 ## 7. Discussion: encoding choices
 
-*(To be completed once the proof is closed — this section will argue which encoding of
-structural freshness minimized the formalization effort, and quantify the porting cost
-from the 2023 nightly to mathlib v4.30.0.)*
+The recurring lesson of this development is that the *mathematical* ideas were settled —
+the difficulty lived almost entirely in **representation choices**, and the same kind of
+choice surfaced twice.
+
+**Freshness: which encoding.** All three realizations of structural freshness in §4 are
+conceptually equivalent — reserve an infinite, disjoint supply of names. What differs is
+cost. The disjoint sum `N ⊕ ℕ` (Mishra) makes freshness a triviality of the sum type but
+re-parameterizes every formula by a new nominal type, rippling through the entire
+inherited development. From's abstract `fresh : Finset Name → Name` supply is the most
+reusable but presupposes a logic-generic saturation framework we did not have in Lean.
+The odd/even split inside `ℕ` (`Form.odd_noms`, `i ↦ 2·i+1`) keeps the original nominal
+type and so disturbs the least; it is the encoding we adopt. Crucially, the obstacle that
+had stalled the proof was *not* the odd/even idea but its **representation**: Oltean
+implemented `odd_noms` as an iterated single-nominal `bulk_subst` over a merged, sorted,
+de-duplicated list of a formula's nominals, against which the otherwise-trivial
+homomorphism `(φ ⟶ ψ).odd_noms = φ.odd_noms ⟶ ψ.odd_noms` became a fight with list
+ordering and deduplication. Replacing the list-substitution remap with a plain structural
+recursion over the syntax tree makes the homomorphism hold by `rfl`, the
+theorem-preservation lemmas (`pf_extended`) go through, and most of the surrounding
+scaffolding disappears. The conclusion is blunt: *finishing the proof was largely a
+matter of choosing the representation, not grinding against it.*
+
+**Witnessing: `Prop` versus data.** The ◇-successor exposed the same theme in a different
+key. Oltean's existence-lemma scaffolding (`set_family`/`succesor_set`) had stalled
+because `witness_conditionals` returned an existential in `Prop`: the witness list,
+recovered via `.choose`, was proof-irrelevant, so the structure built by recursion was
+lost and witnessedness could not be re-derived. Re-typing the accumulator as a `Subtype`
+(`wcond`, carrying the list as *data*) preserves exactly the information the compactness
+argument in `succ_seed_consistent` needs. No new mathematics — a `Prop`-to-data
+representation change.
+
+**Porting.** Oltean's development targeted a June-2023 Lean nightly; we pin to Lean
+v4.30.0 / mathlib v4.30.0. The bulk of the porting effort was mathlib API churn —
+shifted `simp` normal forms, renamed lemmas, and changed implicit-argument counts in the
+`List` API — rather than mathematical change. The single largest item was re-fitting the
+completed-model truth lemma (`truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` and the new
+`truth_all`/`truth_box`) to current `simp` normal forms; this is the kind of maintenance
+that the structural (rather than list-based) freshness encoding made tractable.
 
 ---
 
 ## 8. Conclusion and further work
 
-*(To be completed.)* Directions: finite nominal sets; generalization to the
-many-sorted polyadic hybrid logics related to Matching Logic; extraction of a
-reusable Lean completeness framework in the spirit of From's Isabelle work.
+We have closed the completeness theorem `Γ ⊨ φ → Γ ⊢ φ` for the binding hybrid logic
+*L(∀)* in Lean 4, building on Oltean's syntax, semantics, proof system, and soundness.
+The proof rests on two constructions that require *different* tools: structural
+freshness for the root witnessed maximal consistent set, and an existence-lemma Henkin
+construction — Oltean's own intended route, completed — for the witnessed ◇-successor.
+The result is `sorry`-free and depends only on `propext`, `Classical.choice`, and
+`Quot.sound`.
+
+Several directions remain.
+
+- **Finite / bounded nominal supplies.** Our reserve is countably infinite; characterizing
+  when a finite reserve suffices (and packaging strong completeness / compactness as a
+  first-class corollary) would tighten the result.
+- **The `↓` binder and richer hybrid languages.** *L(∀)* uses the universal binder; the
+  same machinery should extend to the `↓` binder and to many-sorted / polyadic hybrid
+  logics, including those connected to **Matching Logic**.
+- **A reusable Lean completeness framework.** The structural-freshness and
+  existence-lemma layers are logic-generic in spirit; abstracting them into a reusable
+  Lindenbaum/saturation framework — in the spirit of From's Isabelle/HOL work — would let
+  future Lean completeness proofs reuse this infrastructure rather than rebuild it.
 
 ---
 
@@ -968,8 +1043,6 @@ The ported development with the completed completeness proof is at
 ---
 
 ## References
-
-*(To be formatted; see `oltean_thesis.pdf` bibliography for the underlying sources.)*
 
 1. P. Blackburn. *Hybrid Completeness*. Logic Journal of the IGPL, 6(4):625–650, 1998.
 2. P. Blackburn, M. de Rijke, Y. Venema. *Modal Logic*. Cambridge University Press.

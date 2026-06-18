@@ -246,6 +246,12 @@ def cleanup_pandoc_latex(latex: str) -> str:
             r"\1",
             latex,
         )
+    # The one wide table (the §9 report card) is the only 3-column longtable pandoc
+    # renders with equal 1/3 widths. Give the long-identifier "Step" column more room
+    # and shrink "Status" (which only holds Pass/Partial/…).
+    if latex.count(r"\real{0.3333}") == 3:
+        ratios = iter(["0.50", "0.36", "0.14"])
+        latex = re.sub(r"\\real\{0\.3333\}", lambda _m: f"\\real{{{next(ratios)}}}", latex)
     latex = re.sub(r"\n{3,}", "\n\n", latex)
     return latex
 

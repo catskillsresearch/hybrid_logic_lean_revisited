@@ -18,6 +18,11 @@
 \usepackage{listings}
 \usepackage[colorlinks=true,linkcolor=blue!40!black,citecolor=blue!40!black,urlcolor=blue!40!black]{hyperref}
 
+% Let long \texttt{...} identifiers (e.g. lindenbaum_next_subset) break after each
+% underscore so they wrap inside narrow table cells instead of overflowing the column.
+\let\origtextunderscore\_
+\renewcommand{\_}{\origtextunderscore\allowbreak}
+
 % Long inlined Lean listings can exhaust pdfTeX main memory; build locally with
 % LuaLaTeX (see .latexmkrc).  arXiv's AutoTeX has the headroom for pdfLaTeX.
 %
@@ -146,6 +151,7 @@
 \newunicodechar{⊢}{\ensuremath{\vdash}}
 \newunicodechar{⊨}{\ensuremath{\vDash}}
 \newunicodechar{≠}{\ensuremath{\neq}}
+\newunicodechar{≈}{\ensuremath{\approx}}
 \newunicodechar{≅}{\ensuremath{\cong}}
 \newunicodechar{⊆}{\ensuremath{\subseteq}}
 \newunicodechar{⊇}{\ensuremath{\supseteq}}
@@ -479,27 +485,51 @@ These are not competitors at the conceptual level --- all three reserve an infin
 \hypertarget{the-lean-4-development}{%
 \section{The Lean 4 development}\label{the-lean-4-development}}
 
-\emph{(To be completed.)} Module structure (dependency order): \texttt{Util}, \texttt{Form}, \texttt{Tautology}, \texttt{Substitutions}, \texttt{FormCountable}, \texttt{Proof}, \texttt{ListUtils}, \texttt{Truth}, \texttt{ProofUtils}, \texttt{Soundness}, \texttt{RenameBound}, \texttt{Lindenbaum}, \texttt{LanguageExtension}, \texttt{ExistenceLemma}, \texttt{CompletedModel}, \texttt{Completeness}.
+The development is \textbf{17 modules, ≈7,245 lines} of Lean 4, pinned to \textbf{Lean v4.30.0 / mathlib v4.30.0}. The complete source is inlined in Appendix A; per-declaration status is tabulated in §9. In \texttt{Hybrid.lean} import order the modules group into four layers:
 
-Toolchain: Lean v4.30.0, mathlib v4.30.0.
+\begin{itemize}
+\item
+  \textbf{Syntax and substitution.} \texttt{Util}, \texttt{Form} (formulas, \texttt{Form.depth}), \texttt{Tautology} (propositional reasoning), and \texttt{Substitutions} (state-variable and nominal substitution \texttt{φ{[}i\ //\ x{]}}) fix the object language.
+\item
+  \textbf{Proof system and soundness.} \texttt{Proof} (the Hilbert calculus, \texttt{MCS}, \texttt{consistent}, \texttt{witnessed}), \texttt{ProofUtils} and \texttt{ListUtils} (derived rules, \texttt{conjunction}, deduction theorem, \texttt{MCS\_mp}, \texttt{box\_of\_consequence}), \texttt{Truth} (Kripke semantics, \texttt{⊨}), and \texttt{Soundness} (\texttt{⊢\ φ\ →\ ⊨\ φ}).
+\item
+  \textbf{The freshness machinery.} \texttt{RenameBound} and \texttt{FormCountable} (bound-variable renaming and a Gödel-style enumeration of \texttt{Form}), \texttt{Lindenbaum} (\texttt{RegularLindenbaumLemma}, and the witnessed extension \texttt{LindenbaumWitnessed} / \texttt{ExtendedLindenbaumLemma}), and \texttt{LanguageExtension} --- the structural-freshness layer (\texttt{Form.odd\_noms}, the conservativity certificate \texttt{pf\_extended\ :\ ⊢\ φ\ ↔\ ⊢\ φ⁺}, \texttt{syntactic\_conservativity}, and the alien-elimination route feeding \texttt{consistent\_total}).
+\item
+  \textbf{Canonical model and completeness.} \texttt{ExistenceLemma} (the witnessed ◇-successor: \texttt{l313\textquotesingle{}}, the data-carrying accumulator \texttt{wcond}, the seed \texttt{succ\_seed}, and its consistency \texttt{succ\_seed\_consistent}), \texttt{CompletedModel} (\texttt{diamond\_succ\_mcs}, and the truth lemma \texttt{TruthLemma} assembled by well-founded recursion on \texttt{Form.depth}, with the universal case \texttt{truth\_all} and the modal case \texttt{truth\_box}), and \texttt{Completeness} (the theorem \texttt{Γ\ ⊨\ φ\ →\ Γ\ ⊢\ φ}, assembled from model existence and contraposition, taking \texttt{N} nonempty for alien elimination).
+\end{itemize}
 
-\begin{quote}
-\emph{{[}Describe the closed lemmas: \texttt{odd\_impl}/\texttt{pf\_odd\_noms\_set}, \texttt{ExtendedLindenbaumLemma}, \texttt{LindenbaumWitnessed}, the existence lemma, and \texttt{Completeness}, once finished.{]}}
-\end{quote}
+The two load-bearing constructions are exactly the two discussed in §1 and §3--§4. \emph{Structural freshness} (\texttt{LanguageExtension.odd\_noms} + \texttt{ExtendedLindenbaumLemma}) supplies the root witnessed MCS; the \emph{existence-lemma Henkin route} (\texttt{wcond}/\texttt{succ\_seed}/\texttt{succ\_seed\_consistent} → \texttt{diamond\_succ\_mcs}) supplies the witnessed ◇-successor. The development is \textbf{\texttt{sorry}-free}, and \texttt{\#print\ axioms\ Completeness} reports only \texttt{propext}, \texttt{Classical.choice}, and \texttt{Quot.sound}.
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
 \hypertarget{discussion-encoding-choices}{%
 \section{Discussion: encoding choices}\label{discussion-encoding-choices}}
 
-\emph{(To be completed once the proof is closed --- this section will argue which encoding of structural freshness minimized the formalization effort, and quantify the porting cost from the 2023 nightly to mathlib v4.30.0.)}
+The recurring lesson of this development is that the \emph{mathematical} ideas were settled --- the difficulty lived almost entirely in \textbf{representation choices}, and the same kind of choice surfaced twice.
+
+\textbf{Freshness: which encoding.} All three realizations of structural freshness in §4 are conceptually equivalent --- reserve an infinite, disjoint supply of names. What differs is cost. The disjoint sum \texttt{N\ ⊕\ ℕ} (Mishra) makes freshness a triviality of the sum type but re-parameterizes every formula by a new nominal type, rippling through the entire inherited development. From's abstract \texttt{fresh\ :\ Finset\ Name\ →\ Name} supply is the most reusable but presupposes a logic-generic saturation framework we did not have in Lean. The odd/even split inside \texttt{ℕ} (\texttt{Form.odd\_noms}, \texttt{i\ ↦\ 2·i+1}) keeps the original nominal type and so disturbs the least; it is the encoding we adopt. Crucially, the obstacle that had stalled the proof was \emph{not} the odd/even idea but its \textbf{representation}: Oltean implemented \texttt{odd\_noms} as an iterated single-nominal \texttt{bulk\_subst} over a merged, sorted, de-duplicated list of a formula's nominals, against which the otherwise-trivial homomorphism \texttt{(φ\ ⟶\ ψ).odd\_noms\ =\ φ.odd\_noms\ ⟶\ ψ.odd\_noms} became a fight with list ordering and deduplication. Replacing the list-substitution remap with a plain structural recursion over the syntax tree makes the homomorphism hold by \texttt{rfl}, the theorem-preservation lemmas (\texttt{pf\_extended}) go through, and most of the surrounding scaffolding disappears. The conclusion is blunt: \emph{finishing the proof was largely a matter of choosing the representation, not grinding against it.}
+
+\textbf{Witnessing: \texttt{Prop} versus data.} The ◇-successor exposed the same theme in a different key. Oltean's existence-lemma scaffolding (\texttt{set\_family}/\texttt{succesor\_set}) had stalled because \texttt{witness\_conditionals} returned an existential in \texttt{Prop}: the witness list, recovered via \texttt{.choose}, was proof-irrelevant, so the structure built by recursion was lost and witnessedness could not be re-derived. Re-typing the accumulator as a \texttt{Subtype} (\texttt{wcond}, carrying the list as \emph{data}) preserves exactly the information the compactness argument in \texttt{succ\_seed\_consistent} needs. No new mathematics --- a \texttt{Prop}-to-data representation change.
+
+\textbf{Porting.} Oltean's development targeted a June-2023 Lean nightly; we pin to Lean v4.30.0 / mathlib v4.30.0. The bulk of the porting effort was mathlib API churn --- shifted \texttt{simp} normal forms, renamed lemmas, and changed implicit-argument counts in the \texttt{List} API --- rather than mathematical change. The single largest item was re-fitting the completed-model truth lemma (\texttt{truth\_bttm}/\texttt{prop}/\texttt{nom}/\texttt{svar}/\texttt{impl}/\texttt{ex} and the new \texttt{truth\_all}/\texttt{truth\_box}) to current \texttt{simp} normal forms; this is the kind of maintenance that the structural (rather than list-based) freshness encoding made tractable.
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
 \hypertarget{conclusion-and-further-work}{%
 \section{Conclusion and further work}\label{conclusion-and-further-work}}
 
-\emph{(To be completed.)} Directions: finite nominal sets; generalization to the many-sorted polyadic hybrid logics related to Matching Logic; extraction of a reusable Lean completeness framework in the spirit of From's Isabelle work.
+We have closed the completeness theorem \texttt{Γ\ ⊨\ φ\ →\ Γ\ ⊢\ φ} for the binding hybrid logic \emph{L(∀)} in Lean 4, building on Oltean's syntax, semantics, proof system, and soundness. The proof rests on two constructions that require \emph{different} tools: structural freshness for the root witnessed maximal consistent set, and an existence-lemma Henkin construction --- Oltean's own intended route, completed --- for the witnessed ◇-successor. The result is \texttt{sorry}-free and depends only on \texttt{propext}, \texttt{Classical.choice}, and \texttt{Quot.sound}.
+
+Several directions remain.
+
+\begin{itemize}
+\item
+  \textbf{Finite / bounded nominal supplies.} Our reserve is countably infinite; characterizing when a finite reserve suffices (and packaging strong completeness / compactness as a first-class corollary) would tighten the result.
+\item
+  \textbf{The \texttt{↓} binder and richer hybrid languages.} \emph{L(∀)} uses the universal binder; the same machinery should extend to the \texttt{↓} binder and to many-sorted / polyadic hybrid logics, including those connected to \textbf{Matching Logic}.
+\item
+  \textbf{A reusable Lean completeness framework.} The structural-freshness and existence-lemma layers are logic-generic in spirit; abstracting them into a reusable Lindenbaum/saturation framework --- in the spirit of From's Isabelle/HOL work --- would let future Lean completeness proofs reuse this infrastructure rather than rebuild it.
+\end{itemize}
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
@@ -509,9 +539,9 @@ Toolchain: Lean v4.30.0, mathlib v4.30.0.
 Status legend: \textbf{Pass} --- done and compiling; \textbf{Fail} --- attempted, currently broken; \textbf{Not Yet} --- not yet attempted. Step \textbf{A} is broken out into one row per module (in the \texttt{Hybrid.lean} dependency order in which they are converted); steps \textbf{B}--\textbf{I} are broken out into one row per \texttt{sorry}/\texttt{admit} declaration to be removed (``remove Oltean's \texttt{admit}/\texttt{sorry} for \emph{X}''). After \textbf{E}, \textbf{G} and \textbf{H} precede \textbf{F} in the table: they are \textbf{Pass} and do not depend on \texttt{pf\_extended} ← (Figure 1); letter labels still match Oltean's narrative. Step \textbf{A} is \textbf{Pass} once every module in that list elaborates under the pinned toolchain (remaining proof holes are tracked under \textbf{B}--\textbf{I}, not under \textbf{A}). Parent rows (\textbf{F}, \textbf{G}, \ldots) summarize their substeps: a parent can be \textbf{Partial} while an earlier-numbered step is \textbf{Pass} when the open substeps are not on that step's critical path (e.g.~\textbf{G} and \textbf{H} \textbf{Pass} while \textbf{F} awaits \texttt{pf\_extended} ← for \textbf{I} only).
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.50}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.36}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.14}}@{}}
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Step
@@ -671,8 +701,6 @@ The original formalization is archived at \href{https://github.com/alexoltean61/
 
 \hypertarget{references}{%
 \section{References}\label{references}}
-
-\emph{(To be formatted; see \texttt{oltean\_thesis.pdf} bibliography for the underlying sources.)}
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
