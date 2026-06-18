@@ -1,5 +1,9 @@
 # Finishing Oltean's Completeness Proof in Lean 4 for Hybrid Logic *L(∀)*
 
+> **Review bundle:** This file is the narrative only. For the same text with **every
+> `.lean` file inlined verbatim** (~7,200 lines of source in Appendix A), see
+> [`arxiv_with_code.md`](arxiv_with_code.md).
+
 ---
 
 ## Abstract
