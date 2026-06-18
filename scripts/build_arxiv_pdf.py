@@ -10,12 +10,17 @@ Pipeline:
   5. Replace fenced code with \lstinputlisting blocks of the real UTF-8 source; the
      `leanbox` style's `literate` table renders every Lean glyph (∀ ◇ □ ⟶ ⊢ φ …)
      natively under both pdfLaTeX and LuaLaTeX.
-  6. pandoc → LaTeX, then splice the listing/math placeholders back in.
+  5b. Render every ```mermaid block to a cropped vector PDF (figures/figure-NNN.pdf)
+     via mermaid-cli (mmdc) and splice it in as a centered \includegraphics figure;
+     the PDFs ship in the arXiv package since AutoTeX cannot run mmdc.
+  6. pandoc → LaTeX, then splice the listing/math/figure placeholders back in.
 """
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -30,7 +35,52 @@ SRC = ROOT / "arxiv_with_code.md"
 OUT = ROOT / "arxiv_with_code.tex"
 PREAMBLE = SCRIPTS / "tex_preamble_arxiv.tex"
 LISTINGS_DIR = ROOT / "lean-listings"
+FIGURES_DIR = ROOT / "figures"
+PUPPETEER_CONFIG = SCRIPTS / "puppeteer-config.json"
 LISTING_CHUNK_LINES = 400
+
+
+def find_chrome() -> str | None:
+    """Locate a Chrome/Chromium binary for mermaid-cli's headless renderer."""
+    env = os.environ.get("PUPPETEER_EXECUTABLE_PATH")
+    if env and Path(env).exists():
+        return env
+    for name in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
+        path = shutil.which(name)
+        if path:
+            return path
+    return None
+
+
+def render_mermaid(code: str, idx: int) -> str:
+    """Render a mermaid block to a tightly-cropped vector PDF via mermaid-cli (mmdc).
+
+    Returns the path (relative to ROOT) of the generated PDF so it can be dropped into
+    an \\includegraphics; the PDF ships in the arXiv package (AutoTeX cannot run mmdc).
+    """
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    mmd_path = FIGURES_DIR / f"figure-{idx:03d}.mmd"
+    pdf_path = FIGURES_DIR / f"figure-{idx:03d}.pdf"
+    mmd_path.write_text(code.strip() + "\n", encoding="utf-8")
+
+    mmdc = shutil.which("mmdc")
+    if not mmdc:
+        raise RuntimeError(
+            "mermaid-cli (mmdc) not found; install with "
+            "`npm install -g @mermaid-js/mermaid-cli`"
+        )
+    env = os.environ.copy()
+    chrome = find_chrome()
+    if chrome:
+        env["PUPPETEER_EXECUTABLE_PATH"] = chrome
+    cmd = [mmdc, "-i", str(mmd_path), "-o", str(pdf_path), "--pdfFit", "-b", "transparent"]
+    if PUPPETEER_CONFIG.is_file():
+        cmd += ["-p", str(PUPPETEER_CONFIG)]
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True, check=False)
+    if proc.returncode != 0 or not pdf_path.is_file():
+        sys.stderr.write(proc.stdout + "\n" + proc.stderr + "\n")
+        raise RuntimeError(f"mmdc failed to render figure {idx}")
+    return pdf_path.relative_to(ROOT).as_posix()
 
 TITLE = r"Finishing Oltean's Completeness Proof in Lean 4 for Hybrid Logic $L(\forall)$"
 
@@ -188,7 +238,18 @@ def replace_fences(text: str) -> tuple[str, dict[str, str]]:
             other_idx += 1
             placeholders[key] = f"\\[\n{body.strip()}\n\\]\n"
             return f"\n\n{key}\n\n"
-        # mermaid / plain / anything else -> a UTF-8 listing via the same leanbox style,
+        if lang == "mermaid":
+            key = f"FIGINCLUDE{other_idx:03d}"
+            rel_path = render_mermaid(body, other_idx)
+            other_idx += 1
+            placeholders[key] = (
+                "\\begin{center}\n"
+                f"\\includegraphics[max width=\\linewidth,"
+                f"max totalheight=0.85\\textheight,keepaspectratio]{{{rel_path}}}\n"
+                "\\end{center}\n"
+            )
+            return f"\n\n{key}\n\n"
+        # plain / anything else -> a UTF-8 listing via the same leanbox style,
         # so its glyphs (arrows, Γ, φ, …) render natively too.
         key = f"CODEINCLUDE{other_idx:03d}"
         rel_path, _ = write_listing(body, f"snippet-{other_idx:03d}.txt")
@@ -294,11 +355,12 @@ def main() -> int:
         print(f"error: missing {PREAMBLE}", file=sys.stderr)
         return 1
 
-    if LISTINGS_DIR.exists():
-        for path in LISTINGS_DIR.iterdir():
-            if path.is_file():
-                path.unlink()
-    LISTINGS_DIR.mkdir(parents=True, exist_ok=True)
+    for d in (LISTINGS_DIR, FIGURES_DIR):
+        if d.exists():
+            for path in d.iterdir():
+                if path.is_file():
+                    path.unlink()
+        d.mkdir(parents=True, exist_ok=True)
 
     raw = SRC.read_text(encoding="utf-8")
     body = drop_github_nav(raw)
@@ -322,7 +384,11 @@ def main() -> int:
     )
     OUT.write_text(document, encoding="utf-8")
     n_listings = sum(1 for p in LISTINGS_DIR.iterdir() if p.is_file())
-    print(f"wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size:,} bytes, {n_listings} listings)")
+    n_figures = sum(1 for p in FIGURES_DIR.glob("*.pdf"))
+    print(
+        f"wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size:,} bytes, "
+        f"{n_listings} listings, {n_figures} mermaid figures)"
+    )
     return 0
 
 

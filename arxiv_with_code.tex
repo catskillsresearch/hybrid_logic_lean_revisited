@@ -12,6 +12,7 @@
 \usepackage{authblk}
 \usepackage{xcolor}
 \usepackage{graphicx}
+\usepackage[export]{adjustbox}
 \usepackage{longtable}
 \usepackage{calc}
 \usepackage{newunicodechar}
@@ -202,7 +203,7 @@
         \end{center}
 
         \begin{abstract}
-        We present a machine-checked completeness theorem, in \textbf{Lean 4}, for the hybrid logic \emph{L(∀)} --- propositional modal logic enriched with nominals, the satisfaction-style universal binder ∀, and the box modality. (Machine-checked completeness for \emph{basic} hybrid logic --- nominals and satisfaction operators, without binders --- was pioneered by Asta Halkjær From in Isabelle/HOL.) We build directly on Alex Oltean's 2023 Lean 4 formalization. Oltean mechanized the syntax, semantics, Hilbert-style proof system, and \textbf{soundness} following Blackburn's \emph{Hybrid Completeness} (1998) and laid out a clear route to completeness, but left the theorem itself unfinished. Finishing it requires manufacturing fresh names at two structurally different points of the proof, and our central finding is that \textbf{the two points call for two different tools}. \emph{(1) The root witnessed maximal consistent set} --- the extended Lindenbaum construction --- needs, at each step, a nominal fresh for the whole set being built; the right tool is \emph{structural freshness}, extending the language so that an infinite supply of nominals is reserved \emph{by construction} and is automatically disjoint from anything in play. We survey the design space for this --- Oltean's odd/even encoding inside ℕ, the disjoint-sum (\texttt{N\ ⊕\ ℕ}) parameterization suggested by Bud Mishra, and Asta Halkjær From's abstract synthetic-completeness frameworks --- and explain the encoding we adopt. \emph{(2) The witnessed ◇-successor} of a maximal consistent set, by contrast, \textbf{cannot} be obtained this way: its canonical box-reduct provably mentions every nominal, so no reserved name is ever fresh for it. Here the correct tool is the one Oltean had already chosen but left incomplete --- an \emph{existence-lemma} Henkin construction that draws each witness from the predecessor's \emph{own} witnessedness through a fresh \emph{state variable} rather than a fresh nominal; we complete it with a data-carrying witness accumulator and a compactness argument. With both constructions in place the completeness theorem \texttt{Γ\ ⊨\ φ\ →\ Γ\ ⊢\ φ} is fully formalized: the development is \texttt{sorry}-free, and \texttt{\#print\ axioms\ Completeness} reports only \texttt{propext}, \texttt{Classical.choice}, and \texttt{Quot.sound}. We also port the development from Oltean's original June-2023 Lean nightly to Lean v4.30.0 / mathlib v4.30.0.
+        We present a machine-checked completeness theorem, in \textbf{Lean 4}, for the hybrid logic \emph{L(∀)} --- propositional modal logic enriched with nominals, the satisfaction-style universal binder ∀, and the box modality. (Machine-checked completeness for \emph{basic} hybrid logic --- nominals and satisfaction operators, without binders --- was pioneered by Asta Halkjær From in Isabelle/HOL {[}Fro20{]}.) We build directly on Alex Oltean's 2023 Lean 4 formalization {[}Olt23{]}. Oltean mechanized the syntax, semantics, Hilbert-style proof system, and \textbf{soundness} following Blackburn's \emph{Hybrid Completeness} (1998) {[}Bla98{]} and laid out a clear route to completeness, but left the theorem itself unfinished. Finishing it requires manufacturing fresh names at two structurally different points of the proof, and our central finding is that \textbf{the two points call for two different tools}. \emph{(1) The root witnessed maximal consistent set} --- the extended Lindenbaum construction --- needs, at each step, a nominal fresh for the whole set being built; the right tool is \emph{structural freshness}, extending the language so that an infinite supply of nominals is reserved \emph{by construction} and is automatically disjoint from anything in play. We survey the design space for this --- Oltean's odd/even encoding inside ℕ, the disjoint-sum (\texttt{N\ ⊕\ ℕ}) parameterization suggested by Bud Mishra, and Asta Halkjær From's abstract synthetic-completeness frameworks --- and explain the encoding we adopt. \emph{(2) The witnessed ◇-successor} of a maximal consistent set, by contrast, \textbf{cannot} be obtained this way: its canonical box-reduct provably mentions every nominal, so no reserved name is ever fresh for it. Here the correct tool is the one Oltean had already chosen but left incomplete --- an \emph{existence-lemma} Henkin construction that draws each witness from the predecessor's \emph{own} witnessedness through a fresh \emph{state variable} rather than a fresh nominal; we complete it with a data-carrying witness accumulator and a compactness argument. With both constructions in place the completeness theorem \texttt{Γ\ ⊨\ φ\ →\ Γ\ ⊢\ φ} is fully formalized: the development is \texttt{sorry}-free, and \texttt{\#print\ axioms\ Completeness} reports only \texttt{propext}, \texttt{Classical.choice}, and \texttt{Quot.sound}. We also port the development from Oltean's original June-2023 Lean nightly to Lean v4.30.0 / mathlib v4.30.0.
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
         \end{abstract}
@@ -242,7 +243,7 @@ Why was completeness left open at all, when the textbook proof is routine? The a
 
 The completeness proof is a \emph{Henkin construction}: one extends a consistent set to a maximal consistent set that is moreover \emph{witnessed} --- every existential \texttt{∃x\ φ} comes with a nominal \texttt{i} certifying it, \texttt{(∃x\ φ\ →\ φ{[}i/x{]})}. Each existential needs its \emph{own} witness, and to saturate an infinite set one needs an infinite reserve of nominals that do not already occur anywhere in play. In ordinary set-theoretic practice this is a non-issue: one simply says ``let \texttt{i₀,\ i₁,\ …} enumerate fresh nominals,'' because there is never a shortage of names. In Lean's dependent type theory the same sentence has no referent: a type \texttt{N} already contains \emph{all} of its inhabitants, and there is in general no \texttt{N\textquotesingle{}\ ⊋\ N} to draw new names from. Oltean could search a single formula for an unused nominal --- finitely many occur --- but witnessing the \emph{infinite} Lindenbaum union by repeated dynamic search turned out to be, in his words, prohibitively difficult. That is precisely where the formalization stalled.
 
-When we set out to revive the (by then archived) development, the natural first question was whether this obstacle was fundamental --- whether the ``easy'' textbook proof was simply not available in type theory, and whether one ought instead to adopt a heavier, more abstract machine, such as the transfinite synthetic-completeness frameworks that Asta Halkjær From has developed in Isabelle/HOL. The decisive nudge came anecdotally. In discussions around the problem, \textbf{Bud Mishra} suggested the remedy that, in hindsight, is the canonical one: do not \emph{search} for fresh names --- \emph{reserve} them structurally. Parameterize formulas by their nominal type \texttt{N} and, when it is time to run Lindenbaum, pass to the disjoint sum \texttt{N\ ⊕\ ℕ}, drawing every Henkin witness from the right summand \texttt{Sum.inr\ n}. Freshness then ceases to be a computation and becomes a fact of the sum type: a witness is distinct from every base nominal because it lives in a different injection. This is exactly Henkin's old idea --- expand the language with new constants --- rendered in a form that type theory accepts without complaint.
+When we set out to revive the (by then archived) development, the natural first question was whether this obstacle was fundamental --- whether the ``easy'' textbook proof was simply not available in type theory, and whether one ought instead to adopt a heavier, more abstract machine, such as the transfinite synthetic-completeness frameworks that Asta Halkjær From has developed in Isabelle/HOL. The decisive nudge came anecdotally. In discussions around the problem, \textbf{Bud Mishra} suggested the remedy that, in hindsight, is the canonical one: do not \emph{search} for fresh names --- \emph{reserve} them structurally. Parameterize formulas by their nominal type \texttt{N} and, when it is time to run Lindenbaum, pass to the disjoint sum \texttt{N\ ⊕\ ℕ}, drawing every Henkin witness from the right summand \texttt{Sum.inr\ n}. Freshness then ceases to be a computation and becomes a fact of the sum type: a witness is distinct from every base nominal because it lives in a different injection. This is exactly Henkin's old idea {[}Hen49{]} --- expand the language with new constants --- rendered in a form that type theory accepts without complaint.
 
 Two realizations followed. First, \textbf{Oltean had already built this idea into his development}, in disguise: his \texttt{Form.odd\_noms} remaps every nominal \texttt{i\ ↦\ 2·i+1}, so that the image uses only odd nominals and \emph{all even nominals} are reserved as a fresh supply. The odd/even split inside ℕ is precisely \texttt{N\ ⊕\ ℕ} internalized (odds ≅ \texttt{Sum.inl}, evens ≅ \texttt{Sum.inr}). Indeed, From's Isabelle approach --- a fixed name type with a \texttt{fresh} operator returning an unused name --- is the same principle a third time over. So the structural-freshness idea is not a clever trick belonging to any one of these treatments; it is the shared, and essentially unavoidable, foundation of all of them. In that sense \textbf{Mishra's suggestion was not a ``bust,'' and there is no need to pivot wholesale to a Halkjær-style framework} to finish this particular proof: the right idea was already on the table, twice.
 
@@ -272,7 +273,7 @@ This paper:
 
 Because we are \emph{renovating} an existing, archived formalization rather than writing one from scratch, it is worth stating plainly what we inherited, what already works, and where the genuine difficulty sits --- so that the reader can follow the order in which we attack the problem and understand why some \texttt{admit}s are dispatched in a line while others force a redesign.
 
-\textbf{The blueprint.} Completeness for \emph{L(∀)} is the standard Henkin/canonical-model argument as adapted to hybrid logic by Blackburn (1998), and Oltean's development wires it up faithfully:
+\textbf{The blueprint.} Completeness for \emph{L(∀)} is the standard Henkin/canonical-model argument {[}BRV01{]} as adapted to hybrid logic by Blackburn (1998) {[}Bla98{]}, and Oltean's development {[}Olt23{]} wires it up faithfully:
 
 \lstinputlisting[style=leanbox]{lean-listings/snippet-000.txt}
 
@@ -280,7 +281,9 @@ This skeleton is sound; the question was never whether the mathematics works (Bl
 
 The dependencies between the remaining deliverables are \textbf{not linear but a directed acyclic graph} (Figure 1): several independent foundations converge on the witnessed Lindenbaum lemma \textbf{G} and again on the final theorem \textbf{I}. Following the now-common practice of stating a Lean development as an explicit blueprint, we record that graph here; nodes are the deliverables of §1.6 (with the already-compiling pieces shaded), and an edge \texttt{X\ →\ Y} means \emph{Y uses X}.
 
-\lstinputlisting[style=leanbox]{lean-listings/snippet-001.txt}
+\begin{center}
+\includegraphics[max width=\linewidth,max totalheight=0.85\textheight,keepaspectratio]{figures/figure-001.pdf}
+\end{center}
 
 \textbf{Legend (node colors).} Figure 1 uses three node styles on the \emph{foundation} nodes:
 
@@ -305,23 +308,31 @@ The shading is a snapshot of the \emph{incoming} state; live, per-deliverable st
 
 \emph{Figure 1a · F · language extension.}
 
-\lstinputlisting[style=leanbox]{lean-listings/snippet-002.txt}
+\begin{center}
+\includegraphics[max width=\linewidth,max totalheight=0.85\textheight,keepaspectratio]{figures/figure-002.pdf}
+\end{center}
 
 \emph{Figure 1b · G · witnessed Lindenbaum.} After \textbf{E} makes \texttt{odd\_noms} structural, \textbf{G} is a finiteness argument: each stage adds only finitely many formulas, so some even nominal remains fresh.
 
-\lstinputlisting[style=leanbox]{lean-listings/snippet-003.txt}
+\begin{center}
+\includegraphics[max width=\linewidth,max totalheight=0.85\textheight,keepaspectratio]{figures/figure-003.pdf}
+\end{center}
 
 \emph{\texttt{WitnessedLindenbaumLemma}} (not \texttt{ExtendedLindenbaumLemma}) is what the \textbf{TL} diamond chain calls on the successor seed \texttt{\{ψ\}\ ∪\ \{□χ\ ∈\ Δ\}}.
 
 \emph{Figure 1c · TL · completed-model truth lemma.} Oltean's base cases and \texttt{truth\_ex} compile; \textbf{□} and \textbf{∀} are new. The \textbf{∀} case (\texttt{truth\_all}) is now \textbf{fully closed} for both free and non-free \texttt{x} (uniform proof, dual to \texttt{truth\_ex}); the \textbf{□ →} direction is closed and \textbf{□ ←} runs through the diamond-successor pipeline below (the witnessed ◇-successor existence lemma is now \textbf{complete} via the §TL-fix Henkin construction; the false \texttt{enough\_noms\_diamond\_seed} shortcut has been deleted). \textbf{TruthLemma} is assembled by well-founded recursion on \texttt{Form.depth}, which supplies \texttt{truth\_all}'s depth-indexed induction hypothesis. The whole truth lemma is now \texttt{sorry}-free.
 
-\lstinputlisting[style=leanbox]{lean-listings/snippet-004.txt}
+\begin{center}
+\includegraphics[max width=\linewidth,max totalheight=0.85\textheight,keepaspectratio]{figures/figure-004.pdf}
+\end{center}
 
 \emph{Figure 1d · I · model existence.}
 
 \emph{I · model existence (\texttt{Completeness.lean}).} \texttt{cons\_sat} is fully wired; execution still needs backward conservativity and the remaining TL rows below.
 
-\lstinputlisting[style=leanbox]{lean-listings/snippet-005.txt}
+\begin{center}
+\includegraphics[max width=\linewidth,max totalheight=0.85\textheight,keepaspectratio]{figures/figure-005.pdf}
+\end{center}
 
 \textbf{The incoming state: where the holes are.} What Oltean left open is concentrated in the freshness/witnessing layer (steps 2--3) and the pieces that depend on it (the completed model's truth lemma, the existence lemma, and the final assembly). Concretely, the inherited \texttt{sorry}/\texttt{admit} obligations fall into three quite different kinds, and conflating them is what makes ``there are a lot of holes'' sound more alarming than it is:
 
@@ -473,11 +484,11 @@ These are not competitors at the conceptual level --- all three reserve an infin
 
 \begin{itemize}
 \item
-  \textbf{Asta Halkjær From} gave the \emph{first} machine-checked completeness proof for any hybrid logic --- a Seligman-style tableau system for \textbf{basic} hybrid logic (nominals and satisfaction operators \texttt{@}, \emph{no binders}) in Isabelle/HOL (TYPES 2020) --- and later an abstract, transfinite synthetic-completeness \emph{framework} (\emph{An Isabelle/HOL Framework for Synthetic Completeness Proofs}, CPP 2025) instantiated to propositional, first-order, modal, and (basic) hybrid logic. This is the closest existing mechanization of witnessed/named MCSs for hybrid logic and the state of the art for reusable completeness infrastructure. Our target differs in the \emph{object logic}: \emph{L(∀)} is a \textbf{binding} hybrid logic (the satisfaction-style universal binder ∀), proved complete here via a Hilbert system rather than a tableau or natural-deduction calculus. We make no priority claim over From for hybrid logic in general; we are simply not aware of a prior mechanized completeness proof for a \emph{binding} hybrid logic, or of any hybrid-logic completeness in Lean, and we leave that bookkeeping to the reader.
+  \textbf{Asta Halkjær From} gave the \emph{first} machine-checked completeness proof for any hybrid logic --- a Seligman-style tableau system for \textbf{basic} hybrid logic (nominals and satisfaction operators \texttt{@}, \emph{no binders}) in Isabelle/HOL (TYPES 2020) {[}Fro20{]} --- and later an abstract, transfinite synthetic-completeness \emph{framework} (\emph{An Isabelle/HOL Framework for Synthetic Completeness Proofs}, CPP 2025) {[}Fro25{]} instantiated to propositional, first-order, modal, and (basic) hybrid logic. This is the closest existing mechanization of witnessed/named MCSs for hybrid logic and the state of the art for reusable completeness infrastructure. Our target differs in the \emph{object logic}: \emph{L(∀)} is a \textbf{binding} hybrid logic (the satisfaction-style universal binder ∀), proved complete here via a Hilbert system rather than a tableau or natural-deduction calculus. We make no priority claim over From for hybrid logic in general; we are simply not aware of a prior mechanized completeness proof for a \emph{binding} hybrid logic, or of any hybrid-logic completeness in Lean, and we leave that bookkeeping to the reader.
 \item
-  Earlier Lean modal-logic formalizations: a Henkin-style completeness proof for \textbf{S5} (Bentzen 2021), \textbf{Public Announcement Logic / PAL-S5} (Li 2020), and \textbf{Matching Logic} in Lean (Cheval \& Macovei 2023). We are not aware of a prior completeness formalization for a \emph{binding} hybrid logic in any proof assistant, nor of any prior hybrid-logic completeness formalization in Lean.
+  Earlier Lean modal-logic formalizations: a Henkin-style completeness proof for \textbf{S5} (Bentzen 2021) {[}Ben21{]}, \textbf{Public Announcement Logic / PAL-S5} (Li 2020) {[}Li20{]}, and \textbf{Applicative Matching Logic} in Lean (Cheval \& Macovei 2023) {[}CM23{]}. We are not aware of a prior completeness formalization for a \emph{binding} hybrid logic in any proof assistant, nor of any prior hybrid-logic completeness formalization in Lean.
 \item
-  The mathematics followed throughout is \textbf{Blackburn}, \emph{Hybrid Completeness} (1998).
+  The mathematics followed throughout is \textbf{Blackburn}, \emph{Hybrid Completeness} (1998) {[}Bla98{]}.
 \end{itemize}
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
@@ -695,27 +706,40 @@ All definitions, axiom choices, remaining \texttt{sorry}/\texttt{admit} obligati
 \hypertarget{artifact-availability}{%
 \subsection{Artifact availability}\label{artifact-availability}}
 
-The original formalization is archived at \href{https://github.com/alexoltean61/hybrid_logic_lean}{\texttt{github.com/alexoltean61/hybrid\_logic\_lean}}. The ported development with the completed completeness proof is at \href{https://github.com/catskillsresearch/hybrid_logic_lean_revisited}{\texttt{github.com/catskillsresearch/hybrid\_logic\_lean\_revisited}}.
+The original formalization {[}Olt23{]} is archived at \href{https://github.com/alexoltean61/hybrid_logic_lean}{\texttt{github.com/alexoltean61/hybrid\_logic\_lean}}. The ported development with the completed completeness proof {[}CR26{]} is at \href{https://github.com/catskillsresearch/hybrid_logic_lean_revisited}{\texttt{github.com/catskillsresearch/hybrid\_logic\_lean\_revisited}}.
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
 \hypertarget{references}{%
 \section{References}\label{references}}
 
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\begin{itemize}
 \item
-  P. Blackburn. \emph{Hybrid Completeness}. Logic Journal of the IGPL, 6(4):625--650, 1998.
+  \textbf{{[}Bla98{]}} P. Blackburn. \emph{Hybrid Completeness}. Logic Journal of the IGPL, 6(4):625--650, 1998.
 \item
-  P. Blackburn, M. de Rijke, Y. Venema. \emph{Modal Logic}. Cambridge University Press.
+  \textbf{{[}BRV01{]}} P. Blackburn, M. de Rijke, Y. Venema. \emph{Modal Logic}. Cambridge University Press, 2001.
 \item
-  A. Oltean. \emph{A Formalization of Hybrid Logic in Lean}. BA thesis, University of Bucharest, 2023. Repository (archived, no explicit license): \url{https://github.com/alexoltean61/hybrid_logic_lean}. 3b. Catskills Research. \emph{hybrid\_logic\_lean\_revisited} (this work). \url{https://github.com/catskillsresearch/hybrid_logic_lean_revisited}.
+  \textbf{{[}Olt23{]}} A. Oltean. \emph{A Formalization of Hybrid Logic in Lean}. BA thesis, University of Bucharest, 2023. Repository (archived, no explicit license): \url{https://github.com/alexoltean61/hybrid_logic_lean}.
 \item
-  A. H. From. \emph{An Isabelle/HOL Framework for Synthetic Completeness Proofs}. CPP 2025. 4b. A. H. From. \emph{Synthetic Completeness for a Terminating Seligman-Style Tableau System}. TYPES 2020, LIPIcs. (First formalized completeness proof for a hybrid-logic proof system; basic hybrid logic, Isabelle/HOL.)
+  \textbf{{[}CR26{]}} Catskills Research. \emph{hybrid\_logic\_lean\_revisited} (this work). \url{https://github.com/catskillsresearch/hybrid_logic_lean_revisited}.
 \item
-  B. Bentzen. \emph{A Henkin-Style Completeness Proof for the Modal Logic S5}. 2021.
+  \textbf{{[}Fro25{]}} A. H. From. \emph{An Isabelle/HOL Framework for Synthetic Completeness Proofs}. CPP 2025.
 \item
-  L. Henkin. \emph{The Completeness of the First-Order Functional Calculus}. JSL, 1949.
+  \textbf{{[}Fro20{]}} A. H. From. \emph{Synthetic Completeness for a Terminating Seligman-Style Tableau System}. TYPES 2020, LIPIcs. (First formalized completeness proof for a hybrid-logic proof system; basic hybrid logic, Isabelle/HOL.)
+\item
+  \textbf{{[}Ben21{]}} B. Bentzen. \emph{A Henkin-Style Completeness Proof for the Modal Logic S5}. 2021.
+\item
+  \textbf{{[}Li20{]}} J. Li. \emph{Formalization of PAL·S5 in Proof Assistant}. arXiv:2012.09388, 2020. (Lean 3; soundness and completeness of S5 with public-announcement dynamics, Henkin-style.) \url{https://github.com/ljt12138/Formalization-PAL}.
+\item
+  \textbf{{[}CM23{]}} H. Cheval and B. Macovei. \emph{A Lean formalization of Applicative Matching Logic}. Institute for Logic and Data Science (ILDS), 2023. \url{https://gitlab.com/ilds/aml-lean/MatchingLogic}.
+\item
+  \textbf{{[}Hen49{]}} L. Henkin. \emph{The Completeness of the First-Order Functional Calculus}. JSL,
+
+  \begin{enumerate}
+  \def\labelenumi{\arabic{enumi}.}
+  \setcounter{enumi}{1948}
+    \item
+  \end{enumerate}
 \item
   \textbf{{[}COPE24{]}} Committee on Publication Ethics (COPE). \emph{Authorship and AI tools: COPE position statement}. 2024. \url{https://publicationethics.org/guidance/cope-position/authorship-and-ai-tools}
 \item
@@ -726,7 +750,7 @@ The original formalization is archived at \href{https://github.com/alexoltean61/
   \textbf{{[}Gem25{]}} Google DeepMind. \emph{Gemini model family}. Technical documentation and model cards. \url{https://ai.google.dev/gemini-api/docs/models}
 \item
   \textbf{{[}Ant26{]}} Anthropic. \emph{Claude Opus 4.8} (high thinking/reasoning variant). System card and announcement, \url{https://www.anthropic.com/news/claude-opus-4-8}; model documentation as integrated in Cursor, \url{https://cursor.com/docs/models/claude-opus-4-8} (accessed 2026).
-\end{enumerate}
+\end{itemize}
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 

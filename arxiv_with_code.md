@@ -47,9 +47,9 @@ We present a machine-checked completeness theorem, in **Lean 4**, for the hybrid
 *L(∀)* — propositional modal logic enriched with nominals, the satisfaction-style
 universal binder ∀, and the box modality. (Machine-checked completeness for *basic*
 hybrid logic — nominals and satisfaction operators, without binders — was pioneered by
-Asta Halkjær From in Isabelle/HOL.) We build directly on Alex Oltean's 2023 Lean 4
-formalization. Oltean mechanized the syntax, semantics, Hilbert-style proof
-system, and **soundness** following Blackburn's *Hybrid Completeness* (1998) and laid
+Asta Halkjær From in Isabelle/HOL [Fro20].) We build directly on Alex Oltean's 2023 Lean 4
+formalization [Olt23]. Oltean mechanized the syntax, semantics, Hilbert-style proof
+system, and **soundness** following Blackburn's *Hybrid Completeness* (1998) [Bla98] and laid
 out a clear route to completeness, but left the theorem itself unfinished. Finishing it
 requires manufacturing fresh names at two structurally different points of the proof,
 and our central finding is that **the two points call for two different tools**.
@@ -141,7 +141,7 @@ remedy that, in hindsight, is the canonical one: do not *search* for fresh names
 it is time to run Lindenbaum, pass to the disjoint sum `N ⊕ ℕ`, drawing every Henkin
 witness from the right summand `Sum.inr n`. Freshness then ceases to be a computation
 and becomes a fact of the sum type: a witness is distinct from every base nominal
-because it lives in a different injection. This is exactly Henkin's old idea —
+because it lives in a different injection. This is exactly Henkin's old idea [Hen49] —
 expand the language with new constants — rendered in a form that type theory accepts
 without complaint.
 
@@ -225,8 +225,8 @@ attack the problem and understand why some `admit`s are dispatched in a line whi
 force a redesign.
 
 **The blueprint.** Completeness for *L(∀)* is the standard Henkin/canonical-model
-argument as adapted to hybrid logic by Blackburn (1998), and Oltean's development wires
-it up faithfully:
+argument [BRV01] as adapted to hybrid logic by Blackburn (1998) [Bla98], and Oltean's
+development [Olt23] wires it up faithfully:
 
 ```
 Γ ⊨ φ  ⟹  Γ ⊢ φ
@@ -726,9 +726,9 @@ choice determines how painful the surrounding lemmas are.
 
 - **Asta Halkjær From** gave the *first* machine-checked completeness proof for any
   hybrid logic — a Seligman-style tableau system for **basic** hybrid logic (nominals
-  and satisfaction operators `@`, *no binders*) in Isabelle/HOL (TYPES 2020) — and
+  and satisfaction operators `@`, *no binders*) in Isabelle/HOL (TYPES 2020) [Fro20] — and
   later an abstract, transfinite synthetic-completeness *framework* (*An Isabelle/HOL
-  Framework for Synthetic Completeness Proofs*, CPP 2025) instantiated to propositional,
+  Framework for Synthetic Completeness Proofs*, CPP 2025) [Fro25] instantiated to propositional,
   first-order, modal, and (basic) hybrid logic. This is the closest existing
   mechanization of witnessed/named MCSs for hybrid logic and the state of the art for
   reusable completeness infrastructure. Our target differs in the *object logic*:
@@ -739,11 +739,12 @@ choice determines how painful the surrounding lemmas are.
   logic, or of any hybrid-logic completeness in Lean, and we leave that bookkeeping to
   the reader.
 - Earlier Lean modal-logic formalizations: a Henkin-style completeness proof for **S5**
-  (Bentzen 2021), **Public Announcement Logic / PAL-S5** (Li 2020), and **Matching
-  Logic** in Lean (Cheval & Macovei 2023). We are not aware of a prior completeness
+  (Bentzen 2021) [Ben21], **Public Announcement Logic / PAL-S5** (Li 2020) [Li20], and
+  **Applicative Matching Logic** in Lean (Cheval & Macovei 2023) [CM23]. We are not aware
+  of a prior completeness
   formalization for a *binding* hybrid logic in any proof assistant, nor of any prior
   hybrid-logic completeness formalization in Lean.
-- The mathematics followed throughout is **Blackburn**, *Hybrid Completeness* (1998).
+- The mathematics followed throughout is **Blackburn**, *Hybrid Completeness* (1998) [Bla98].
 
 ---
 
@@ -1035,41 +1036,51 @@ the Apache License, Version 2.0.
 
 ### Artifact availability
 
-The original formalization is archived at
+The original formalization [Olt23] is archived at
 [`github.com/alexoltean61/hybrid_logic_lean`](https://github.com/alexoltean61/hybrid_logic_lean).
-The ported development with the completed completeness proof is at
+The ported development with the completed completeness proof [CR26] is at
 [`github.com/catskillsresearch/hybrid_logic_lean_revisited`](https://github.com/catskillsresearch/hybrid_logic_lean_revisited).
 
 ---
 
 ## References
 
-1. P. Blackburn. *Hybrid Completeness*. Logic Journal of the IGPL, 6(4):625–650, 1998.
-2. P. Blackburn, M. de Rijke, Y. Venema. *Modal Logic*. Cambridge University Press.
-3. A. Oltean. *A Formalization of Hybrid Logic in Lean*. BA thesis, University of
-   Bucharest, 2023. Repository (archived, no explicit license):
-   <https://github.com/alexoltean61/hybrid_logic_lean>.
-3b. Catskills Research. *hybrid_logic_lean_revisited* (this work).
-   <https://github.com/catskillsresearch/hybrid_logic_lean_revisited>.
-4. A. H. From. *An Isabelle/HOL Framework for Synthetic Completeness Proofs*. CPP 2025.
-4b. A. H. From. *Synthetic Completeness for a Terminating Seligman-Style Tableau System*.
-   TYPES 2020, LIPIcs. (First formalized completeness proof for a hybrid-logic proof
-   system; basic hybrid logic, Isabelle/HOL.)
-5. B. Bentzen. *A Henkin-Style Completeness Proof for the Modal Logic S5*. 2021.
-6. L. Henkin. *The Completeness of the First-Order Functional Calculus*. JSL, 1949.
-7. **[COPE24]** Committee on Publication Ethics (COPE). *Authorship and AI tools: COPE
-   position statement*. 2024.
-   <https://publicationethics.org/guidance/cope-position/authorship-and-ai-tools>
-8. **[Cur25]** Anysphere, Inc. *Cursor: AI-native code editor and agent environment*.
-   <https://cursor.com> (accessed 2026).
-9. **[Cmp25]** Anysphere, Inc. *Composer 2.5*. Model announcement and documentation,
-   <https://cursor.com/blog/composer-2-5>; pricing and model card as integrated in Cursor,
-   <https://cursor.com/docs/models> (accessed 2026).
-10. **[Gem25]** Google DeepMind. *Gemini model family*. Technical documentation and
-   model cards. <https://ai.google.dev/gemini-api/docs/models>
-11. **[Ant26]** Anthropic. *Claude Opus 4.8* (high thinking/reasoning variant). System card
-   and announcement, <https://www.anthropic.com/news/claude-opus-4-8>; model documentation as
-   integrated in Cursor, <https://cursor.com/docs/models/claude-opus-4-8> (accessed 2026).
+- **[Bla98]** P. Blackburn. *Hybrid Completeness*. Logic Journal of the IGPL,
+  6(4):625–650, 1998.
+- **[BRV01]** P. Blackburn, M. de Rijke, Y. Venema. *Modal Logic*. Cambridge University
+  Press, 2001.
+- **[Olt23]** A. Oltean. *A Formalization of Hybrid Logic in Lean*. BA thesis, University
+  of Bucharest, 2023. Repository (archived, no explicit license):
+  <https://github.com/alexoltean61/hybrid_logic_lean>.
+- **[CR26]** Catskills Research. *hybrid_logic_lean_revisited* (this work).
+  <https://github.com/catskillsresearch/hybrid_logic_lean_revisited>.
+- **[Fro25]** A. H. From. *An Isabelle/HOL Framework for Synthetic Completeness Proofs*.
+  CPP 2025.
+- **[Fro20]** A. H. From. *Synthetic Completeness for a Terminating Seligman-Style Tableau
+  System*. TYPES 2020, LIPIcs. (First formalized completeness proof for a hybrid-logic
+  proof system; basic hybrid logic, Isabelle/HOL.)
+- **[Ben21]** B. Bentzen. *A Henkin-Style Completeness Proof for the Modal Logic S5*. 2021.
+- **[Li20]** J. Li. *Formalization of PAL·S5 in Proof Assistant*. arXiv:2012.09388, 2020.
+  (Lean 3; soundness and completeness of S5 with public-announcement dynamics,
+  Henkin-style.) <https://github.com/ljt12138/Formalization-PAL>.
+- **[CM23]** H. Cheval and B. Macovei. *A Lean formalization of Applicative Matching
+  Logic*. Institute for Logic and Data Science (ILDS), 2023.
+  <https://gitlab.com/ilds/aml-lean/MatchingLogic>.
+- **[Hen49]** L. Henkin. *The Completeness of the First-Order Functional Calculus*. JSL,
+  1949.
+- **[COPE24]** Committee on Publication Ethics (COPE). *Authorship and AI tools: COPE
+  position statement*. 2024.
+  <https://publicationethics.org/guidance/cope-position/authorship-and-ai-tools>
+- **[Cur25]** Anysphere, Inc. *Cursor: AI-native code editor and agent environment*.
+  <https://cursor.com> (accessed 2026).
+- **[Cmp25]** Anysphere, Inc. *Composer 2.5*. Model announcement and documentation,
+  <https://cursor.com/blog/composer-2-5>; pricing and model card as integrated in Cursor,
+  <https://cursor.com/docs/models> (accessed 2026).
+- **[Gem25]** Google DeepMind. *Gemini model family*. Technical documentation and
+  model cards. <https://ai.google.dev/gemini-api/docs/models>
+- **[Ant26]** Anthropic. *Claude Opus 4.8* (high thinking/reasoning variant). System card
+  and announcement, <https://www.anthropic.com/news/claude-opus-4-8>; model documentation as
+  integrated in Cursor, <https://cursor.com/docs/models/claude-opus-4-8> (accessed 2026).
 
 ---
 
