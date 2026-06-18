@@ -709,7 +709,7 @@ while **F** awaits `pf_extended` ← for **I** only).
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.mcs_in_*_succ` | `mcs_in_witnessed_succ` / `completed_to_witnessed` / `mcs_in_completed_succ` | Pass |
 | TL · `CompletedModel.restrict_canonical_succ` | extend witnessed path along `Canonical.R` | Pass |
-| TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent | Not Yet |
+| TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent (via `box_of_consequence` + `nec_mono`/`box_conj_mem`) | Pass |
 | TL · `CompletedModel.enough_noms_diamond_seed` | fresh nominals for witnessed Lindenbaum on seed | Not Yet |
 | TL · `CompletedModel.diamond_succ_mcs` | `WitnessedLindenbaumLemma` wired; needs rows above | Partial |
 | TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline (blocked on diamond rows) | Partial |

@@ -31,10 +31,10 @@
 - [`Hybrid/Lindenbaum.lean`](#hybridlindenbaumlean) — 551 lines
 - [`Hybrid/LanguageExtension.lean`](#hybridlanguageextensionlean) — 975 lines
 - [`Hybrid/ExistenceLemma.lean`](#hybridexistencelemmalean) — 108 lines
-- [`Hybrid/CompletedModel.lean`](#hybridcompletedmodellean) — 842 lines
+- [`Hybrid/CompletedModel.lean`](#hybridcompletedmodellean) — 881 lines
 - [`Hybrid/Completeness.lean`](#hybridcompletenesslean) — 104 lines
 
-**Total:** 17 files, 7056 lines of Lean.
+**Total:** 17 files, 7095 lines of Lean.
 
 ---
 
@@ -744,7 +744,7 @@ while **F** awaits `pf_extended` ← for **I** only).
 | TL · `CompletedModel.truth_*` (base) | `truth_bttm`/`prop`/`nom`/`svar`/`impl`/`ex` | Pass |
 | TL · `CompletedModel.mcs_in_*_succ` | `mcs_in_witnessed_succ` / `completed_to_witnessed` / `mcs_in_completed_succ` | Pass |
 | TL · `CompletedModel.restrict_canonical_succ` | extend witnessed path along `Canonical.R` | Pass |
-| TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent | Not Yet |
+| TL · `CompletedModel.diamond_extension_consistent` | `set_family` base: `{ψ}∪{□χ∈Δ}` consistent (via `box_of_consequence` + `nec_mono`/`box_conj_mem`) | Pass |
 | TL · `CompletedModel.enough_noms_diamond_seed` | fresh nominals for witnessed Lindenbaum on seed | Not Yet |
 | TL · `CompletedModel.diamond_succ_mcs` | `WitnessedLindenbaumLemma` wired; needs rows above | Partial |
 | TL · `CompletedModel.diamond_completed_succ` | ◇ successor pipeline (blocked on diamond rows) | Partial |
@@ -7078,7 +7078,7 @@ def succesor_set (enum : ℕ → Form N) {Δ : Set (Form N)} (mcs : Δ.MCS) (wit
 
 ## `Hybrid/CompletedModel.lean`
 
-*842 lines.*
+*881 lines.*
 
 ```lean
 import Hybrid.ProofUtils
@@ -7797,11 +7797,50 @@ lemma enough_noms_diamond_seed {Δ : Set (Form TotalSet)} (ψ : Form TotalSet)
     enough_noms ({ψ} ∪ {χ | □χ ∈ Δ}) := by
   admit
 
+/-- K-distribution lifted to theorems: `□` is monotone under provable implication. -/
+def nec_mono {N : Set ℕ} {a b : Form N} (h : ⊢ (a ⟶ b)) : ⊢ (□ a ⟶ □ b) :=
+  Proof.mp Proof.ax_k (Proof.necess h)
+
+/-- `□` distributes over conjunction inside an MCS. -/
+lemma box_conj_mem {Δ : Set (Form TotalSet)} (mcs : MCS Δ) {a b : Form TotalSet}
+    (h1 : □ a ∈ Δ) (h2 : □ b ∈ Δ) : □ (a ⋀ b) ∈ Δ := by
+  have s1 : (□ a ⟶ □ (b ⟶ (a ⋀ b))) ∈ Δ :=
+    Proof.MCS_thm mcs (nec_mono (Proof.tautology conj_intro))
+  have s2 : □ (b ⟶ (a ⋀ b)) ∈ Δ := Proof.MCS_mp mcs s1 h1
+  have s3 : (□ (b ⟶ (a ⋀ b)) ⟶ (□ b ⟶ □ (a ⋀ b))) ∈ Δ := Proof.MCS_thm mcs Proof.ax_k
+  have s4 : (□ b ⟶ □ (a ⋀ b)) ∈ Δ := Proof.MCS_mp mcs s3 s2
+  exact Proof.MCS_mp mcs s4 h2
+
+/-- The conjunction of any finite list of `{χ | □χ ∈ Δ}`-members has its box in `Δ`. -/
+lemma box_conjunction_mem {Δ : Set (Form TotalSet)} (mcs : MCS Δ)
+    (L : List ↥{χ : Form TotalSet | □ χ ∈ Δ}) :
+    □ (conjunction {χ : Form TotalSet | □ χ ∈ Δ} L) ∈ Δ := by
+  induction L with
+  | nil => exact Proof.MCS_thm mcs (Proof.necess (Proof.tautology imp_refl))
+  | cons c t ih =>
+      have hc : □ c.val ∈ Δ := c.2
+      exact box_conj_mem mcs hc ih
+
+/-- If everything provable from `{χ | □χ ∈ Δ}` boxes back into `Δ`: `□`-introduction
+    over the canonical predecessor set. -/
+lemma box_of_consequence {Δ : Set (Form TotalSet)} (mcs : MCS Δ) {α : Form TotalSet}
+    (h : {χ : Form TotalSet | □ χ ∈ Δ} ⊢ α) : □ α ∈ Δ := by
+  obtain ⟨L, pf⟩ := h
+  have hconjbox := box_conjunction_mem mcs L
+  have hmono : (□ (conjunction {χ : Form TotalSet | □ χ ∈ Δ} L) ⟶ □ α) ∈ Δ :=
+    Proof.MCS_thm mcs (nec_mono pf)
+  exact Proof.MCS_mp mcs hmono hconjbox
+
 /-- If `◇ψ ∈ Δ` and `Δ` is MCS, the one-step successor seed
     `{ψ} ∪ {χ | □χ ∈ Δ}` is consistent.  (Oltean's `set_family` base case.) -/
 theorem diamond_extension_consistent {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (ψ : Form TotalSet)
     (hdia : ◇ψ ∈ Δ) : consistent ({ψ} ∪ {χ | □χ ∈ Δ}) := by
-  admit
+  intro hcon
+  rw [Set.union_comm] at hcon
+  have hB : {χ : Form TotalSet | □ χ ∈ Δ} ⊢ (ψ ⟶ ⊥) := Proof.Deduction.mpr hcon
+  have hbox : □ (ψ ⟶ ⊥) ∈ Δ := box_of_consequence mcs hB
+  have hdia' : (□ (ψ ⟶ ⊥) ⟶ ⊥) ∈ Δ := hdia
+  exact mcs.1 (Proof.Γ_premise (Proof.MCS_mp mcs hdia' hbox))
 
 /-- Lindenbaum extension of the successor seed: an MCS `Γ'` with `Canonical.R Δ Γ'` and `ψ ∈ Γ'`. -/
 theorem diamond_succ_mcs {Δ : Set (Form TotalSet)} (mcs : MCS Δ) (wit : witnessed Δ) (ψ : Form TotalSet)
