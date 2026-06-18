@@ -74,6 +74,30 @@
     {
       "filename": "lean-listings/Hybrid.lean",
       "usage": "include"
+    },
+    {
+      "filename": "lean-listings/snippet-000.txt",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/snippet-001.txt",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/snippet-002.txt",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/snippet-003.txt",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/snippet-004.txt",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/snippet-005.txt",
+      "usage": "include"
     }
   ]
 }

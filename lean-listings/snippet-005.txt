@@ -1,0 +1,12 @@
+flowchart TD
+  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
+  classDef partial fill:#fff3cd,stroke:#d28,color:#000
+  classDef open fill:#f8d7da,stroke:#c33,color:#000
+
+  A["consistent Γ"] --> B["consistent_total<br/>(Set.total Γ)"]
+  B --> C["ExtendedLindenbaumLemma → Θ"]:::pass
+  C --> D["TruthLemma at root Θ"]:::partial
+  D --> E["sat_odd_noms' + sat_total"]:::pass
+  E --> F["satisfiable Γ"]
+  B -.->|"BLOCKED"| G["F · pf_extended ←"]
+  D -.->|"BLOCKED"| H1["witnessed ◇-successor existence<br/>(set_family / succesor_set — §TL-fix)"]

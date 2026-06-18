@@ -3,33 +3,33 @@ import Mathlib.Logic.Equiv.List
 import Mathlib.Data.Nat.Basic
 import Hybrid.Form
 
-def pow2list (l : List (Nat  x  Nat  x  Nat  x  Nat)) := List.map (fun  (a,b,c,d) => (2^(a+1), 2^(b+1), 2^(c+1), 2^(d+1))) l
+def pow2list (l : List (ℕ × ℕ × ℕ × ℕ)) := List.map (λ (a,b,c,d) => (2^(a+1), 2^(b+1), 2^(c+1), 2^(d+1))) l
 
-def pow3list (l : List (Nat  x  Nat  x  Nat  x  Nat)) := List.map (fun  (a,b,c,d) => (3^(a+1), 3^(b+1), 3^(c+1), 3^(d+1))) l
+def pow3list (l : List (ℕ × ℕ × ℕ × ℕ)) := List.map (λ (a,b,c,d) => (3^(a+1), 3^(b+1), 3^(c+1), 3^(d+1))) l
 
-def squash (n m : List (Nat  x  Nat  x  Nat  x  Nat)) : List (Nat  x  Nat  x  Nat  x  Nat) := pow2list n ++ pow3list m
+def squash (n m : List (ℕ × ℕ × ℕ × ℕ)) : List (ℕ × ℕ × ℕ × ℕ) := pow2list n ++ pow3list m
 
-def Form.encode (N : Set Nat) : Form N  ->  List (Nat  x  Nat  x  Nat  x  Nat)
+def Form.encode (N : Set ℕ) : Form N → List (ℕ × ℕ × ℕ × ℕ)
   | Form.bttm    => [(0,0,0,1)]
   | Form.prop p  => [(0,0,p.letter+1,0)]
   | Form.svar x  => [(0,x.letter+1,0,0)]
   | Form.nom i   => [(i.letter+1,0,0,0)]
-  | Form.impl phi psi   => [(0,0,0,2)] ++ (squash phi.encode psi.encode)
-  | Form.box phi   => [(0,0,0,3)] ++ phi.encode
-  | Form.bind x phi=> [(0,0,0,4), (0,x.letter+1,0,0)] ++ phi.encode
+  | Form.impl φ ψ   => [(0,0,0,2)] ++ (squash φ.encode ψ.encode)
+  | Form.box φ   => [(0,0,0,3)] ++ φ.encode
+  | Form.bind x φ=> [(0,0,0,4), (0,x.letter+1,0,0)] ++ φ.encode
 
 -- Now to show that Form.encode is injective...
 
 -- Surprise: there is an alternative function List.isPrefix
 -- in the standard library...
-lemma is_prefix_self {a : List (Nat  x  Nat  x  Nat  x  Nat)} : a.isPrefixOf a := by
+lemma is_prefix_self {a : List (ℕ × ℕ × ℕ × ℕ)} : a.isPrefixOf a := by
   induction a with
   | nil =>
       simp
   | cons h t ih =>
       simp [List.isPrefixOf, ih]
 
-lemma is_prefix_append {a l : List (Nat  x  Nat  x  Nat  x  Nat)} (t : Nat  x  Nat  x  Nat  x  Nat) (hyp : l.isPrefixOf a) : l.isPrefixOf (a++[t]) := by
+lemma is_prefix_append {a l : List (ℕ × ℕ × ℕ × ℕ)} (t : ℕ × ℕ × ℕ × ℕ) (hyp : l.isPrefixOf a) : l.isPrefixOf (a++[t]) := by
   induction l generalizing a with
   | nil => simp
   | cons head tail ih =>
@@ -39,13 +39,13 @@ lemma is_prefix_append {a l : List (Nat  x  Nat  x  Nat  x  Nat)} (t : Nat  x  N
       | cons head2 tail2 =>
           simp [List.isPrefixOf, -List.isPrefixOf_iff_prefix] at hyp
           simp [List.isPrefixOf, -List.isPrefixOf_iff_prefix]
-          exact <hyp.left, ih hyp.right>
+          exact ⟨hyp.left, ih hyp.right⟩
 
-lemma is_suffix_cons {a l : List (Nat  x  Nat  x  Nat  x  Nat)} (h : Nat  x  Nat  x  Nat  x  Nat) (hyp : l.isSuffixOf a) : l.isSuffixOf (h::a) := by
+lemma is_suffix_cons {a l : List (ℕ × ℕ × ℕ × ℕ)} (h : ℕ × ℕ × ℕ × ℕ) (hyp : l.isSuffixOf a) : l.isSuffixOf (h::a) := by
   simp [List.isSuffixOf, -List.isPrefixOf_iff_prefix, -List.isSuffixOf_iff_suffix] at *
   exact @is_prefix_append (List.reverse a) (List.reverse l) h hyp
 
-lemma sum_is_prefix {a b n m : List (Nat  x  Nat  x  Nat  x  Nat)} (h1 : a ++ b = n ++ m) (h2 : a.length  <=  n.length) : a.isPrefixOf n := by
+lemma sum_is_prefix {a b n m : List (ℕ × ℕ × ℕ × ℕ)} (h1 : a ++ b = n ++ m) (h2 : a.length ≤ n.length) : a.isPrefixOf n := by
   induction a generalizing n with
   | nil =>  simp [List.isPrefixOf]
   | cons ha ta iha =>
@@ -60,7 +60,7 @@ lemma sum_is_prefix {a b n m : List (Nat  x  Nat  x  Nat  x  Nat)} (h1 : a ++ b 
           . simp at h2
             exact iha h1.right h2
 
-lemma split_prefix_suffix {a b : List (Nat  x  Nat  x  Nat  x  Nat)} (hyp : a.isPrefixOf b) : exists  c, c.isSuffixOf b  /\  b = a ++ c := by
+lemma split_prefix_suffix {a b : List (ℕ × ℕ × ℕ × ℕ)} (hyp : a.isPrefixOf b) : ∃ c, c.isSuffixOf b ∧ b = a ++ c := by
   induction a generalizing b with
   | nil =>
       exists b
@@ -71,17 +71,17 @@ lemma split_prefix_suffix {a b : List (Nat  x  Nat  x  Nat  x  Nat)} (hyp : a.is
           simp at hyp
       | cons hb tb =>
           simp [List.isPrefixOf, -List.isPrefixOf_iff_prefix] at hyp
-          have <h1, h2> := hyp
+          have ⟨h1, h2⟩ := hyp
           clear hyp
           have by_ih := ih h2
           match by_ih with
-          | <c, hsuf, hsum> =>
+          | ⟨c, hsuf, hsum⟩ =>
               clear by_ih ih
               exists c
               simp [-List.isPrefixOf_iff_prefix, -List.isSuffixOf_iff_suffix]
-              exact <<h1.symm, hsum>, is_suffix_cons hb hsuf>
+              exact ⟨⟨h1.symm, hsum⟩, is_suffix_cons hb hsuf⟩
 
-theorem prime_2_3 (n m : Nat) : 3^(n+1)  !=  2^(m+1) := by
+theorem prime_2_3 (n m : Nat) : 3^(n+1) ≠ 2^(m+1) := by
   intro h
   have h2 : 2^(m+1) % 2 = 0 := by rw [Nat.pow_succ]; omega
   have h3 : 3^(n+1) % 2 = 1 := by rw [Nat.pow_mod]; simp
@@ -99,16 +99,16 @@ lemma pow2listinj : pow2list.Injective := by
       cases l2 with
       | nil  => simp [pow2list] at hyp
       | cons head tail =>
-          simp [pow2list] at hyp  |- 
+          simp [pow2list] at hyp ⊢
           apply And.intro
-          . have <eq1, eq2, eq3, eq4> := hyp.left
+          . have ⟨eq1, eq2, eq3, eq4⟩ := hyp.left
             clear ih hyp
             have eq1 := @Nat.pow_right_injective 2 (Nat.le_of_eq (Eq.refl 2)) (h.fst + 1) (head.fst + 1) eq1
             have eq2 := @Nat.pow_right_injective 2 (Nat.le_of_eq (Eq.refl 2)) (h.2.fst + 1) (head.2.fst + 1) eq2
             have eq3 := @Nat.pow_right_injective 2 (Nat.le_of_eq (Eq.refl 2)) (h.2.2.fst + 1) (head.2.2.fst + 1) eq3
             have eq4 := @Nat.pow_right_injective 2 (Nat.le_of_eq (Eq.refl 2)) (h.2.2.snd + 1) (head.2.2.snd + 1) eq4
-            simp [Prod.eq_iff_fst_eq_snd_eq, Nat.succ_inj] at eq1 eq2 eq3 eq4  |- 
-            exact <eq1, eq2, eq3, eq4>
+            simp [Prod.eq_iff_fst_eq_snd_eq, Nat.succ_inj] at eq1 eq2 eq3 eq4 ⊢
+            exact ⟨eq1, eq2, eq3, eq4⟩
           . exact ih hyp.right
 
 theorem pow3listinj : pow3list.Injective := by
@@ -122,48 +122,48 @@ theorem pow3listinj : pow3list.Injective := by
       cases l2 with
       | nil  => simp [pow3list] at hyp
       | cons head tail =>
-          simp [pow3list] at hyp  |- 
+          simp [pow3list] at hyp ⊢
           apply And.intro
-          . have <eq1, eq2, eq3, eq4> := hyp.left
+          . have ⟨eq1, eq2, eq3, eq4⟩ := hyp.left
             clear ih hyp
             have eq1 := @Nat.pow_right_injective 3 (Nat.le_succ 2) (h.fst + 1) (head.fst + 1) eq1
             have eq2 := @Nat.pow_right_injective 3 (Nat.le_succ 2) (h.2.fst + 1) (head.2.fst + 1) eq2
             have eq3 := @Nat.pow_right_injective 3 (Nat.le_succ 2) (h.2.2.fst + 1) (head.2.2.fst + 1) eq3
             have eq4 := @Nat.pow_right_injective 3 (Nat.le_succ 2) (h.2.2.snd + 1) (head.2.2.snd + 1) eq4
-            simp [Prod.eq_iff_fst_eq_snd_eq, Nat.succ_inj] at eq1 eq2 eq3 eq4  |- 
-            exact <eq1, eq2, eq3, eq4>
+            simp [Prod.eq_iff_fst_eq_snd_eq, Nat.succ_inj] at eq1 eq2 eq3 eq4 ⊢
+            exact ⟨eq1, eq2, eq3, eq4⟩
           . exact ih hyp.right
 
-lemma guns : x  in  pow2list a  ->  exists  n, x.fst = 2^(n+1) := by
+lemma guns : x ∈ pow2list a → ∃ n, x.fst = 2^(n+1) := by
   intro h
   unfold pow2list at h
   rw [List.mem_map] at h
-  obtain <y, _, hy> := h
-  obtain <a1, b1, c1, d1> := y
+  obtain ⟨y, _, hy⟩ := h
+  obtain ⟨a1, b1, c1, d1⟩ := y
   exists a1
-  rw [ <-  hy]
+  rw [← hy]
 
-lemma of_brixton {a : List (Nat  x  Nat  x  Nat  x  Nat)} : (h :: t).isSuffixOf a  ->  h  in  a := by
+lemma of_brixton {a : List (ℕ × ℕ × ℕ × ℕ)} : (h :: t).isSuffixOf a → h ∈ a := by
   intro hyp
   rw [List.isSuffixOf_iff_suffix] at hyp
   exact hyp.subset (by simp)
 
-lemma suffix_pow2 {a : List (Nat  x  Nat  x  Nat  x  Nat)} : (h :: t).isSuffixOf (pow2list a)  ->  exists  n, h.fst = 2^(n+1) := by
+lemma suffix_pow2 {a : List (ℕ × ℕ × ℕ × ℕ)} : (h :: t).isSuffixOf (pow2list a) → ∃ n, h.fst = 2^(n+1) := by
   intro hyp
   exact guns (of_brixton hyp)
 
-lemma squash_lemma_wlog (h : (pow2list a).length  <=  (pow2list n).length) : squash a b = squash n m  ->  (pow2list a = pow2list n  /\  pow3list b = pow3list m) := by
+lemma squash_lemma_wlog (h : (pow2list a).length ≤ (pow2list n).length) : squash a b = squash n m → (pow2list a = pow2list n ∧ pow3list b = pow3list m) := by
   intro hyp
   simp [squash] at hyp
   have by_l1 := sum_is_prefix hyp h
   have by_l2 := split_prefix_suffix by_l1
   match by_l2 with
-  | <suf, hsuf> =>
+  | ⟨suf, hsuf⟩ =>
       clear h by_l1 by_l2
       simp [hsuf] at hyp
       cases suf
       . simp at hyp hsuf
-        exact <Eq.symm hsuf, hyp>
+        exact ⟨Eq.symm hsuf, hyp⟩
       . exfalso
         have is_pow_2 := suffix_pow2 hsuf.left
         cases b
@@ -171,13 +171,13 @@ lemma squash_lemma_wlog (h : (pow2list a).length  <=  (pow2list n).length) : squ
         . simp [pow3list, Prod.eq_iff_fst_eq_snd_eq] at hyp
           have abs_1 := hyp.left.left
           match is_pow_2 with
-          | <n, abs_2> =>
+          | ⟨n, abs_2⟩ =>
               rw [abs_2] at abs_1
               apply prime_2_3
               apply abs_1
 
-lemma squash_lemma : squash a b = squash n m  ->  (pow2list a = pow2list n  /\  pow3list b = pow3list m) := by
-  by_cases h : (pow2list a).length  <=  (pow2list n).length
+lemma squash_lemma : squash a b = squash n m → (pow2list a = pow2list n ∧ pow3list b = pow3list m) := by
+  by_cases h : (pow2list a).length ≤ (pow2list n).length
   . exact squash_lemma_wlog h
   . simp at h
     have h := Nat.le_of_lt h
@@ -188,33 +188,33 @@ lemma squash_lemma : squash a b = squash n m  ->  (pow2list a = pow2list n  /\  
     let Haux := @squash_lemma_wlog n a m b h
     exact squash_lemma_wlog h
 
-  theorem squash_inj : squash a b = squash n m  ->  (a = n  /\  b = m) := by
+  theorem squash_inj : squash a b = squash n m → (a = n ∧ b = m) := by
     intro hyp
-    have <a_n, b_m> := squash_lemma hyp
-    exact <pow2listinj a_n, pow3listinj b_m>
+    have ⟨a_n, b_m⟩ := squash_lemma hyp
+    exact ⟨pow2listinj a_n, pow3listinj b_m⟩
 
   #check Form.encode
 
-  theorem Inject_Form (N : Set Nat) : (Form.encode N).Injective := by
-    intro phi psi
+  theorem Inject_Form (N : Set ℕ) : (Form.encode N).Injective := by
+    intro φ ψ
     intro h
-    induction phi generalizing psi with
+    induction φ generalizing ψ with
     | impl a b ih1 ih2  =>
-        cases psi <;> simp [Form.encode, -implication_disjunction] at *
+        cases ψ <;> simp [Form.encode, -implication_disjunction] at *
         apply And.intro <;> (first | apply ih1 | apply ih2) <;> simp [squash_inj h]
-    | box phi ih  =>
-        cases psi <;> first | simp [Form.encode, -implication_disjunction] at *; try apply ih; try assumption
-    | bind x phi ih  =>
-        cases psi <;> simp [Form.encode, -implication_disjunction] at *
+    | box φ ih  =>
+        cases ψ <;> first | simp [Form.encode, -implication_disjunction] at *; try apply ih; try assumption
+    | bind x φ ih  =>
+        cases ψ <;> simp [Form.encode, -implication_disjunction] at *
         apply And.intro
         . exact congrArg SVAR.mk h.left
         . exact ih h.right
     | _  =>
-        induction psi <;> simp [Form.encode] at * <;>
+        induction ψ <;> simp [Form.encode] at * <;>
           first | exact congrArg PROP.mk h | exact congrArg SVAR.mk h |
           . simp [NOM_eq]
             apply Subtype.eq
             assumption
 
 instance : Countable (Form N) := (Inject_Form N).countable
-instance : Nonempty  (Form N) := <False>
+instance : Nonempty  (Form N) := ⟨⊥⟩

@@ -1,0 +1,41 @@
+flowchart TD
+    classDef done fill:#d8efd8,stroke:#3a3,color:#000;
+    classDef crux fill:#ffe9c7,stroke:#d28,color:#000;
+
+    SEM["Kripke semantics"]:::done
+    PS["Hilbert proof system"]:::done
+    SND["Soundness"]:::done
+    RL["Regular Lindenbaum"]:::done
+    ME["Model Existence"]:::done
+
+    B["B · Propositional tautologies"]
+    C["C · Formula countability / enumeration"]
+    D["D · Bound-variable renaming"]
+    E["E · odd_noms homomorphism<br/>(structural refactor)"]:::crux
+    F["F · Language extension<br/>(total_* + pf_extended)<br/>(Pass)"]:::done
+    G["G · Witnessed Lindenbaum<br/>(Pass)"]:::done
+    TL["TL · Completed-model truth lemma<br/>(partial: □← · ∀ free)"]
+    H["H · Existence lemma (l313')"]:::done
+    I["I · Completeness:  Γ ⊨ φ → Γ ⊢ φ"]
+
+    B --> PS
+    C --> RL
+    RL --> G
+    E --> G
+    B --> F
+    B --> G
+    B --> H
+    B --> TL
+    D --> H
+    D --> TL
+    H --> TL
+    G --> I
+    TL --> I
+    ME --> I
+    F -.->|"conservativity"| I
+    SEM --> SND
+    SEM --> ME
+    SEM --> TL
+    SEM --> I
+    SND --> D
+    SND --> TL

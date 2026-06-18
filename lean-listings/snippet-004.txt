@@ -1,0 +1,32 @@
+flowchart TD
+  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
+  classDef partial fill:#fff3cd,stroke:#d28,color:#000
+  classDef open fill:#f8d7da,stroke:#c33,color:#000
+
+  base["truth_bttm · prop · nom · svar · impl · ex"]:::pass
+  succ["mcs_in_witnessed_succ · completed_to_witnessed · mcs_in_completed_succ"]:::pass
+
+  l313["l313 / l313' · witness_conditionals<br/>(Henkin witnesses, PROVEN)"]:::pass
+  cons["diamond_extension_consistent<br/>(set_family base, PROVEN)"]:::pass
+  reg["RegularLindenbaumLemma<br/>(NEW, step 1)"]:::open
+  sf["set_family / succesor_set<br/>(NEW crux, step 2 — incl. witnessed Γ')"]:::open
+  l313 --> sf
+  cons --> sf
+  reg --> sf
+  sf --> dsc["diamond_succ_mcs<br/>(rewire, step 3)"]:::partial
+  dsc --> rcs["restrict_canonical_succ<br/>(witnessed Δ' input)"]:::pass
+  rcs --> dcs["diamond_completed_succ"]:::partial
+  nnd["not_nec_to_diamond"]:::pass
+
+  base --> box["truth_box"]:::partial
+  succ --> box
+  dcs --> box
+  nnd --> box
+
+  ainf["all_iff_notfree"]:::pass
+  base --> allNF["truth_all<br/>(uniform: free + non-free x)"]:::pass
+  ainf --> allNF
+
+  base --> TLm["TruthLemma<br/>(WF recursion on depth)"]:::partial
+  box --> TLm
+  allNF --> TLm

@@ -1,0 +1,7 @@
+flowchart TD
+  E["E · odd_noms homomorphism"] --> fam["family_subset · lindenbaum_next_subset"]
+  fam --> fresh["fresh_even_dominating"]
+  fresh --> step["enough_noms_odd_step"]
+  step --> wit["LindenbaumWitnessed"]
+  wit --> ext["ExtendedLindenbaumLemma"]
+  wit --> wll["WitnessedLindenbaumLemma<br/>(enough_noms on seed)"]

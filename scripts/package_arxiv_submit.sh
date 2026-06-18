@@ -23,9 +23,9 @@ if [[ ! -d "$LISTINGS_DIR" ]]; then
   echo "error: missing $LISTINGS_DIR" >&2
   missing=1
 fi
-lean_count="$(find "$LISTINGS_DIR" -maxdepth 1 -name '*.lean' 2>/dev/null | wc -l)"
+lean_count="$(find "$LISTINGS_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l)"
 if [[ "$lean_count" -eq 0 ]]; then
-  echo "error: no .lean files in $LISTINGS_DIR" >&2
+  echo "error: no listing files in $LISTINGS_DIR" >&2
   missing=1
 fi
 if [[ "$missing" -ne 0 ]]; then
@@ -35,13 +35,13 @@ fi
 mkdir -p "$OUT_DIR"
 rm -f "$ZIP"
 
-echo "==> Writing 00README.json (mark .lean files as include so arXiv does not drop them)"
+echo "==> Writing 00README.json (mark listing files as include so arXiv does not drop them)"
 python3 - <<'PY'
 import json
 from pathlib import Path
 
 sources = [{"filename": "arxiv_with_code.tex", "usage": "toplevel"}]
-for path in sorted(Path("lean-listings").glob("*.lean")):
+for path in sorted(p for p in Path("lean-listings").iterdir() if p.is_file()):
     sources.append({"filename": path.as_posix(), "usage": "include"})
 readme = {"process": {"compiler": "pdflatex"}, "sources": sources}
 Path("00README.json").write_text(json.dumps(readme, indent=2) + "\n")
@@ -52,7 +52,7 @@ echo "==> Packaging"
 zip -r "$ZIP" \
   00README.json \
   "$TEX" \
-  "$LISTINGS_DIR"/*.lean
+  "$LISTINGS_DIR"
 
 echo "wrote $ZIP ($(du -h "$ZIP" | cut -f1))"
 echo "Contents:"

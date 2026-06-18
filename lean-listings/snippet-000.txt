@@ -1,0 +1,10 @@
+Γ ⊨ φ  ⟹  Γ ⊢ φ
+  └─ via contraposition + Model Existence:  every consistent set is satisfiable
+       1. Lindenbaum:           consistent Γ  ⟶  maximal consistent Γ'      [compiles]
+       2. Language extension:   reserve an infinite supply of fresh nominals
+            ├─ odd_noms:   map the language into the ODD nominals (i ↦ 2i+1)
+            └─ pf_extended: ⊢ φ ↔ ⊢ φ⁺   (derivations survive the extension)
+       3. Witnessed Lindenbaum: an MCS that witnesses every ◇ / ∃
+       4. Completed model + Truth lemma
+       5. Existence lemma:      ◇-witnesses provide successor states
+       6. assemble  ⟶  Completeness

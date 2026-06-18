@@ -1,111 +1,111 @@
 import Hybrid.Form
 import Hybrid.Tautology
 
-inductive Proof : Form N  ->  Type where
+inductive Proof : Form N → Type where
   -- Deduction rules:
 
-  -- if phi is a theorem, forall  v, phi is a theorem
-  | general {phi : Form N} (v : SVAR):
-        Proof phi  ->  Proof (all v, phi)
+  -- if φ is a theorem, ∀ v, φ is a theorem
+  | general {φ : Form N} (v : SVAR):
+        Proof φ → Proof (all v, φ)
 
-  -- if phi is a theorem, []  phi is a theorem
-  | necess {phi : Form N}:
-        Proof phi  ->  Proof ([]  phi)
+  -- if φ is a theorem, □ φ is a theorem
+  | necess {φ : Form N}:
+        Proof φ → Proof (□ φ)
 
   -- modus ponens:
-  | mp {phi psi : Form N}:
-        Proof (phi  -->  psi)  ->  Proof phi  ->  Proof psi
+  | mp {φ ψ : Form N}:
+        Proof (φ ⟶ ψ) → Proof φ → Proof ψ
 
   -- All propositional tautologies
-  | tautology {phi : Form N}:
-        Tautology phi  ->  Proof phi
+  | tautology {φ : Form N}:
+        Tautology φ → Proof φ
 
   -- Axioms for modal + hybrid logic:
   -- distribution schema (axiom K)
-  | ax_k {phi psi : Form N}:
-        Proof ([]  (phi  -->  psi)  -->  ([]  phi  -->  []  psi))
+  | ax_k {φ ψ : Form N}:
+        Proof (□ (φ ⟶ ψ) ⟶ (□ φ ⟶ □ ψ))
 
-  | ax_q1 (phi psi : Form N) {v : SVAR} (p : is_free v phi = false):
-        Proof ((all v, phi  -->  psi)  -->  (phi  -->  all v, psi))
+  | ax_q1 (φ ψ : Form N) {v : SVAR} (p : is_free v φ = false):
+        Proof ((all v, φ ⟶ ψ) ⟶ (φ ⟶ all v, ψ))
 
   -- two different instances of Axiom Q2: one for SVAR, one for NOM
-  | ax_q2_svar (phi : Form N) (v s : SVAR) (p : is_substable phi s v):
-      Proof ((all v, phi)  -->  phi[s // v])
+  | ax_q2_svar (φ : Form N) (v s : SVAR) (p : is_substable φ s v):
+      Proof ((all v, φ) ⟶ φ[s // v])
 
-  | ax_q2_nom (phi : Form N) (v : SVAR) (s : NOM N):
-      Proof ((all v, phi)  -->  phi[s // v])
+  | ax_q2_nom (φ : Form N) (v : SVAR) (s : NOM N):
+      Proof ((all v, φ) ⟶ φ[s // v])
 
   | ax_name (v : SVAR):
       Proof (ex v, v)
 
-  | ax_nom {phi : Form N} {v : SVAR} (m n : Nat):
-      Proof (all v, (iterate_pos m (v  /\  phi)  -->  iterate_nec n (v  -->  phi)))
+  | ax_nom {φ : Form N} {v : SVAR} (m n : Nat):
+      Proof (all v, (iterate_pos m (v ⋀ φ) ⟶ iterate_nec n (v ⟶ φ)))
 
-  | ax_brcn {phi : Form N} {v : SVAR}:
-      Proof ((all v, []  phi)  -->  ([]  all v, phi))
+  | ax_brcn {φ : Form N} {v : SVAR}:
+      Proof ((all v, □ φ) ⟶ (□ all v, φ))
 
-def Proof.size : Proof phi  ->  Nat
+def Proof.size : Proof φ → ℕ
   | .general _ pf => pf.size + 1
   | .necess pf    => pf.size + 1
   | .mp pf1 pf2   => pf1.size + pf2.size + 1
   | _ => 1
 
-lemma Proof.size_lt_mp {a b : Form N} (pf1 : Proof (a  -->  b)) (pf2 : Proof a) :
+lemma Proof.size_lt_mp {α β : Form N} (pf1 : Proof (α ⟶ β)) (pf2 : Proof α) :
     pf1.size < (mp pf1 pf2).size := by simp [Proof.size]; omega
 
-lemma Proof.size_lt_mp_2 {a b : Form N} (pf1 : Proof (a  -->  b)) (pf2 : Proof a) :
+lemma Proof.size_lt_mp₂ {α β : Form N} (pf1 : Proof (α ⟶ β)) (pf2 : Proof α) :
     pf2.size < (mp pf1 pf2).size := by simp [Proof.size]; omega
 
-lemma Proof.size_lt_general {phi : Form N} (v : SVAR) (pf : Proof phi) :
+lemma Proof.size_lt_general {φ : Form N} (v : SVAR) (pf : Proof φ) :
     pf.size < (general v pf).size := by simp [Proof.size]
 
-lemma Proof.size_lt_necess {phi : Form N} (pf : Proof phi) :
+lemma Proof.size_lt_necess {φ : Form N} (pf : Proof φ) :
     pf.size < (necess pf).size := by simp [Proof.size]
 
-def Proof.contains {phi : Form N} : Proof phi  ->  Form N  ->  Bool :=
-  fun  pf psi => phi == psi ||
+def Proof.contains {φ : Form N} : Proof φ → Form N → Bool :=
+  λ pf ψ => φ == ψ ||
     match pf with
-    | .general _ pf' => pf'.contains phi
-    | .necess pf'    => pf'.contains phi
-    | .mp pf1 pf2    => pf1.contains phi || pf2.contains phi
+    | .general _ pf' => pf'.contains φ
+    | .necess pf'    => pf'.contains φ
+    | .mp pf1 pf2    => pf1.contains φ || pf2.contains φ
     | _ => false
 
-def Proof.fresh_var : Proof phi  ->  SVAR  ->  Prop := fun  pf x => forall  psi, pf.contains psi  ->  x  >=  psi.new_var
+def Proof.fresh_var : Proof φ → SVAR → Prop := λ pf x => ∀ ψ, pf.contains ψ → x ≥ ψ.new_var
 
 /-- Every formula root appearing in a derivation (for nominal inventory / conservativity). -/
-def Proof.formulasIn {phi : Form N} : Proof phi  ->  List (Form N)
-  | .tautology _ => [phi]
-  | .ax_k => [phi]
-  | .ax_q1 _ _ _ => [phi]
-  | .ax_q2_svar _ _ _ _ => [phi]
-  | .ax_q2_nom _ _ _ => [phi]
-  | .ax_name _ => [phi]
-  | .ax_nom _ _ => [phi]
-  | .ax_brcn => [phi]
-  | .general _ pf => phi :: pf.formulasIn
-  | .necess pf => phi :: pf.formulasIn
-  | .mp pf1 pf2 => phi :: pf1.formulasIn ++ pf2.formulasIn
+def Proof.formulasIn {φ : Form N} : Proof φ → List (Form N)
+  | .tautology _ => [φ]
+  | .ax_k => [φ]
+  | .ax_q1 _ _ _ => [φ]
+  | .ax_q2_svar _ _ _ _ => [φ]
+  | .ax_q2_nom _ _ _ => [φ]
+  | .ax_name _ => [φ]
+  | .ax_nom _ _ => [φ]
+  | .ax_brcn => [φ]
+  | .general _ pf => φ :: pf.formulasIn
+  | .necess pf => φ :: pf.formulasIn
+  | .mp pf1 pf2 => φ :: pf1.formulasIn ++ pf2.formulasIn
 
 /-- Nominals occurring in any formula of a derivation (deduped, descending merge order). -/
-def Proof.proof_noms {phi : Form N} (pf : Proof phi) : List (NOM N) :=
+def Proof.proof_noms {φ : Form N} (pf : Proof φ) : List (NOM N) :=
   (pf.formulasIn.flatMap Form.list_noms).dedup
 
-def SyntacticConsequence (Gamma : Set (Form N)) (phi : Form N) := Sigma L, Proof ((conjunction Gamma L)  -->  phi)
+def SyntacticConsequence (Γ : Set (Form N)) (φ : Form N) := Σ L, Proof ((conjunction Γ L) ⟶ φ)
 
-prefix:500 " |- "  => Proof
-infix:500 " |- "   => SyntacticConsequence
+prefix:500 "⊢"  => Proof
+infix:500 "⊢"   => SyntacticConsequence
 
-notation " |/- " phi    => (Proof phi)  ->  False
-notation Gamma " |/- " phi  => (SyntacticConsequence Gamma phi)  ->  False
+notation "⊬" φ    => (Proof φ) → False
+notation Γ "⊬" φ  => (SyntacticConsequence Γ φ) → False
 
 
-def consistent (Gamma : Set (Form N)) := forall  (_ : SyntacticConsequence Gamma False), False
+def consistent (Γ : Set (Form N)) := ∀ (_ : SyntacticConsequence Γ ⊥), False
 
-def MCS (Gamma : Set (Form N)) := consistent Gamma  /\  (forall  {phi : Form N}, (not phi  in  Gamma)  ->  not consistent (Gamma  U  {phi}))
+def MCS (Γ : Set (Form N)) := consistent Γ ∧ (∀ {φ : Form N}, (¬φ ∈ Γ) → ¬consistent (Γ ∪ {φ}))
 
-def witnessed (Gamma : Set (Form N)) : Prop := forall  {phi : Form N},
-  phi  in  Gamma  -> 
-    match phi with
---      | ex x, psi => exists  i : NOM, ((ex x, psi)  -->  psi[i // x])  in  Gamma
-      | ex x, psi => exists  i : NOM N, psi[i // x]  in  Gamma
-      | _   => phi  in  Gamma
+def witnessed (Γ : Set (Form N)) : Prop := ∀ {φ : Form N},
+  φ ∈ Γ →
+    match φ with
+--      | ex x, ψ => ∃ i : NOM, ((ex x, ψ) ⟶ ψ[i // x]) ∈ Γ
+      | ex x, ψ => ∃ i : NOM N, ψ[i // x] ∈ Γ
+      | _   => φ ∈ Γ

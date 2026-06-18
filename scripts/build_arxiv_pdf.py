@@ -7,7 +7,9 @@ Pipeline:
   3. Demote the Appendix-A structural headings so LaTeX numbers everything once.
   4. Strip manual section numbers (any depth, e.g. `1.`, `1.3`, `5.1`) so LaTeX does
      the numbering and we never get duplicates like "5.1 5.1".
-  5. Replace ```lean fences with ASCII-sanitized \lstinputlisting blocks (arXiv-safe).
+  5. Replace fenced code with \lstinputlisting blocks of the real UTF-8 source; the
+     `leanbox` style's `literate` table renders every Lean glyph (∀ ◇ □ ⟶ ⊢ φ …)
+     natively under both pdfLaTeX and LuaLaTeX.
   6. pandoc → LaTeX, then splice the listing/math placeholders back in.
 """
 
@@ -22,10 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
-from lean_listing_sanitize import (
-    chunk_line_ranges,
-    sanitize_lean_for_arxiv,
-)
+from lean_listing_sanitize import chunk_line_ranges
 
 SRC = ROOT / "arxiv_with_code.md"
 OUT = ROOT / "arxiv_with_code.tex"
@@ -112,13 +111,22 @@ def escape_latex(text: str) -> str:
     return out
 
 
-def lean_block_latex(code: str, listing_name: str) -> str:
+def write_listing(code: str, listing_name: str) -> tuple[str, int]:
+    """Write `code` verbatim (UTF-8) to lean-listings/ and return (rel_path, n_lines).
+
+    Listings stay as real Lean source; the `leanbox` style's `literate` table renders
+    every operator with its native LaTeX symbol under both pdfLaTeX and LuaLaTeX.
+    """
     LISTINGS_DIR.mkdir(parents=True, exist_ok=True)
-    sanitized = sanitize_lean_for_arxiv(code).rstrip("\n")
+    source = code.rstrip("\n")
     listing_path = LISTINGS_DIR / listing_name
-    listing_path.write_text(sanitized + "\n", encoding="ascii", errors="strict")
+    listing_path.write_text(source + "\n", encoding="utf-8")
     rel_path = listing_path.relative_to(ROOT).as_posix()
-    line_count = len(sanitized.splitlines()) if sanitized else 0
+    return rel_path, (len(source.splitlines()) if source else 0)
+
+
+def lean_block_latex(code: str, listing_name: str) -> str:
+    rel_path, line_count = write_listing(code, listing_name)
     ranges = chunk_line_ranges(line_count, LISTING_CHUNK_LINES)
 
     parts: list[str] = []
@@ -180,12 +188,12 @@ def replace_fences(text: str) -> tuple[str, dict[str, str]]:
             other_idx += 1
             placeholders[key] = f"\\[\n{body.strip()}\n\\]\n"
             return f"\n\n{key}\n\n"
-        # mermaid / plain / anything else -> verbatim (keeps the source visible).
-        # ASCII-sanitize so the block is safe under arXiv's pdfLaTeX (inputenc utf8).
+        # mermaid / plain / anything else -> a UTF-8 listing via the same leanbox style,
+        # so its glyphs (arrows, Γ, φ, …) render natively too.
         key = f"CODEINCLUDE{other_idx:03d}"
+        rel_path, _ = write_listing(body, f"snippet-{other_idx:03d}.txt")
         other_idx += 1
-        safe_body = sanitize_lean_for_arxiv(body).rstrip()
-        placeholders[key] = f"\\begin{{verbatim}}\n{safe_body}\n\\end{{verbatim}}\n"
+        placeholders[key] = f"\\lstinputlisting[style=leanbox]{{{rel_path}}}\n"
         return f"\n\n{key}\n\n"
 
     converted = FENCE_RE.sub(repl, text)
@@ -281,8 +289,9 @@ def main() -> int:
         return 1
 
     if LISTINGS_DIR.exists():
-        for path in LISTINGS_DIR.glob("*.lean"):
-            path.unlink()
+        for path in LISTINGS_DIR.iterdir():
+            if path.is_file():
+                path.unlink()
     LISTINGS_DIR.mkdir(parents=True, exist_ok=True)
 
     raw = SRC.read_text(encoding="utf-8")
@@ -306,8 +315,8 @@ def main() -> int:
         preamble + "\n\n" + title_page + "\n\n" + latex_body + "\n\n\\end{document}\n"
     )
     OUT.write_text(document, encoding="utf-8")
-    n_listings = len(list(LISTINGS_DIR.glob("*.lean")))
-    print(f"wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size:,} bytes, {n_listings} lean listings)")
+    n_listings = sum(1 for p in LISTINGS_DIR.iterdir() if p.is_file())
+    print(f"wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size:,} bytes, {n_listings} listings)")
     return 0
 
 

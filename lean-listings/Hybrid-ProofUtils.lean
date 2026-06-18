@@ -7,42 +7,42 @@ namespace Proof
 
 noncomputable section
 
-def iff_mp (h :  |-  (phi  <->  psi)) :  |-  (phi  -->  psi) :=
+def iff_mp (h : ⊢ (φ ⟷ ψ)) : ⊢ (φ ⟶ ψ) :=
   mp (tautology conj_elim_l) h
 
-def iff_mpr (h :  |-  (phi  <->  psi)) :  |-  (psi  -->  phi) :=
+def iff_mpr (h : ⊢ (φ ⟷ ψ)) : ⊢ (ψ ⟶ φ) :=
   mp (tautology conj_elim_r) h
 
-def hs (h1 :  |-  (phi  -->  psi)) (h2 :  |-  (psi  -->  chi)) :  |-  (phi  -->  chi) :=
+def hs (h1 : ⊢ (φ ⟶ ψ)) (h2 : ⊢ (ψ ⟶ χ)) : ⊢ (φ ⟶ χ) :=
   mp (mp (tautology hs_taut) h1) h2
 
-def rename_bound {phi : Form N} (h1 : occurs y phi = false) (h2 : is_substable phi y x) :  |-  ((all x, phi)  <->  all y, phi[y // x]) := by
+def rename_bound {φ : Form N} (h1 : occurs y φ = false) (h2 : is_substable φ y x) : ⊢ ((all x, φ) ⟷ all y, φ[y // x]) := by
   rw [Form.iff]
   apply mp
   . apply mp
     . apply tautology
       apply conj_intro
-    . have l1 := ax_q2_svar phi x y h2
+    . have l1 := ax_q2_svar φ x y h2
       have l2 := general y l1
-      have l3 := ax_q1 (all x, phi) (phi[y // x]) (notoccurs_notfree h1)
+      have l3 := ax_q1 (all x, φ) (φ[y // x]) (notoccurs_notfree h1)
       have l4 := mp l3 l2
       exact l4
-  . have <resubst, reid> := rereplacement phi x y h1 h2
-    have l1 := ax_q2_svar (phi[y//x]) y x resubst
+  . have ⟨resubst, reid⟩ := rereplacement φ x y h1 h2
+    have l1 := ax_q2_svar (φ[y//x]) y x resubst
     rw [reid] at l1
     have l3 := general x l1
     by_cases xy : x = y
-    . rw [ <- xy] at h1
-      have notf := preserve_notfree x y (notoccurs_notfree (@notocc_beforeafter_subst N phi x y h1))
-      have l4 := ax_q1 (all y, phi[y//x]) phi notf
+    . rw [←xy] at h1
+      have notf := preserve_notfree x y (notoccurs_notfree (@notocc_beforeafter_subst N φ x y h1))
+      have l4 := ax_q1 (all y, φ[y//x]) φ notf
       have l5 := mp l4 l3
       exact l5
-    . have notf := preserve_notfree x y (@notfree_after_subst N phi x y xy)
-      have l4 := ax_q1 (all y, phi[y//x]) phi notf
+    . have notf := preserve_notfree x y (@notfree_after_subst N φ x y xy)
+      have l4 := ax_q1 (all y, φ[y//x]) φ notf
       have l5 := mp l4 l3
       exact l5
 
-def rename_bound_ex (h1 : occurs y phi = false) (h2 : is_substable phi y x) :  |-  ((ex x, phi)  <->  ex y, phi[y // x]) := by
+def rename_bound_ex (h1 : occurs y φ = false) (h2 : is_substable φ y x) : ⊢ ((ex x, φ) ⟷ ex y, φ[y // x]) := by
   rw [Form.bind_dual, Form.bind_dual]
   apply mp
   . apply mp
@@ -57,209 +57,209 @@ def rename_bound_ex (h1 : occurs y phi = false) (h2 : is_substable phi y x) :  |
 -- Quite bothersome to work with subtypes and coerce properly.
 -- The code looks ugly, but in essence it follows the proof given
 -- in LaTeX.
-def Deduction {Gamma : Set (Form N)} : Gamma  |-  (psi  -->  phi) iff (Gamma  U  {psi})  |-  phi := by
+def Deduction {Γ : Set (Form N)} : Γ ⊢ (ψ ⟶ φ) iff (Γ ∪ {ψ}) ⊢ φ := by
   apply TypeIff.intro
   . intro h
     match h with
-    | <L, hpf> =>
+    | ⟨L, hpf⟩ =>
         have l1 := mp (tautology com12) hpf
         have l2 := mp (tautology imp) l1
-        have pfmem : psi  in  Gamma  U  {psi} := by simp
-        let L' : List (Gamma  U  {psi}) := <psi, pfmem> :: list_convert L
+        have pfmem : ψ ∈ Γ ∪ {ψ} := by simp
+        let L' : List ↑(Γ ∪ {ψ}) := ⟨ψ, pfmem⟩ :: list_convert L
         rw [conj_incl] at l2
-        exact <L', l2>
+        exact ⟨L', l2⟩
   . intro h
     match h with
-    | <L', hpf> =>
-      have t_ax1 := tautology (@ax_1 N (conjunction (Gamma  U  {psi}) L' --> phi) psi)
+    | ⟨L', hpf⟩ =>
+      have t_ax1 := tautology (@ax_1 N (conjunction (Γ ∪ {ψ}) L'⟶φ) ψ)
       have l1 := mp t_ax1 hpf
       have l2 := mp (tautology com12) l1
-      by_cases elem : elem' L' psi
-      . have t_help := tautology (deduction_helper L' psi (psi --> phi) elem)
+      by_cases elem : elem' L' ψ
+      . have t_help := tautology (deduction_helper L' ψ (ψ⟶φ) elem)
         have l3 := mp t_help l2
         have l4 := mp (tautology idem) l3
-        have not_elem_L' := eq_false_of_ne_true (@filter'_filters N Gamma psi L')
-        let L : List Gamma := list_convert_rev (filter' L' psi) not_elem_L'
-        rw [conj_incl_rev (filter' L' psi) not_elem_L'] at l4
-        exact <L, l4>
-      . have elem : elem' L' psi = false := by simp only [elem]
-        let L : List Gamma := list_convert_rev L' elem
+        have not_elem_L' := eq_false_of_ne_true (@filter'_filters N Γ ψ L')
+        let L : List Γ := list_convert_rev (filter' L' ψ) not_elem_L'
+        rw [conj_incl_rev (filter' L' ψ) not_elem_L'] at l4
+        exact ⟨L, l4⟩
+      . have elem : elem' L' ψ = false := by simp only [elem]
+        let L : List Γ := list_convert_rev L' elem
         rw [conj_incl_rev L' elem] at l2
-        exact <L, l2>
+        exact ⟨L, l2⟩
 
-def increasing_consequence (h1 : Gamma  |-  phi) (h2 : Gamma  subseteq  Delta) : Delta  |-  phi := by
-  simp [SyntacticConsequence] at h1  |- 
-  let <L, pf> := h1
+def increasing_consequence (h1 : Γ ⊢ φ) (h2 : Γ ⊆ Δ) : Δ ⊢ φ := by
+  simp [SyntacticConsequence] at h1 ⊢
+  let ⟨L, pf⟩ := h1
   clear h1
   let L' := list_convert_general h2 L
   exists L'
   rw [conj_incl_general h2 L] at pf
   exact pf
 
-def Gamma_empty {phi : Form N} : {}  |-  phi iff  |-  phi := by
+def Γ_empty {φ : Form N} : ∅ ⊢ φ iff ⊢ φ := by
   unfold SyntacticConsequence
   apply TypeIff.intro
   . intro pf
-    have <L, pf> := pf
+    have ⟨L, pf⟩ := pf
     have := empty_list L
     simp [this, conjunction] at pf
     apply mp
-    . have :  |- (((False --> False) --> phi) --> phi) := by
+    . have : ⊢(((⊥⟶⊥)⟶φ)⟶φ) := by
         apply tautology
         apply imp_taut
         eval
       exact this
     . exact pf
   . intro pf
-    exists ([] : List {x : Form N | False})
+    exists ([] : List ↑{x : Form N | False})
     simp only [conjunction]
     apply mp
     . apply tautology
       apply ax_1
     . exact pf
 
-def Gamma_theorem :  |-  phi  ->  (forall  Gamma, Gamma  |-  phi) := by
-  intro h Gamma
+def Γ_theorem : ⊢ φ → (∀ Γ, Γ ⊢ φ) := by
+  intro h Γ
   apply increasing_consequence
-  apply Gamma_empty.mpr h
+  apply Γ_empty.mpr h
   simp
 
-def Gamma_theorem_rev : (forall  Gamma, Gamma  |-  phi)  ->   |-  phi := by
+def Γ_theorem_rev : (∀ Γ, Γ ⊢ φ) → ⊢ φ := by
   intro h
-  apply Gamma_empty.mp
+  apply Γ_empty.mp
   apply h
 
-def Gamma_theorem_iff :  |-  phi iff (forall  Gamma, Gamma  |-  phi) := by
-  apply TypeIff.intro <;> first | apply Gamma_theorem | apply Gamma_theorem_rev
+def Γ_theorem_iff : ⊢ φ iff (∀ Γ, Γ ⊢ φ) := by
+  apply TypeIff.intro <;> first | apply Γ_theorem | apply Γ_theorem_rev
 
-def Gamma_premise : phi  in  Gamma  ->  Gamma  |-  phi := by
+def Γ_premise : φ ∈ Γ → Γ ⊢ φ := by
   intro mem
-  have : Gamma = Gamma  U  {phi} := by simp [mem]
+  have : Γ = Γ ∪ {φ} := by simp [mem]
   rw [this]
   apply Deduction.mp
-  apply Gamma_theorem
+  apply Γ_theorem
   apply tautology
   eval
 
-def Gamma_mp_helper1 {Gamma : Set (Form N)} {phi psi chi : Form N} : (Gamma  |-  ((phi  /\  psi)  -->  chi)) iff ((Gamma  U  {phi})  |-  (psi  -->  chi)) := by
+def Γ_mp_helper1 {Γ : Set (Form N)} {φ ψ χ : Form N} : (Γ ⊢ ((φ ⋀ ψ) ⟶ χ)) iff ((Γ ∪ {φ}) ⊢ (ψ ⟶ χ)) := by
   apply TypeIff.intro
   . intro h
     match h with
-    | <L, hL> =>
+    | ⟨L, hL⟩ =>
         have l1 := hs hL (tautology exp)
-        have l2 : Gamma  |-  (phi  -->  psi  -->  chi) := <L, l1>
+        have l2 : Γ ⊢ (φ ⟶ ψ ⟶ χ) := ⟨L, l1⟩
         have l3 := Deduction.mp l2
         exact l3
   . intro h
     have h := Deduction.mpr h
     match h with
-    | <L, hL> =>
+    | ⟨L, hL⟩ =>
         have l1 := hs hL (tautology imp)
-        have l2 : Gamma  |-  (phi  /\  psi  -->  chi) := <L, l1>
+        have l2 : Γ ⊢ (φ ⋀ ψ ⟶ χ) := ⟨L, l1⟩
         exact l2
 
-def Gamma_mp_helper2 {Gamma : Set (Form N)} {L : List Gamma} (h : Gamma |- (conjunction Gamma L --> psi)) : Gamma  |-  psi := by
+def Γ_mp_helper2 {Γ : Set (Form N)} {L : List Γ} (h : Γ⊢(conjunction Γ L⟶ψ)) : Γ ⊢ ψ := by
   induction L with
   | nil =>
       rw [conjunction] at h
-      have <L, hL> := h
+      have ⟨L, hL⟩ := h
       have l1 := mp (tautology com12) hL
       have l2 := mp (tautology (imp_taut imp_refl)) l1
       exists L
   | cons head tail ih =>
-      have h := Gamma_mp_helper1.mp h
-      have : (Gamma  U  {head}) = Gamma := by simp [head.2]
+      have h := Γ_mp_helper1.mp h
+      have : (Γ ∪ {↑head}) = Γ := by simp [head.2]
       rw [this] at h
       exact ih h
 
-def Gamma_mp (h1: Gamma  |-  (phi  -->  psi)) (h2 : Gamma  |-  phi) : Gamma  |-  psi := by
+def Γ_mp (h1: Γ ⊢ (φ ⟶ ψ)) (h2 : Γ ⊢ φ) : Γ ⊢ ψ := by
   match h1 with
-  | <L1, hL1> =>
+  | ⟨L1, hL1⟩ =>
     match h2 with
-    | <L2, hL2> =>
+    | ⟨L2, hL2⟩ =>
         have := mp (mp (tautology mp_help) hL1) hL2
-        have : Gamma  |-  (conjunction Gamma L2 --> psi) := <L1, this>
-        exact Gamma_mp_helper2 this
+        have : Γ ⊢ (conjunction Γ L2⟶ψ) := ⟨L1, this⟩
+        exact Γ_mp_helper2 this
 
-def Gamma_neg_intro {phi : Form N} (h1 : Gamma  |-  (phi  -->  psi)) (h2 : Gamma  |-  (phi  -->  ~psi)) : Gamma  |-  (~phi) := by
-  have l1 := tautology (@neg_intro N phi psi)
-  have l2 := Gamma_theorem l1 Gamma
-  have l3 := Gamma_mp l2 h1
-  have l4 := Gamma_mp l3 h2
+def Γ_neg_intro {φ : Form N} (h1 : Γ ⊢ (φ ⟶ ψ)) (h2 : Γ ⊢ (φ ⟶ ∼ψ)) : Γ ⊢ (∼φ) := by
+  have l1 := tautology (@neg_intro N φ ψ)
+  have l2 := Γ_theorem l1 Γ
+  have l3 := Γ_mp l2 h1
+  have l4 := Γ_mp l3 h2
   exact l4
 
-def Gamma_neg_elim {phi : Form N} {phi : Form N} (h : Gamma  |-  (~~phi)) : Gamma  |-  phi := by
-  have l1 := tautology (@dne N phi)
-  have l2 := Gamma_theorem l1 Gamma
-  have l3 := Gamma_mp l2 h
+def Γ_neg_elim {φ : Form N} {φ : Form N} (h : Γ ⊢ (∼∼φ)) : Γ ⊢ φ := by
+  have l1 := tautology (@dne N φ)
+  have l2 := Γ_theorem l1 Γ
+  have l3 := Γ_mp l2 h
   exact l3
 
-def Gamma_conj_intro {phi : Form N} (h1 : Gamma  |-  phi) (h2 : Gamma  |-  psi) : Gamma  |-  (phi  /\  psi) := by
-  have l1 := tautology (@conj_intro N phi psi)
-  have l2 := Gamma_theorem l1 Gamma
-  have l3 := Gamma_mp l2 h1
-  have l4 := Gamma_mp l3 h2
+def Γ_conj_intro {φ : Form N} (h1 : Γ ⊢ φ) (h2 : Γ ⊢ ψ) : Γ ⊢ (φ ⋀ ψ) := by
+  have l1 := tautology (@conj_intro N φ ψ)
+  have l2 := Γ_theorem l1 Γ
+  have l3 := Γ_mp l2 h1
+  have l4 := Γ_mp l3 h2
   exact l4
 
-def Gamma_conj_elim_l {phi : Form N} (h : Gamma  |-  (phi  /\  psi)) : Gamma  |-  phi := by
-  have l1 := tautology (@conj_elim_l N phi psi)
-  have l2 := Gamma_theorem l1 Gamma
-  have l3 := Gamma_mp l2 h
+def Γ_conj_elim_l {φ : Form N} (h : Γ ⊢ (φ ⋀ ψ)) : Γ ⊢ φ := by
+  have l1 := tautology (@conj_elim_l N φ ψ)
+  have l2 := Γ_theorem l1 Γ
+  have l3 := Γ_mp l2 h
   exact l3
 
-def Gamma_conj_elim_r {phi : Form N} (h : Gamma  |-  (phi  /\  psi)) : Gamma  |-  psi := by
-  have l1 := tautology (@conj_elim_r N phi psi)
-  have l2 := Gamma_theorem l1 Gamma
-  have l3 := Gamma_mp l2 h
+def Γ_conj_elim_r {φ : Form N} (h : Γ ⊢ (φ ⋀ ψ)) : Γ ⊢ ψ := by
+  have l1 := tautology (@conj_elim_r N φ ψ)
+  have l2 := Γ_theorem l1 Γ
+  have l3 := Γ_mp l2 h
   exact l3
 
-def Gamma_disj_intro_l {phi : Form N} (h : Gamma  |-  phi) : Gamma  |-  (phi  \/  psi) := by
-  have l1 := tautology (@disj_intro_l N phi psi)
-  have l2 := Gamma_theorem l1 Gamma
-  exact Gamma_mp l2 h
+def Γ_disj_intro_l {φ : Form N} (h : Γ ⊢ φ) : Γ ⊢ (φ ⋁ ψ) := by
+  have l1 := tautology (@disj_intro_l N φ ψ)
+  have l2 := Γ_theorem l1 Γ
+  exact Γ_mp l2 h
 
-def Gamma_disj_intro_r {phi : Form N} (h : Gamma  |-  phi) : Gamma  |-  (psi  \/  phi) := by
-  have l1 := tautology (@disj_intro_r N phi psi)
-  have l2 := Gamma_theorem l1 Gamma
-  exact Gamma_mp l2 h
+def Γ_disj_intro_r {φ : Form N} (h : Γ ⊢ φ) : Γ ⊢ (ψ ⋁ φ) := by
+  have l1 := tautology (@disj_intro_r N φ ψ)
+  have l2 := Γ_theorem l1 Γ
+  exact Γ_mp l2 h
 
-def Gamma_disj_elim {phi : Form N} (h1 : Gamma  |-  (phi  \/  psi)) (h2 : Gamma  |-  (phi  -->  chi)) (h3 : Gamma  |-  (psi  -->  chi)) : Gamma  |-  chi := by
-  have l1 := tautology (@disj_elim N phi psi chi)
-  have l2 := Gamma_theorem l1 Gamma
-  have l3 := Gamma_mp l2 h1
-  have l4 := Gamma_mp l3 h2
-  have l5 := Gamma_mp l4 h3
+def Γ_disj_elim {φ : Form N} (h1 : Γ ⊢ (φ ⋁ ψ)) (h2 : Γ ⊢ (φ ⟶ χ)) (h3 : Γ ⊢ (ψ ⟶ χ)) : Γ ⊢ χ := by
+  have l1 := tautology (@disj_elim N φ ψ χ)
+  have l2 := Γ_theorem l1 Γ
+  have l3 := Γ_mp l2 h1
+  have l4 := Γ_mp l3 h2
+  have l5 := Γ_mp l4 h3
   exact l5
 
-def Gamma_univ_intro {Gamma : Set (Form N)} {phi : Form N} (h1 : forall  psi : Gamma, is_free x psi.1 = false) (h2 : occurs y phi = false) (h3 : is_substable phi y x) : Gamma  |-  phi  ->  Gamma  |-  (all y, phi[y // x]) := by
-  intro Gamma_pf_phi
-  match Gamma_pf_phi with
-  | <L, l1> =>
+def Γ_univ_intro {Γ : Set (Form N)} {φ : Form N} (h1 : ∀ ψ : Γ, is_free x ψ.1 = false) (h2 : occurs y φ = false) (h3 : is_substable φ y x) : Γ ⊢ φ → Γ ⊢ (all y, φ[y // x]) := by
+  intro Γ_pf_φ
+  match Γ_pf_φ with
+  | ⟨L, l1⟩ =>
       have l2 := general x l1
       have := notfreeset L h1
-      have l3 := ax_q1 (conjunction Gamma L) phi this
+      have l3 := ax_q1 (conjunction Γ L) φ this
       have l4 := mp l3 l2
       have l5 := iff_mp (rename_bound h2 h3)
       have l6 := hs l4 l5
-      exact <L, l6>
+      exact ⟨L, l6⟩
 
-def Gamma_univ_intro' {Gamma : Set (Form N)} {phi : Form N} (h1 : forall  psi : Gamma, is_free x psi.1 = false) : Gamma  |-  phi  ->  Gamma  |-  (all x, phi) := by
-  intro Gamma_pf_phi
-  match Gamma_pf_phi with
-  | <L, l1> =>
+def Γ_univ_intro' {Γ : Set (Form N)} {φ : Form N} (h1 : ∀ ψ : Γ, is_free x ψ.1 = false) : Γ ⊢ φ → Γ ⊢ (all x, φ) := by
+  intro Γ_pf_φ
+  match Γ_pf_φ with
+  | ⟨L, l1⟩ =>
       have l2 := general x l1
       have := notfreeset L h1
-      have l3 := ax_q1 (conjunction Gamma L) phi this
+      have l3 := ax_q1 (conjunction Γ L) φ this
       have l4 := mp l3 l2
       exists L
 
-def dn_equiv_premise {phi : Form N} : Gamma  |-  (~~phi) iff Gamma  |-  phi := by
-  have l1 := tautology (@dne N phi)
-  have l2 := tautology (@dni N phi)
+def dn_equiv_premise {φ : Form N} : Γ ⊢ (∼∼φ) iff Γ ⊢ φ := by
+  have l1 := tautology (@dne N φ)
+  have l2 := tautology (@dni N φ)
   rw [SyntacticConsequence, SyntacticConsequence]
   apply TypeIff.intro
   repeat (
-    intro <L, _>;
+    intro ⟨L, _⟩;
     exists L;
     apply hs;
     repeat assumption
@@ -267,141 +267,141 @@ def dn_equiv_premise {phi : Form N} : Gamma  |-  (~~phi) iff Gamma  |-  phi := b
 
 section Nominals
 
-def generalize_constants {phi : Form N} {x : SVAR} (i : NOM N) (h : x  >=  phi.new_var) :  |-  phi  ->   |-  (all x, phi[x // i]) := by
+def generalize_constants {φ : Form N} {x : SVAR} (i : NOM N) (h : x ≥ φ.new_var) : ⊢ φ → ⊢ (all x, φ[x // i]) := by
     intro pf
     apply general x
     induction pf generalizing x with
-    | @tautology phi ht      =>
+    | @tautology φ ht      =>
         apply tautology
-        simp [Tautology] at ht  |- 
+        simp [Tautology] at ht ⊢
         intro e
-        let f'  : Form N  ->  Bool := fun  phi => if (e.f <| phi[x//i]) then true else false
-        let e'  : Eval N := <f', by simp [f', e.p1, nom_subst_svar], by simp [f', e.p2, nom_subst_svar]>
+        let f'  : Form N → Bool := λ φ => if (e.f <| φ[x//i]) then true else false
+        let e'  : Eval N := ⟨f', by simp [f', e.p1, nom_subst_svar], by simp [f', e.p2, nom_subst_svar]⟩
         have h2 := ht e'
-        have e_eq : e'.f phi = (if (e.f <| phi[x//i]) then true else false) := rfl
+        have e_eq : e'.f φ = (if (e.f <| φ[x//i]) then true else false) := rfl
         rw [e_eq] at h2
         simpa using h2
-    | @general phi v _ ih   =>
-        simp only [nom_subst_svar, Form.new_var, max] at h  |- 
-        by_cases hc : (v + 1).letter > (Form.new_var phi).letter
+    | @general φ v _ ih   =>
+        simp only [nom_subst_svar, Form.new_var, max] at h ⊢
+        by_cases hc : (v + 1).letter > (Form.new_var φ).letter
         . simp [hc] at h
           simp only [gt_iff_lt] at hc
           have := ih (Nat.le_of_lt (Nat.lt_of_lt_of_le hc h))
           exact general v this
         . simp [hc] at h
           exact general v (ih h)
-    | @necess   psi _ ih     =>
-        simp only [nom_subst_svar, occurs] at h  |- 
+    | @necess   ψ _ ih     =>
+        simp only [nom_subst_svar, occurs] at h ⊢
         apply necess; apply ih; assumption
-    | @mp phi psi _ _ ih1 ih2  =>
+    | @mp φ ψ _ _ ih1 ih2  =>
         simp only [occurs, Bool.or_eq_false_eq_eq_false_and_eq_false, not_and,
           Bool.not_eq_false] at ih1
-        -- show psi[y // i] for some y that does not
-        --    occur in either phi or psi
-        -- generalize, get  all y, psi[y // i]
+        -- show ψ[y // i] for some y that does not
+        --    occur in either φ or ψ
+        -- generalize, get  all y, ψ[y // i]
         -- then apply axiom Q2 and get:
-        --                   (psi[y // i])[x // y]
+        --                   (ψ[y // i])[x // y]
         -- this should bring you to:
-        --                   psi[x // i]
-        let y := (phi  -->  psi).new_var
-        have ih1_cond : y  >=  (phi --> psi).new_var := Nat.le.refl
-        have <ih2_cond, sub_cond> := new_var_geq1 ih1_cond
+        --                   ψ[x // i]
+        let y := (φ ⟶ ψ).new_var
+        have ih1_cond : y ≥ (φ⟶ψ).new_var := Nat.le.refl
+        have ⟨ih2_cond, sub_cond⟩ := new_var_geq1 ih1_cond
         have ih1 := ih1 ih1_cond
         have ih2 := ih2 ih2_cond
         rw [nom_subst_svar] at ih1
         have l1  := general y (mp ih1 ih2)
-        have l2  := ax_q2_svar (psi[y//i]) y x (new_var_subst h)
+        have l2  := ax_q2_svar (ψ[y//i]) y x (new_var_subst h)
         have l3  := mp l2 l1
         rw [nom_subst_trans i x y sub_cond] at l3
         exact l3
-    | @ax_k phi psi            =>
+    | @ax_k φ ψ            =>
         simp only [nom_subst_svar]
         apply ax_k
-    | @ax_q1 phi psi v h2       =>
+    | @ax_q1 φ ψ v h2       =>
         simp only [nom_subst_svar]
         apply ax_q1
         have := new_var_geq2 (new_var_geq1 h).left
-        have ha : x  >=  phi.new_var := (new_var_geq1 this.right).left
-        have hb : v  !=  x := diffsvar this.left
+        have ha : x ≥ φ.new_var := (new_var_geq1 this.right).left
+        have hb : v ≠ x := diffsvar this.left
         have := (scz i ha hb).mpr
         rw [contraposition, Bool.not_eq_true, Bool.not_eq_true] at this
         apply this
         exact h2
-    | @ax_q2_svar phi y v h2  =>
+    | @ax_q2_svar φ y v h2  =>
         have := new_var_geq2 (new_var_geq1 h).left
-        have c2 : x  >=  phi.new_var := this.right
-        have c3 : y  !=  x := diffsvar this.left
+        have c2 : x ≥ φ.new_var := this.right
+        have c3 : y ≠ x := diffsvar this.left
         have c  := new_var_subst' i h2 c2 c3
-        have l1 := ax_q2_svar (phi[x//i]) y v c
+        have l1 := ax_q2_svar (φ[x//i]) y v c
         rw [nom_svar_subst_symm c3] at l1
         exact l1
-    | @ax_q2_nom  phi v j    =>
+    | @ax_q2_nom  φ v j    =>
         simp [nom_subst_svar]
         have f3 := diffsvar (new_var_geq2 (new_var_geq1 h).left).left
         by_cases ji : j = i
-        . rw [ji] at h  |- 
+        . rw [ji] at h ⊢
           have f2 := (new_var_geq2 (new_var_geq1 h).left).right
-          have f1 := @new_var_subst'' N phi x v f2
+          have f1 := @new_var_subst'' N φ x v f2
           have := new_var_subst' i f1 f2 f3
-          have := ax_q2_svar (phi[x//i]) v x this
+          have := ax_q2_svar (φ[x//i]) v x this
           rw [subst_collect_all]
           exact this
-        . rw [ <- (nom_nom_subst_symm ji f3)]
-          exact ax_q2_nom (phi[x//i]) v j
+        . rw [←(nom_nom_subst_symm ji f3)]
+          exact ax_q2_nom (φ[x//i]) v j
     | @ax_name    v        =>
         exact ax_name v
-    | @ax_nom   phi v m n    =>
+    | @ax_nom   φ v m n    =>
         simp only [nom_subst_svar, nec_subst_nom, pos_subst_nom]
         apply ax_nom
-    | @ax_brcn  phi v        =>
+    | @ax_brcn  φ v        =>
         apply ax_brcn
 
-  def generalize_constants_rev {phi : Form N} {x : SVAR} (i : NOM N) (h : x  >=  phi.new_var) :  |-  (all x, phi[x // i])  ->   |-  phi := by
+  def generalize_constants_rev {φ : Form N} {x : SVAR} (i : NOM N) (h : x ≥ φ.new_var) : ⊢ (all x, φ[x // i]) → ⊢ φ := by
     intro pf
-    have l1 := ax_q2_nom (phi[x//i]) x i
+    have l1 := ax_q2_nom (φ[x//i]) x i
     have l2 := mp l1 pf
     rw [svar_svar_nom_subst h, nom_subst_self] at l2
     exact l2
 
-  def generalize_constants_iff {phi : Form N} {x : SVAR} (i : NOM N) (h : x  >=  phi.new_var) :  |-  phi iff  |-  (all x, phi[x // i]) := by
+  def generalize_constants_iff {φ : Form N} {x : SVAR} (i : NOM N) (h : x ≥ φ.new_var) : ⊢ φ iff ⊢ (all x, φ[x // i]) := by
     apply TypeIff.intro
     . apply generalize_constants; assumption
     . apply generalize_constants_rev; assumption
 
-  lemma formulasIn_cast {a b : Form N} (h : a = b) (pf : Proof a) :
-      (h  |>  pf).formulasIn = pf.formulasIn := by subst h; rfl
+  lemma formulasIn_cast {α β : Form N} (h : α = β) (pf : Proof α) :
+      (h ▸ pf).formulasIn = pf.formulasIn := by subst h; rfl
 
-  lemma proof_noms_cast {a b : Form N} (h : a = b) (pf : Proof a) :
-      (h  |>  pf).proof_noms = pf.proof_noms := by subst h; rfl
+  lemma proof_noms_cast {α β : Form N} (h : α = β) (pf : Proof α) :
+      (h ▸ pf).proof_noms = pf.proof_noms := by subst h; rfl
 
   /-- Forward rename: substitute nominal `new` for `old` structurally on `Proof`
       (no `generalize_constants` + `ax_q2_nom` wrapper). -/
-  def rename_constants_fwd {phi : Form N} (new old : NOM N) (pf : Proof phi) : Proof (phi[new // old]) :=
+  def rename_constants_fwd {φ : Form N} (new old : NOM N) (pf : Proof φ) : Proof (φ[new // old]) :=
     match pf with
     | .general v pf' => general v (rename_constants_fwd new old pf')
     | .necess pf' => necess (rename_constants_fwd new old pf')
     | .mp pf1 pf2 => mp (rename_constants_fwd new old pf1) (rename_constants_fwd new old pf2)
     | .tautology ht => tautology (tautology_nom_subst ht new old)
     | .ax_k => ax_k
-    | .ax_q1 phi' psi h =>
-        ax_q1 (phi'[new // old]) (psi[new // old]) (by simpa [is_free_nom_subst_nom] using h)
-    | .ax_q2_svar phi' v s p =>
+    | .ax_q1 φ' ψ h =>
+        ax_q1 (φ'[new // old]) (ψ[new // old]) (by simpa [is_free_nom_subst_nom] using h)
+    | .ax_q2_svar φ' v s p =>
         (by
-          have eq : ((all v, phi')  -->  phi'[s // v])[new // old] =
-              (all v, phi'[new // old])  -->  (phi'[new // old])[s // v] := by
+          have eq : ((all v, φ') ⟶ φ'[s // v])[new // old] =
+              (all v, φ'[new // old]) ⟶ (φ'[new // old])[s // v] := by
             simp only [nom_subst_nom, nom_svar_subst_comm_nom]
-          exact eq  |>  ax_q2_svar (phi'[new // old]) v s (by simpa [is_substable_nom_subst_nom] using p))
-    | .ax_q2_nom phi' v s =>
-        nom_subst_ax_q2_nom (phi := phi') (v := v) (s := s) (new := new) (old := old)  |> 
-          ax_q2_nom (phi'[new // old]) v (if s = old then new else s)
+          exact eq ▸ ax_q2_svar (φ'[new // old]) v s (by simpa [is_substable_nom_subst_nom] using p))
+    | .ax_q2_nom φ' v s =>
+        nom_subst_ax_q2_nom (φ := φ') (v := v) (s := s) (new := new) (old := old) ▸
+          ax_q2_nom (φ'[new // old]) v (if s = old then new else s)
     | .ax_name v => ax_name v
-    | @ax_nom _ phi' v m n =>
-        nom_subst_ax_nom (phi := phi') (v := v) (m := m) (n := n) (new := new) (old := old)  |> 
-          ax_nom (phi := phi'[new // old]) (v := v) m n
+    | @ax_nom _ φ' v m n =>
+        nom_subst_ax_nom (φ := φ') (v := v) (m := m) (n := n) (new := new) (old := old) ▸
+          ax_nom (φ := φ'[new // old]) (v := v) m n
     | .ax_brcn => ax_brcn
 
 
-  lemma mem_formulasIn_self {phi : Form N} (pf : Proof phi) : phi  in  pf.formulasIn := by
+  lemma mem_formulasIn_self {φ : Form N} (pf : Proof φ) : φ ∈ pf.formulasIn := by
     induction pf with
     | tautology _ | ax_k | ax_q1 _ _ _ | ax_q2_svar _ _ _ _ | ax_q2_nom _ _ _ | ax_name _ | ax_nom _ _ | ax_brcn =>
         simp [formulasIn]
@@ -409,12 +409,12 @@ def generalize_constants {phi : Form N} {x : SVAR} (i : NOM N) (h : x  >=  phi.n
     | necess _ => simp [formulasIn]
     | mp _ _ _ _ => simp [formulasIn]
 
-  theorem formulasIn_rename_constants_fwd {phi : Form N} (new old : NOM N) (pf : Proof phi) :
-      (rename_constants_fwd new old pf).formulasIn = pf.formulasIn.map (*[new // old]) := by
+  theorem formulasIn_rename_constants_fwd {φ : Form N} (new old : NOM N) (pf : Proof φ) :
+      (rename_constants_fwd new old pf).formulasIn = pf.formulasIn.map (·[new // old]) := by
     induction pf with
     | general v pf ih => simp [rename_constants_fwd, Proof.formulasIn, ih]
     | necess pf ih => simp [rename_constants_fwd, Proof.formulasIn, ih]
-    | @mp phi' psi' pf1 pf2 ih1 ih2 =>
+    | @mp φ' ψ' pf1 pf2 ih1 ih2 =>
         have htail :
             (rename_constants_fwd new old pf1).formulasIn ++
                 (rename_constants_fwd new old pf2).formulasIn =
@@ -423,87 +423,87 @@ def generalize_constants {phi : Form N} {x : SVAR} (i : NOM N) (h : x  >=  phi.n
               rw [ih1, ih2]
         have h :=
             show (mp (rename_constants_fwd new old pf1) (rename_constants_fwd new old pf2)).formulasIn =
-                (mp pf1 pf2).formulasIn.map (*[new // old]) from by
+                (mp pf1 pf2).formulasIn.map (·[new // old]) from by
               simp only [Proof.formulasIn, List.map, List.map_append]
-              exact congrArg (fun l => psi'[new // old] :: l) htail
+              exact congrArg (fun l => ψ'[new // old] :: l) htail
         simpa [rename_constants_fwd] using h
     | tautology _ => simp [rename_constants_fwd, Proof.formulasIn]
     | ax_k => simp [rename_constants_fwd, Proof.formulasIn]
     | ax_q1 _ _ _ => simp [rename_constants_fwd, Proof.formulasIn, nom_subst_nom]
-    | ax_q2_svar phi' v s p =>
-        have eq : ((all v, phi')  -->  phi'[s // v])[new // old] =
-            (all v, phi'[new // old])  -->  (phi'[new // old])[s // v] := by
+    | ax_q2_svar φ' v s p =>
+        have eq : ((all v, φ') ⟶ φ'[s // v])[new // old] =
+            (all v, φ'[new // old]) ⟶ (φ'[new // old])[s // v] := by
           simp only [nom_subst_nom, nom_svar_subst_comm_nom]
-        have hfi := formulasIn_cast eq.symm (ax_q2_svar (phi'[new // old]) v s (by simpa [is_substable_nom_subst_nom] using p))
+        have hfi := formulasIn_cast eq.symm (ax_q2_svar (φ'[new // old]) v s (by simpa [is_substable_nom_subst_nom] using p))
         simp only [rename_constants_fwd, Proof.formulasIn, List.map, hfi, eq]
-    | ax_q2_nom phi' v s =>
-        have eq := nom_subst_ax_q2_nom (phi := phi') (v := v) (s := s) (new := new) (old := old)
-        have hfi := formulasIn_cast eq.symm (ax_q2_nom (phi'[new // old]) v (if s = old then new else s))
+    | ax_q2_nom φ' v s =>
+        have eq := nom_subst_ax_q2_nom (φ := φ') (v := v) (s := s) (new := new) (old := old)
+        have hfi := formulasIn_cast eq.symm (ax_q2_nom (φ'[new // old]) v (if s = old then new else s))
         simp only [rename_constants_fwd, Proof.formulasIn, List.map, hfi, eq]
     | ax_name _ => simp [rename_constants_fwd, Proof.formulasIn]
-    | @ax_nom phi' v m n =>
-        have eq := nom_subst_ax_nom (phi := phi') (v := v) (m := m) (n := n) (new := new) (old := old)
-        have hfi := formulasIn_cast eq.symm (ax_nom (phi := phi'[new // old]) (v := v) m n)
+    | @ax_nom φ' v m n =>
+        have eq := nom_subst_ax_nom (φ := φ') (v := v) (m := m) (n := n) (new := new) (old := old)
+        have hfi := formulasIn_cast eq.symm (ax_nom (φ := φ'[new // old]) (v := v) m n)
         simp only [rename_constants_fwd, Proof.formulasIn, List.map, hfi, eq]
     | ax_brcn => simp [rename_constants_fwd, Proof.formulasIn]
 
-  lemma mem_proof_noms_rename_constants_fwd {phi : Form N} (new old : NOM N) (pf : Proof phi)
-      {k : NOM N} (hk : k  in  (rename_constants_fwd new old pf).proof_noms) :
-      k  in  pf.proof_noms  \/  k = new := by
-    simp only [Proof.proof_noms, List.mem_dedup, List.mem_flatMap] at hk  |- 
-    obtain <chi, hchi, hkchi> := hk
-    rw [formulasIn_rename_constants_fwd] at hchi
-    obtain <chi', hchi', hchieq> := List.mem_map.mp hchi
-    subst hchieq
-    rcases list_noms_subst hkchi with <hk', _> | hknew
-    * exact Or.inl <chi', hchi', hk'>
-    * exact Or.inr hknew
+  lemma mem_proof_noms_rename_constants_fwd {φ : Form N} (new old : NOM N) (pf : Proof φ)
+      {k : NOM N} (hk : k ∈ (rename_constants_fwd new old pf).proof_noms) :
+      k ∈ pf.proof_noms ∨ k = new := by
+    simp only [Proof.proof_noms, List.mem_dedup, List.mem_flatMap] at hk ⊢
+    obtain ⟨χ, hχ, hkχ⟩ := hk
+    rw [formulasIn_rename_constants_fwd] at hχ
+    obtain ⟨χ', hχ', hχeq⟩ := List.mem_map.mp hχ
+    subst hχeq
+    rcases list_noms_subst hkχ with ⟨hk', _⟩ | hknew
+    · exact Or.inl ⟨χ', hχ', hk'⟩
+    · exact Or.inr hknew
 
-  lemma not_mem_proof_noms_rename_constants_fwd {phi : Form N} (new old : NOM N) (pf : Proof phi)
-      (hne : new  !=  old) : old  notin  (rename_constants_fwd new old pf).proof_noms := by
+  lemma not_mem_proof_noms_rename_constants_fwd {φ : Form N} (new old : NOM N) (pf : Proof φ)
+      (hne : new ≠ old) : old ∉ (rename_constants_fwd new old pf).proof_noms := by
     intro hk
     simp only [Proof.proof_noms, List.mem_dedup, List.mem_flatMap] at hk
-    obtain <chi, hchi, hkchi> := hk
-    rw [formulasIn_rename_constants_fwd] at hchi
-    obtain <chi', _, hchieq> := List.mem_map.mp hchi
-    subst hchieq
-    cases list_noms_subst hkchi with
+    obtain ⟨χ, hχ, hkχ⟩ := hk
+    rw [formulasIn_rename_constants_fwd] at hχ
+    obtain ⟨χ', _, hχeq⟩ := List.mem_map.mp hχ
+    subst hχeq
+    cases list_noms_subst hkχ with
     | inl h => exact False.elim (h.2 rfl)
     | inr h => exact hne h.symm
 
-  def rename_constants (j i : NOM N) (h : nom_occurs j phi = false) :  |-  phi iff  |-  (phi[j // i]) := by
+  def rename_constants (j i : NOM N) (h : nom_occurs j φ = false) : ⊢ φ iff ⊢ (φ[j // i]) := by
     apply TypeIff.intro
     . exact rename_constants_fwd j i
     . intro pf
-      let x := (phi[j//i]).new_var
-      have x_geq : x  >=  (phi[j//i]).new_var := by simp; apply Nat.le_refl
+      let x := (φ[j//i]).new_var
+      have x_geq : x ≥ (φ[j//i]).new_var := by simp; apply Nat.le_refl
       have l1 := generalize_constants j x_geq pf
-      have : phi[j//i][x//j] = phi[x//i] := dbl_subst_nom i h
+      have : φ[j//i][x//j] = φ[x//i] := dbl_subst_nom i h
       rw [this] at l1
-      have l2 := ax_q2_nom (phi[x // i]) x i
+      have l2 := ax_q2_nom (φ[x // i]) x i
       have l3 := mp l2 l1
-      rw [ <- eq_new_var] at x_geq
-      have : phi[x//i][i//x] = phi[i//i] := svar_svar_nom_subst x_geq
+      rw [←eq_new_var] at x_geq
+      have : φ[x//i][i//x] = φ[i//i] := svar_svar_nom_subst x_geq
       rw [nom_subst_self] at this
       rw [this] at l3
       exact l3
 
-  def proof_sketch (h : nocc_bulk_property l_1 l_2 phi) :  |-  phi iff  |-  (phi.bulk_subst l_1 l_2) := by
-    induction l_1 generalizing phi l_2 with
-    | nil => cases l_2 <;> (simp [Form.bulk_subst]; apply TypeIff.refl)
+  def proof_sketch (h : nocc_bulk_property l₁ l₂ φ) : ⊢ φ iff ⊢ (φ.bulk_subst l₁ l₂) := by
+    induction l₁ generalizing φ l₂ with
+    | nil => cases l₂ <;> (simp [Form.bulk_subst]; apply TypeIff.refl)
     | cons h_new t_new ih =>
-        cases l_2 with
+        cases l₂ with
         | nil => simp [Form.bulk_subst]; apply TypeIff.refl
         | cons h_old t_old =>
             simp [Form.bulk_subst]
-            have : nom_occurs h_new phi = false := by
+            have : nom_occurs h_new φ = false := by
                 apply @nocc_bulk TotalSet h_new [] []
                 simp
                 unfold nocc_bulk_property at h
-                let n: Fin (List.length (h_new :: t_new)) := <0, by simp>
+                let n: Fin (List.length (h_new :: t_new)) := ⟨0, by simp⟩
                 have : h_new = (h_new :: t_new)[n] := by get_elem_tactic
                 have := @h n h_new this
-                simp [show ((n : Nat) = 0) from rfl] at this
+                simp [show ((↑n : ℕ) = 0) from rfl] at this
                 simp
                 assumption
             have := rename_constants h_new h_old this
@@ -512,21 +512,21 @@ def generalize_constants {phi : Form N} {x : SVAR} (i : NOM N) (h : x  >=  phi.n
             apply nocc_bulk_property_induction
             assumption
 
-  def pf_odd_noms :  |-  phi iff  |-  phi.odd_noms := by
+  def pf_odd_noms : ⊢ φ iff ⊢ φ.odd_noms := by
     apply proof_sketch
     apply has_nocc_bulk_property
 
-  def pf_odd_noms_set : Gamma  |-  phi iff Gamma.odd_noms  |-  phi.odd_noms := by
+  def pf_odd_noms_set : Γ ⊢ φ iff Γ.odd_noms ⊢ φ.odd_noms := by
     simp [SyntacticConsequence]
     apply TypeIff.intro
-    . intro <L, h>
-      have h := (odd_conj Gamma L)  |>  odd_impl  |>  pf_odd_noms.mp h
+    . intro ⟨L, h⟩
+      have h := (odd_conj Γ L) ▸ odd_impl ▸ pf_odd_noms.mp h
       exists L.to_odd
-    . intro <L', h'>
-      have h' := pf_odd_noms.mpr (odd_impl.symm  |>  (odd_conj_rev Gamma L').symm  |>  h')
+    . intro ⟨L', h'⟩
+      have h' := pf_odd_noms.mpr (odd_impl.symm ▸ (odd_conj_rev Γ L').symm ▸ h')
       exists L'.odd_to
 
-  def odd_noms_set_cons (Gamma : Set (Form TotalSet)) : consistent Gamma  <->  consistent Gamma.odd_noms := by
+  def odd_noms_set_cons (Γ : Set (Form TotalSet)) : consistent Γ ↔ consistent Γ.odd_noms := by
     unfold consistent
     have : Form.bttm = Form.bttm.odd_noms := by simp [Form.odd_noms, Form.list_noms, Form.odd_list_noms, Form.bulk_subst]
     conv => rhs; rw [this]
@@ -539,18 +539,18 @@ def generalize_constants {phi : Form N} {x : SVAR} (i : NOM N) (h : x  >=  phi.n
 
 end Nominals
 
-def ax_nom_instance {phi : Form N} (i : NOM N) (m n : Nat) :  |-  (iterate_pos m (i  /\  phi)  -->  iterate_nec n (i  -->  phi)) := by
-  let x := phi.new_var
-  have x_geq : x  >=  phi.new_var := by exact Nat.le.refl
-  have l1 := @ax_nom N (phi[x//i]) x m n
-  have l2 := ax_q2_nom (iterate_pos m (x /\ (phi[x//i])) --> iterate_nec n (x --> (phi[x//i]))) x i
+def ax_nom_instance {φ : Form N} (i : NOM N) (m n : ℕ) : ⊢ (iterate_pos m (i ⋀ φ) ⟶ iterate_nec n (i ⟶ φ)) := by
+  let x := φ.new_var
+  have x_geq : x ≥ φ.new_var := by exact Nat.le.refl
+  have l1 := @ax_nom N (φ[x//i]) x m n
+  have l2 := ax_q2_nom (iterate_pos m (x⋀(φ[x//i]))⟶iterate_nec n (x⟶(φ[x//i]))) x i
   have l3 := mp l2 l1
   clear l1 l2
   rw [subst_nom, pos_subst, nec_subst, nom_svar_rereplacement x_geq] at l3
   exact l3
 
-def ax_q2_svar_instance :  |-  ((all x, phi)  -->  phi) := by
-  have : phi.new_var  >=  phi.new_var := by exact Nat.le.refl
+def ax_q2_svar_instance : ⊢ ((all x, φ) ⟶ φ) := by
+  have : φ.new_var ≥ φ.new_var := by exact Nat.le.refl
   apply hs
   apply mp
   . apply tautology
@@ -559,15 +559,15 @@ def ax_q2_svar_instance :  |-  ((all x, phi)  -->  phi) := by
   apply new_var_is_new
   apply new_var_subst''
   assumption
-  have <l, r> := (rereplacement phi x (phi.new_var) new_var_is_new (new_var_subst'' this))
-  conv => rhs; rhs; rw [ <- r]
+  have ⟨l, r⟩ := (rereplacement φ x (φ.new_var) new_var_is_new (new_var_subst'' this))
+  conv => rhs; rhs; rw [←r]
   apply ax_q2_svar
   assumption
 
-def Gamma_univ_elim (h : Gamma  |-  (all x, phi)) : Gamma  |-  phi := by
-  exact Gamma_mp (Gamma_theorem ax_q2_svar_instance Gamma) h
+def Γ_univ_elim (h : Γ ⊢ (all x, φ)) : Γ ⊢ φ := by
+  exact Γ_mp (Γ_theorem ax_q2_svar_instance Γ) h
 
-def rename_var (h1 : occurs y phi = false) (h2 : is_substable phi y x) :  |-  phi iff  |-  (phi[y // x]) := by
+def rename_var (h1 : occurs y φ = false) (h2 : is_substable φ y x) : ⊢ φ iff ⊢ (φ[y // x]) := by
   apply TypeIff.intro
   . intro h
     apply mp
@@ -594,7 +594,7 @@ def rename_var (h1 : occurs y phi = false) (h2 : is_substable phi y x) :  |-  ph
     . apply general
       assumption
 
-def ax_q2_contrap {i : NOM N} {x : SVAR} :  |-  (phi[i//x]  -->  ex x, phi) := by
+def ax_q2_contrap {i : NOM N} {x : SVAR} : ⊢ (φ[i//x] ⟶ ex x, φ) := by
   rw [Form.bind_dual]
   apply hs
   . apply tautology
@@ -604,7 +604,7 @@ def ax_q2_contrap {i : NOM N} {x : SVAR} :  |-  (phi[i//x]  -->  ex x, phi) := b
     apply contrapositive
     apply ax_q2_nom
 
-def ax_q2_svar_contrap {x y : SVAR} (h : is_substable phi y x) :  |-  (phi[y//x]  -->  ex x, phi) := by
+def ax_q2_svar_contrap {x y : SVAR} (h : is_substable φ y x) : ⊢ (φ[y//x] ⟶ ex x, φ) := by
   rw [Form.bind_dual]
   apply hs
   . apply tautology
@@ -616,125 +616,125 @@ def ax_q2_svar_contrap {x y : SVAR} (h : is_substable phi y x) :  |-  (phi[y//x]
     simp [is_substable]
     exact h
 
-def ax_nom_instance' (x : SVAR) (m n : Nat) :  |-  (iterate_pos m (x  /\  phi)  -->  iterate_nec n (x  -->  phi)) := by
+def ax_nom_instance' (x : SVAR) (m n : ℕ) : ⊢ (iterate_pos m (x ⋀ φ) ⟶ iterate_nec n (x ⟶ φ)) := by
   apply mp
   apply ax_q2_svar_instance
   assumption
   apply ax_nom
 
 -- Lemma 3.6.1
-def b361 {phi : Form N} :  |-  ((phi  -->  ex x, psi)  -->  ex x, (phi  -->  psi)) := by
+def b361 {φ : Form N} : ⊢ ((φ ⟶ ex x, ψ) ⟶ ex x, (φ ⟶ ψ)) := by
   apply mp
   . apply tautology
     apply contrapositive'
-  . apply Gamma_empty.mp; apply Deduction.mpr
+  . apply Γ_empty.mp; apply Deduction.mpr
     simp only [Set.empty_union]
-    let Gamma : Set (Form N) := {~(ex x, phi --> psi)}
-    have l1 : Gamma  |-  (~(ex x, phi --> psi)) := by apply Gamma_premise; simp [Gamma]
+    let Γ : Set (Form N) := {∼(ex x, φ⟶ψ)}
+    have l1 : Γ ⊢ (∼(ex x, φ⟶ψ)) := by apply Γ_premise; simp [Γ]
     rw [Form.bind_dual] at l1
-    have l2 := Gamma_theorem (tautology (@dne N (all x, ~(phi --> psi)))) Gamma
-    have l3 := Gamma_mp l2 l1
-    have l4 := Gamma_theorem (@ax_q2_svar_instance x N (~(phi --> psi))) Gamma
-    have l5 := Gamma_mp l4 l3
-    have l6 := Gamma_theorem (tautology (taut_iff_mp (@imp_neg N phi psi))) Gamma
-    have l7 := Gamma_mp l6 l5
-    have l8 := Gamma_conj_elim_l l7
-    have l9 := Gamma_conj_elim_r l7
-    have l10 : Gamma  |-  (~(ex x, psi)) := by
+    have l2 := Γ_theorem (tautology (@dne N (all x, ∼(φ⟶ψ)))) Γ
+    have l3 := Γ_mp l2 l1
+    have l4 := Γ_theorem (@ax_q2_svar_instance x N (∼(φ⟶ψ))) Γ
+    have l5 := Γ_mp l4 l3
+    have l6 := Γ_theorem (tautology (taut_iff_mp (@imp_neg N φ ψ))) Γ
+    have l7 := Γ_mp l6 l5
+    have l8 := Γ_conj_elim_l l7
+    have l9 := Γ_conj_elim_r l7
+    have l10 : Γ ⊢ (∼(ex x, ψ)) := by
       rw [Form.bind_dual]
-      apply Gamma_mp; apply Gamma_theorem; apply tautology; apply dni
-      apply Gamma_univ_intro'
-      . simp [Gamma, is_free, -implication_disjunction]
+      apply Γ_mp; apply Γ_theorem; apply tautology; apply dni
+      apply Γ_univ_intro'
+      . simp [Γ, is_free, -implication_disjunction]
       . exact l9
-    have l11 := Gamma_conj_intro l8 l10
-    have l12 := Gamma_mp (Gamma_theorem (tautology (taut_iff_mpr (@imp_neg N phi (ex x, psi)))) Gamma) l11
+    have l11 := Γ_conj_intro l8 l10
+    have l12 := Γ_mp (Γ_theorem (tautology (taut_iff_mpr (@imp_neg N φ (ex x, ψ)))) Γ) l11
     exact l12
 
 -- Lemma 3.6.2
-def b362 {phi : Form N} (h : is_free x phi = false) :  |-  ((phi  /\  ex x, psi)  -->  ex x, (phi  /\  psi)) := by
+def b362 {φ : Form N} (h : is_free x φ = false) : ⊢ ((φ ⋀ ex x, ψ) ⟶ ex x, (φ ⋀ ψ)) := by
   rw [Form.bind_dual, Form.bind_dual]
   apply mp
   . apply tautology
     apply contrapositive'
-  . apply Gamma_empty.mp; apply Deduction.mpr
+  . apply Γ_empty.mp; apply Deduction.mpr
     simp only [Set.empty_union]
-    let Gamma : Set (Form N) :=  {~~(all x, ~(phi /\ psi))}
-    have l1 : Gamma  |-  (all x, ~(phi /\ psi)) := by
-      apply Gamma_mp; apply Gamma_theorem; apply tautology; apply dne
-      apply Gamma_premise; simp [Gamma]
-    have l2 := Gamma_theorem (@ax_q2_svar_instance x N (~(phi /\ psi))) Gamma
-    have l3 := Gamma_mp l2 l1
-    have l4 := Gamma_mp (Gamma_theorem (tautology (taut_iff_mpr (@neg_conj N phi psi))) Gamma) l3
-    have l5 : Gamma |-  (all x, (phi --> ~psi)) := by
-      apply Gamma_univ_intro'
-      simp [Gamma, is_free, -implication_disjunction]
+    let Γ : Set (Form N) :=  {∼∼(all x, ∼(φ⋀ψ))}
+    have l1 : Γ ⊢ (all x, ∼(φ⋀ψ)) := by
+      apply Γ_mp; apply Γ_theorem; apply tautology; apply dne
+      apply Γ_premise; simp [Γ]
+    have l2 := Γ_theorem (@ax_q2_svar_instance x N (∼(φ⋀ψ))) Γ
+    have l3 := Γ_mp l2 l1
+    have l4 := Γ_mp (Γ_theorem (tautology (taut_iff_mpr (@neg_conj N φ ψ))) Γ) l3
+    have l5 : Γ⊢ (all x, (φ⟶∼ψ)) := by
+      apply Γ_univ_intro'
+      simp [Γ, is_free, -implication_disjunction]
       exact l4
-    have l6 := Deduction.mp (Gamma_mp (Gamma_theorem (ax_q1 phi (~psi) h) Gamma) l5)
-    have l7 := Deduction.mpr (Gamma_mp (Gamma_theorem (tautology (@dni N (all x, ~psi))) (Gamma  U  {phi})) l6)
-    have l8 := Gamma_mp (Gamma_theorem (tautology (taut_iff_mp (@neg_conj N phi (~(all x, ~psi))))) Gamma) l7
+    have l6 := Deduction.mp (Γ_mp (Γ_theorem (ax_q1 φ (∼ψ) h) Γ) l5)
+    have l7 := Deduction.mpr (Γ_mp (Γ_theorem (tautology (@dni N (all x, ∼ψ))) (Γ ∪ {φ})) l6)
+    have l8 := Γ_mp (Γ_theorem (tautology (taut_iff_mp (@neg_conj N φ (∼(all x, ∼ψ))))) Γ) l7
     exact l8
 
-def ex_conj_comm {phi : Form N} :  |-  ((ex x, (phi  /\  psi))  -->  (ex x, (psi  /\  phi))) := by
+def ex_conj_comm {φ : Form N} : ⊢ ((ex x, (φ ⋀ ψ)) ⟶ (ex x, (ψ ⋀ φ))) := by
   rw [Form.bind_dual, Form.bind_dual]
   apply mp
   . apply tautology
     apply contrapositive'
-  . apply Gamma_empty.mp; apply Deduction.mpr
+  . apply Γ_empty.mp; apply Deduction.mpr
     simp only [Set.empty_union]
-    let Gamma : Set (Form N) := {~~(all x, ~(psi /\ phi))}
-    have l1 : Gamma  |-  (~~(all x, ~(psi /\ phi))) := by apply Gamma_premise; simp [Gamma]
-    have l2 := Gamma_theorem (tautology (@dne N (all x, ~(psi /\ phi)))) Gamma
-    have l3 := Gamma_mp l2 l1
-    have l4 := Gamma_theorem (@ax_q2_svar_instance x N (~(psi /\ phi))) Gamma
-    have l5 := Gamma_mp l4 l3
-    have l6 := Gamma_theorem (tautology (@conj_comm_t' N psi phi)) Gamma
-    have l7 := Gamma_mp l6 l5
-    have l8 : Gamma |- (all x, ~(phi /\ psi)) := by
-      apply Gamma_univ_intro'
-      simp [Gamma, is_free, -implication_disjunction]
+    let Γ : Set (Form N) := {∼∼(all x, ∼(ψ⋀φ))}
+    have l1 : Γ ⊢ (∼∼(all x, ∼(ψ⋀φ))) := by apply Γ_premise; simp [Γ]
+    have l2 := Γ_theorem (tautology (@dne N (all x, ∼(ψ⋀φ)))) Γ
+    have l3 := Γ_mp l2 l1
+    have l4 := Γ_theorem (@ax_q2_svar_instance x N (∼(ψ⋀φ))) Γ
+    have l5 := Γ_mp l4 l3
+    have l6 := Γ_theorem (tautology (@conj_comm_t' N ψ φ)) Γ
+    have l7 := Γ_mp l6 l5
+    have l8 : Γ⊢(all x, ∼(φ⋀ψ)) := by
+      apply Γ_univ_intro'
+      simp [Γ, is_free, -implication_disjunction]
       exact l7
-    have l9 := Gamma_theorem (tautology (@dni N (all x, ~(phi /\ psi)))) Gamma
-    have l10 := Gamma_mp l9 l8
+    have l9 := Γ_theorem (tautology (@dni N (all x, ∼(φ⋀ψ)))) Γ
+    have l10 := Γ_mp l9 l8
     exact l10
 
-def b362' {phi : Form N} (h : is_free x phi = false) :  |-  (((ex x, psi)  /\  phi)  -->  ex x, (psi  /\  phi)) := by
-  have l1 := tautology (@conj_comm_t N (ex x, psi) phi)
-  have l2 := @b362 N x psi phi h
+def b362' {φ : Form N} (h : is_free x φ = false) : ⊢ (((ex x, ψ) ⋀ φ) ⟶ ex x, (ψ ⋀ φ)) := by
+  have l1 := tautology (@conj_comm_t N (ex x, ψ) φ)
+  have l2 := @b362 N x ψ φ h
   have l3 := hs l2 ex_conj_comm
   have l4 := hs l1 l3
   exact l4
 
 -- Lemma 3.6.3
-def b363  {phi : Form N} :  |-  ((all x, (phi  -->  psi))  -->  ((all x, phi)  -->  (all x, psi))) := by
-  let Gamma : Set (Form N) := {}  U  {all x, phi --> psi}  U  {all x, phi}
-  have l1 : Gamma  |-  (all x, (phi  -->  psi)) := by apply Gamma_premise; simp [Gamma]
-  have l2 : Gamma |- (phi --> psi) := by
-    apply Gamma_mp
-    apply Gamma_theorem
+def b363  {φ : Form N} : ⊢ ((all x, (φ ⟶ ψ)) ⟶ ((all x, φ) ⟶ (all x, ψ))) := by
+  let Γ : Set (Form N) := ∅ ∪ {all x, φ⟶ψ} ∪ {all x, φ}
+  have l1 : Γ ⊢ (all x, (φ ⟶ ψ)) := by apply Γ_premise; simp [Γ]
+  have l2 : Γ⊢(φ⟶ψ) := by
+    apply Γ_mp
+    apply Γ_theorem
     apply ax_q2_svar_instance
     exact x
     exact l1
-  have l3 : Gamma |- (all x, phi) := by apply Gamma_premise; simp [Gamma]
-  have l4 : Gamma |- phi := by
-    apply Gamma_mp
-    apply Gamma_theorem
+  have l3 : Γ⊢(all x, φ) := by apply Γ_premise; simp [Γ]
+  have l4 : Γ⊢φ := by
+    apply Γ_mp
+    apply Γ_theorem
     apply ax_q2_svar_instance
     exact x
     exact l3
-  have l5 :  |- ((all x, phi --> psi) --> ((all x, phi)  -->  psi)) := by
-    apply Gamma_empty.mp; apply Deduction.mpr; apply Deduction.mpr
-    apply Gamma_mp
+  have l5 : ⊢((all x, φ⟶ψ)⟶((all x, φ) ⟶ ψ)) := by
+    apply Γ_empty.mp; apply Deduction.mpr; apply Deduction.mpr
+    apply Γ_mp
     repeat assumption
   have l6 := general x l5
-  have : is_free x (all x, phi --> psi) = false := by simp [is_free]
-  have l7 := @ax_q1 N (all x, phi --> psi) ((all x, phi) --> psi) x this
+  have : is_free x (all x, φ⟶ψ) = false := by simp [is_free]
+  have l7 := @ax_q1 N (all x, φ⟶ψ) ((all x, φ)⟶ψ) x this
   have l8 := mp l7 l6
-  have : is_free x (all x, phi) = false := by simp [is_free]
-  have l9 := @ax_q1 N (all x, phi) psi x this
+  have : is_free x (all x, φ) = false := by simp [is_free]
+  have l9 := @ax_q1 N (all x, φ) ψ x this
   have l10 := hs l8 l9
   exact l10
 
-def dn_nec :  |-  ([]  phi  <->  []  ~~phi) := by
+def dn_nec : ⊢ (□ φ ⟷ □ ∼∼φ) := by
   rw [Form.iff]
   apply mp
   apply mp
@@ -748,7 +748,7 @@ def dn_nec :  |-  ([]  phi  <->  []  ~~phi) := by
     first | apply dni | apply dne
   )
 
-def dn_all :  |-  ((all x, phi)  <->  all x, ~~phi) := by
+def dn_all : ⊢ ((all x, φ) ⟷ all x, ∼∼φ) := by
   rw [Form.iff]
   apply mp
   apply mp
@@ -762,7 +762,7 @@ def dn_all :  |-  ((all x, phi)  <->  all x, ~~phi) := by
     first | apply dni | apply dne
   )
 
-def bind_dual :  |- ((all x, psi) <-> ~(ex x, ~psi)) := by
+def bind_dual : ⊢((all x, ψ)⟷∼(ex x, ∼ψ)) := by
     rw [Form.bind_dual]
     apply mp; apply mp
     apply tautology
@@ -782,7 +782,7 @@ def bind_dual :  |- ((all x, psi) <-> ~(ex x, ~psi)) := by
         apply iff_elim_r
         apply dn_all
 
-def nec_dual :  |- (([]  psi) <-> ~(<>  ~psi)) := by
+def nec_dual : ⊢((□ ψ)⟷∼(◇ ∼ψ)) := by
     rw [Form.diamond]
     apply mp; apply mp
     apply tautology
@@ -802,122 +802,122 @@ def nec_dual :  |- (([]  psi) <-> ~(<>  ~psi)) := by
         apply iff_elim_r
         apply dn_nec
 
-/-- When `x` is not free in `psi`, `forall x.psi` and `psi` are provably equivalent (Henkin / Q1). -/
-def all_iff_notfree {x : SVAR} {psi : Form N} (h : is_free x psi = false) :  |-  ((all x, psi)  <->  psi) := by
+/-- When `x` is not free in `ψ`, `∀x.ψ` and `ψ` are provably equivalent (Henkin / Q1). -/
+def all_iff_notfree {x : SVAR} {ψ : Form N} (h : is_free x ψ = false) : ⊢ ((all x, ψ) ⟷ ψ) := by
   apply mp; apply mp
   apply tautology
   apply iff_intro
-  * exact @ax_q2_svar_instance x N psi
-  * apply mp (ax_q1 (phi := psi) (psi := psi) (by simp [is_free, h]))
+  · exact @ax_q2_svar_instance x N ψ
+  · apply mp (ax_q1 (φ := ψ) (ψ := ψ) (by simp [is_free, h]))
     apply general x
     apply tautology imp_refl
 
-/-- From `~([] phi)` derive `<> ~phi` (contrapositive of `nec_dual` + double-negation). -/
-def not_nec_to_diamond {phi : Form N} :  |-  ((~([] phi))  -->  (<> ~phi)) := by
-  have h1 :  |-  (([] phi)  <->  ~(<>  ~phi)) := nec_dual
-  have h2 :  |-  ((~([] phi))  <->  ~~(<>  ~phi)) :=
+/-- From `∼(□φ)` derive `◇∼φ` (contrapositive of `nec_dual` + double-negation). -/
+def not_nec_to_diamond {φ : Form N} : ⊢ ((∼(□φ)) ⟶ (◇∼φ)) := by
+  have h1 : ⊢ ((□φ) ⟷ ∼(◇ ∼φ)) := nec_dual
+  have h2 : ⊢ ((∼(□φ)) ⟷ ∼∼(◇ ∼φ)) :=
     mp (mp (tautology iff_elim_l) (tautology iff_not)) h1
-  have h3 :  |-  ((~([] phi))  -->  ~~(<>  ~phi)) := mp (tautology iff_elim_l) h2
-  exact hs h3 (tautology (@dne N (<>  ~phi)))
+  have h3 : ⊢ ((∼(□φ)) ⟶ ∼∼(◇ ∼φ)) := mp (tautology iff_elim_l) h2
+  exact hs h3 (tautology (@dne N (◇ ∼φ)))
 
-def diw_impl (h :  |- (phi  -->  psi)) :  |-  (<> phi  -->  <> psi) := by
+def diw_impl (h : ⊢(φ ⟶ ψ)) : ⊢ (◇φ ⟶ ◇ψ) := by
   have l1 := mp (tautology contrapositive) h
   have l2 := necess l1
   have l3 := mp ax_k l2
   have l4 := mp (tautology contrapositive) l3
   exact l4
 
-def ax_brcn_contrap {phi : Form N} :  |-  ((<>  ex x, phi)  -->  (ex x, <>  phi)) := by
+def ax_brcn_contrap {φ : Form N} : ⊢ ((◇ ex x, φ) ⟶ (ex x, ◇ φ)) := by
   simp only [Form.diamond, Form.bind_dual]
   apply mp
   . apply tautology
     apply contrapositive
-  . apply Gamma_empty.mp; apply Deduction.mpr
+  . apply Γ_empty.mp; apply Deduction.mpr
     simp only [Set.empty_union]
-    let Gamma : Set (Form N) := {all x, ~~([] ~phi)}
-    have l1 : Gamma  |-  (all x, ~~([] ~phi)) := by apply Gamma_premise; simp [Gamma]
-    have l2 := Gamma_theorem (mp (tautology iff_elim_r) (@dn_all x N ([] ~phi))) Gamma
-    have l3 := Gamma_mp l2 l1
-    have l4 := Gamma_theorem (@ax_brcn N (~phi) x) Gamma
-    have l5 := Gamma_mp l4 l3
-    have l6 := Gamma_theorem (mp (tautology iff_elim_l) (@dn_nec N (all x, ~phi))) Gamma
-    have l7 := Gamma_mp l6 l5
+    let Γ : Set (Form N) := {all x, ∼∼(□∼φ)}
+    have l1 : Γ ⊢ (all x, ∼∼(□∼φ)) := by apply Γ_premise; simp [Γ]
+    have l2 := Γ_theorem (mp (tautology iff_elim_r) (@dn_all x N (□∼φ))) Γ
+    have l3 := Γ_mp l2 l1
+    have l4 := Γ_theorem (@ax_brcn N (∼φ) x) Γ
+    have l5 := Γ_mp l4 l3
+    have l6 := Γ_theorem (mp (tautology iff_elim_l) (@dn_nec N (all x, ∼φ))) Γ
+    have l7 := Γ_mp l6 l5
     exact l7
 
 section MCS
 
-def MCS_pf (h : MCS Gamma) : Gamma  |-  phi  ->  phi  in  Gamma := by
+def MCS_pf (h : MCS Γ) : Γ ⊢ φ → φ ∈ Γ := by
   intro pf
-  rw [ <- (@not_not (phi  in  Gamma))]
+  rw [←(@not_not (φ ∈ Γ))]
   intro habs
-  have <cons, pf_bot> := h
-  have <pf_bot, _> := not_forall.mp (pf_bot habs)
+  have ⟨cons, pf_bot⟩ := h
+  have ⟨pf_bot, _⟩ := not_forall.mp (pf_bot habs)
   clear h
   apply cons
-  apply Gamma_mp
+  apply Γ_mp
   apply Deduction.mpr
   assumption
   assumption
 
-def MCS_thm (h : MCS Gamma) :  |-  phi  ->  phi  in  Gamma := by
+def MCS_thm (h : MCS Γ) : ⊢ φ → φ ∈ Γ := by
   intro
   apply MCS_pf h
-  apply Gamma_theorem
+  apply Γ_theorem
   assumption
 
-def MCS_mp (h : MCS Gamma) (h1 : phi  -->  psi  in  Gamma) (h2 : phi  in  Gamma) : psi  in  Gamma := by
-  rw [ <- @not_not (psi  in  Gamma)]
+def MCS_mp (h : MCS Γ) (h1 : φ ⟶ ψ ∈ Γ) (h2 : φ ∈ Γ) : ψ ∈ Γ := by
+  rw [←@not_not (ψ ∈ Γ)]
   intro habs
-  have <pf_bot, _> := not_forall.mp (h.right habs)
+  have ⟨pf_bot, _⟩ := not_forall.mp (h.right habs)
   apply h.left
-  apply Gamma_mp
+  apply Γ_mp
   apply Deduction.mpr
   assumption
-  apply Gamma_mp
-  repeat (apply Gamma_premise; assumption)
+  apply Γ_mp
+  repeat (apply Γ_premise; assumption)
 
-def MCS_conj {Gamma : Set (Form N)} (hmcs : MCS Gamma) (phi psi : Form N) : (phi  in  Gamma  /\  psi  in  Gamma)  <->  (phi  /\  psi)  in  Gamma := by
+def MCS_conj {Γ : Set (Form N)} (hmcs : MCS Γ) (φ ψ : Form N) : (φ ∈ Γ ∧ ψ ∈ Γ) ↔ (φ ⋀ ψ) ∈ Γ := by
   apply Iff.intro
-  . intro <l, r>
+  . intro ⟨l, r⟩
     apply MCS_pf hmcs
-    exact Gamma_conj_intro (Gamma_premise l) (Gamma_premise r)
+    exact Γ_conj_intro (Γ_premise l) (Γ_premise r)
   . intro h
     apply And.intro <;> apply MCS_pf hmcs
-    exact Gamma_conj_elim_l (Gamma_premise h)
-    exact Gamma_conj_elim_r (Gamma_premise h)
+    exact Γ_conj_elim_l (Γ_premise h)
+    exact Γ_conj_elim_r (Γ_premise h)
 
-def MCS_max {Gamma : Set (Form N)} (hmcs : MCS Gamma) : (phi  notin  Gamma  <->  (~phi)  in  Gamma) := by
+def MCS_max {Γ : Set (Form N)} (hmcs : MCS Γ) : (φ ∉ Γ ↔ (∼φ) ∈ Γ) := by
   apply Iff.intro
   . intro h
-    have <pf_bot, _> := not_forall.mp (hmcs.2 h)
+    have ⟨pf_bot, _⟩ := not_forall.mp (hmcs.2 h)
     apply MCS_pf hmcs; apply Deduction.mpr
     exact pf_bot
   . intro h habs
     apply hmcs.1
-    apply Gamma_mp (Gamma_premise h) (Gamma_premise habs)
+    apply Γ_mp (Γ_premise h) (Γ_premise habs)
 
-def MCS_impl {Gamma : Set (Form N)} (hmcs : MCS Gamma) : (phi  in  Gamma  ->  psi  in  Gamma)  <->  ((phi --> psi)  in  Gamma) := by
+def MCS_impl {Γ : Set (Form N)} (hmcs : MCS Γ) : (φ ∈ Γ → ψ ∈ Γ) ↔ ((φ⟶ψ) ∈ Γ) := by
   apply Iff.intro
   . intro h
-    by_cases hc : phi  in  Gamma
+    by_cases hc : φ ∈ Γ
     . apply MCS_pf hmcs
       apply Deduction.mpr
       apply increasing_consequence
-      exact Gamma_premise (h hc)
+      exact Γ_premise (h hc)
       simp
     . simp only [MCS_max, hmcs, Form.neg] at hc
       apply MCS_pf hmcs; apply Deduction.mpr
-      apply Gamma_mp
-      apply @Gamma_theorem N (False  -->  psi)
+      apply Γ_mp
+      apply @Γ_theorem N (⊥ ⟶ ψ)
       apply tautology
       eval
-      exact Deduction.mp (Gamma_premise hc)
+      exact Deduction.mp (Γ_premise hc)
   . intro h1 h2
     apply MCS_pf hmcs
-    exact Gamma_mp (Gamma_premise h1) (Gamma_premise h2)
+    exact Γ_mp (Γ_premise h1) (Γ_premise h2)
 
-def MCS_iff {Gamma : Set (Form N)} (hmcs : MCS Gamma) : ((phi <-> psi)  in  Gamma)  <->  (phi  in  Gamma  <->  psi  in  Gamma) := by
-  simp only [Form.iff,  <- MCS_conj,  <- MCS_impl, hmcs]
+def MCS_iff {Γ : Set (Form N)} (hmcs : MCS Γ) : ((φ⟷ψ) ∈ Γ) ↔ (φ ∈ Γ ↔ ψ ∈ Γ) := by
+  simp only [Form.iff, ←MCS_conj, ←MCS_impl, hmcs]
   apply Iff.intro
   <;> intros; apply Iff.intro
   . apply And.left
@@ -926,20 +926,20 @@ def MCS_iff {Gamma : Set (Form N)} (hmcs : MCS Gamma) : ((phi <-> psi)  in  Gamm
     assumption
   apply And.intro <;> simp [*]
 
-def MCS_rw {Gamma : Set (Form N)} (hmcs : MCS Gamma) (pf :  |-  (phi  <->  psi)) : phi  in  Gamma  <->  psi  in  Gamma := by
-  rw [ <- MCS_iff hmcs]
+def MCS_rw {Γ : Set (Form N)} (hmcs : MCS Γ) (pf : ⊢ (φ ⟷ ψ)) : φ ∈ Γ ↔ ψ ∈ Γ := by
+  rw [←MCS_iff hmcs]
   apply MCS_pf hmcs
-  exact Gamma_theorem pf Gamma
+  exact Γ_theorem pf Γ
 
-def MCS_rich : forall  {Theta : Set (Form N)}, (MCS Theta)  ->  (witnessed Theta)  ->  exists  i : NOM N, i  in  Theta := by
-  intro Theta mcs wit
-  have := Proof.MCS_thm mcs (Proof.ax_name <0>)
+def MCS_rich : ∀ {Θ : Set (Form N)}, (MCS Θ) → (witnessed Θ) → ∃ i : NOM N, ↑i ∈ Θ := by
+  intro Θ mcs wit
+  have := Proof.MCS_thm mcs (Proof.ax_name ⟨0⟩)
   have := wit this
   simp [subst_nom] at this
   exact this
 
-def MCS_with_svar_witness : forall  {Theta : Set (Form N)} {x y : SVAR} (_ : is_substable phi y x), (MCS Theta)  ->  phi[y//x]  in  Theta  ->  (ex x, phi)  in  Theta := by
-  intro Theta x y h1 mcs h2
+def MCS_with_svar_witness : ∀ {Θ : Set (Form N)} {x y : SVAR} (_ : is_substable φ y x), (MCS Θ) → φ[y//x] ∈ Θ → (ex x, φ) ∈ Θ := by
+  intro Θ x y h1 mcs h2
   apply MCS_mp mcs
   apply MCS_thm mcs
   apply ax_q2_svar_contrap h1
@@ -947,15 +947,15 @@ def MCS_with_svar_witness : forall  {Theta : Set (Form N)} {x y : SVAR} (_ : is_
 
 end MCS
 
-def iff_subst :  |-  ((phi  <->  psi)  -->  (psi  <->  chi)  -->  (phi  <->  chi)) := by
+def iff_subst : ⊢ ((φ ⟷ ψ) ⟶ (ψ ⟷ χ) ⟶ (φ ⟷ χ)) := by
   exact tautology iff_rw
 
-def pf_iff_subst :  |-  (phi  <->  psi)  ->   |-  (psi  <->  chi)  ->   |-  (phi  <->  chi) := by
+def pf_iff_subst : ⊢ (φ ⟷ ψ) → ⊢ (ψ ⟷ χ) → ⊢ (φ ⟷ χ) := by
   intro h1 h2
   apply mp
   apply mp
   apply iff_subst
-  exact psi
+  exact ψ
   repeat assumption
 
 end

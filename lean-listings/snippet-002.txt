@@ -1,0 +1,15 @@
+flowchart LR
+  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
+  classDef partial fill:#fff3cd,stroke:#d28,color:#000
+  classDef open fill:#f8d7da,stroke:#c33,color:#000
+
+  tot["Form.total / odd_noms"]:::pass --> fwd["pf_extended →<br/>⊢ φ ⇒ ⊢ φ.total"]:::pass
+  tot --> bax["backward axiom replay<br/>(6/7 axiom cases)"]:::pass
+  bax --> f1["F1 · ax_q2_nom pullback<br/>total_subst_nom_pullback<br/>total_ax_q2_nom"]:::pass
+  f1 --> f2a["F2 · inventory + rename<br/>form_noms_in_base · eliminate_aliens"]:::pass
+  f2a --> f2b["F2 · all_noms_in_base_eliminate_aliens"]:::pass
+  f2b --> f3["F3 · inv_t pullback<br/>in_range_proof_back"]:::pass
+  f3 --> back["pf_extended ←<br/>⊢ φ.total ⇒ ⊢ φ (N nonempty)"]:::pass
+  back --> sc["F · syntactic_conservativity<br/>Set.total Γ ⊢ φ.total ⇒ Γ ⊢ φ"]:::pass
+  sc --> ct["I · consistent_total<br/>(Pass, N nonempty)"]:::pass
+  sat["sat_total / Model.ofTotal"]:::pass --> pull["pull satisfaction<br/>TotalSet → Model N"]:::pass

@@ -19,18 +19,95 @@
 \usepackage[colorlinks=true,linkcolor=blue!40!black,citecolor=blue!40!black,urlcolor=blue!40!black]{hyperref}
 
 % Long inlined Lean listings can exhaust pdfTeX main memory; build locally with
-% LuaLaTeX (see .latexmkrc).  arXiv's AutoTeX has the headroom for pdfLaTeX, and the
-% listings below are ASCII-sanitized so they compile under either engine.
+% LuaLaTeX (see .latexmkrc).  arXiv's AutoTeX has the headroom for pdfLaTeX.
+%
+% The listings are kept as real UTF-8 Lean source: every Lean operator is rendered
+% through a `literate` replacement to a proper LaTeX symbol, so the code displays with
+% its native notation (∀ ◇ □ ⟶ ⊢ φ ψ Γ …) under BOTH pdfLaTeX and LuaLaTeX.  Every
+% non-ASCII glyph that occurs in the sources must appear in this table.
 
 \lstdefinestyle{leanbox}{
   basicstyle=\footnotesize\ttfamily,
-  columns=flexible,
+  columns=fullflexible,
+  keepspaces=true,
   breaklines=true,
   breakatwhitespace=false,
-  keepspaces=true,
   showstringspaces=false,
-  extendedchars=false,
+  upquote=true,
+  extendedchars=true,
   inputencoding=utf8,
+  literate=
+    {§}{{\S}}1
+    {¬}{{\ensuremath{\neg}}}1
+    {·}{{\ensuremath{\cdot}}}1
+    {×}{{\ensuremath{\times}}}1
+    {Γ}{{\ensuremath{\Gamma}}}1
+    {Δ}{{\ensuremath{\Delta}}}1
+    {Η}{{\ensuremath{H}}}1
+    {Θ}{{\ensuremath{\Theta}}}1
+    {Κ}{{\ensuremath{K}}}1
+    {Σ}{{\ensuremath{\Sigma}}}1
+    {α}{{\ensuremath{\alpha}}}1
+    {β}{{\ensuremath{\beta}}}1
+    {λ}{{\ensuremath{\lambda}}}1
+    {σ}{{\ensuremath{\sigma}}}1
+    {τ}{{\ensuremath{\tau}}}1
+    {φ}{{\ensuremath{\varphi}}}1
+    {χ}{{\ensuremath{\chi}}}1
+    {ψ}{{\ensuremath{\psi}}}1
+    {ᵢ}{{\textsubscript{i}}}1
+    {—}{{\textemdash}}1
+    {⁺}{{\textsuperscript{+}}}1
+    {⁻}{{\textsuperscript{\ensuremath{-}}}}1
+    {₀}{{\textsubscript{0}}}1
+    {₁}{{\textsubscript{1}}}1
+    {₂}{{\textsubscript{2}}}1
+    {₃}{{\textsubscript{3}}}1
+    {₊}{{\textsubscript{+}}}1
+    {ₙ}{{\textsubscript{n}}}1
+    {ₚ}{{\textsubscript{p}}}1
+    {ℕ}{{\ensuremath{\mathbb{N}}}}1
+    {←}{{\ensuremath{\leftarrow}}}1
+    {↑}{{\ensuremath{\uparrow}}}1
+    {→}{{\ensuremath{\rightarrow}}}1
+    {↓}{{\ensuremath{\downarrow}}}1
+    {↔}{{\ensuremath{\leftrightarrow}}}1
+    {↥}{{\ensuremath{\Uparrow}}}1
+    {↦}{{\ensuremath{\mapsto}}}1
+    {⇒}{{\ensuremath{\Rightarrow}}}1
+    {∀}{{\ensuremath{\forall}}}1
+    {∃}{{\ensuremath{\exists}}}1
+    {∅}{{\ensuremath{\emptyset}}}1
+    {∈}{{\ensuremath{\in}}}1
+    {∉}{{\ensuremath{\notin}}}1
+    {∘}{{\ensuremath{\circ}}}1
+    {∧}{{\ensuremath{\wedge}}}1
+    {∨}{{\ensuremath{\vee}}}1
+    {∪}{{\ensuremath{\cup}}}1
+    {∼}{{\ensuremath{\sim}}}1
+    {≠}{{\ensuremath{\neq}}}1
+    {≤}{{\ensuremath{\leq}}}1
+    {≥}{{\ensuremath{\geq}}}1
+    {⊆}{{\ensuremath{\subseteq}}}1
+    {⊢}{{\ensuremath{\vdash}}}1
+    {⊥}{{\ensuremath{\bot}}}1
+    {⊨}{{\ensuremath{\vDash}}}1
+    {⊬}{{\ensuremath{\nvdash}}}1
+    {⊭}{{\ensuremath{\nvDash}}}1
+    {⋀}{{\ensuremath{\bigwedge}}}1
+    {⋁}{{\ensuremath{\bigvee}}}1
+    {─}{{\ensuremath{-}}}1
+    {│}{{\ensuremath{|}}}1
+    {└}{{+}}1
+    {├}{{+}}1
+    {□}{{\ensuremath{\square}}}1
+    {▸}{{\ensuremath{\blacktriangleright}}}1
+    {◇}{{\ensuremath{\lozenge}}}1
+    {⟨}{{\ensuremath{\langle}}}1
+    {⟩}{{\ensuremath{\rangle}}}1
+    {⟶}{{\ensuremath{\longrightarrow}}}2
+    {⟷}{{\ensuremath{\longleftrightarrow}}}2
+    {⟹}{{\ensuremath{\Longrightarrow}}}2
 }
 \lstset{style=leanbox}
 
@@ -191,66 +268,13 @@ Because we are \emph{renovating} an existing, archived formalization rather than
 
 \textbf{The blueprint.} Completeness for \emph{L(∀)} is the standard Henkin/canonical-model argument as adapted to hybrid logic by Blackburn (1998), and Oltean's development wires it up faithfully:
 
-\begin{verbatim}
-Gamma  |=  phi  ?  Gamma  |-  phi
-  +- via contraposition + Model Existence:  every consistent set is satisfiable
-       1. Lindenbaum:           consistent Gamma   -->   maximal consistent Gamma'      [compiles]
-       2. Language extension:   reserve an infinite supply of fresh nominals
-            +- odd_noms:   map the language into the ODD nominals (i  |->  2i+1)
-            +- pf_extended:  |-  phi  <->   |-  phi^+   (derivations survive the extension)
-       3. Witnessed Lindenbaum: an MCS that witnesses every <>  / exists 
-       4. Completed model + Truth lemma
-       5. Existence lemma:      <> -witnesses provide successor states
-       6. assemble   -->   Completeness
-\end{verbatim}
+\lstinputlisting[style=leanbox]{lean-listings/snippet-000.txt}
 
 This skeleton is sound; the question was never whether the mathematics works (Blackburn proved it on paper) but whether each step survives mechanization in dependent type theory. Soundness, the syntax and substitution machinery, the Kripke semantics, the Hilbert proof system, and ordinary (non-witnessed) Lindenbaum all elaborate and compile.
 
 The dependencies between the remaining deliverables are \textbf{not linear but a directed acyclic graph} (Figure 1): several independent foundations converge on the witnessed Lindenbaum lemma \textbf{G} and again on the final theorem \textbf{I}. Following the now-common practice of stating a Lean development as an explicit blueprint, we record that graph here; nodes are the deliverables of §1.6 (with the already-compiling pieces shaded), and an edge \texttt{X\ →\ Y} means \emph{Y uses X}.
 
-\begin{verbatim}
-flowchart TD
-    classDef done fill:#d8efd8,stroke:#3a3,color:#000;
-    classDef crux fill:#ffe9c7,stroke:#d28,color:#000;
-
-    SEM["Kripke semantics"]:::done
-    PS["Hilbert proof system"]:::done
-    SND["Soundness"]:::done
-    RL["Regular Lindenbaum"]:::done
-    ME["Model Existence"]:::done
-
-    B["B * Propositional tautologies"]
-    C["C * Formula countability / enumeration"]
-    D["D * Bound-variable renaming"]
-    E["E * odd_noms homomorphism<br/>(structural refactor)"]:::crux
-    F["F * Language extension<br/>(total_* + pf_extended)<br/>(Pass)"]:::done
-    G["G * Witnessed Lindenbaum<br/>(Pass)"]:::done
-    TL["TL * Completed-model truth lemma<br/>(partial: []  <-  * forall  free)"]
-    H["H * Existence lemma (l313')"]:::done
-    I["I * Completeness:  Gamma  |=  phi  ->  Gamma  |-  phi"]
-
-    B --> PS
-    C --> RL
-    RL --> G
-    E --> G
-    B --> F
-    B --> G
-    B --> H
-    B --> TL
-    D --> H
-    D --> TL
-    H --> TL
-    G --> I
-    TL --> I
-    ME --> I
-    F -.->|"conservativity"| I
-    SEM --> SND
-    SEM --> ME
-    SEM --> TL
-    SEM --> I
-    SND --> D
-    SND --> TL
-\end{verbatim}
+\lstinputlisting[style=leanbox]{lean-listings/snippet-001.txt}
 
 \textbf{Legend (node colors).} Figure 1 uses three node styles on the \emph{foundation} nodes:
 
@@ -275,93 +299,23 @@ The shading is a snapshot of the \emph{incoming} state; live, per-deliverable st
 
 \emph{Figure 1a · F · language extension.}
 
-\begin{verbatim}
-flowchart LR
-  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
-  classDef partial fill:#fff3cd,stroke:#d28,color:#000
-  classDef open fill:#f8d7da,stroke:#c33,color:#000
-
-  tot["Form.total / odd_noms"]:::pass --> fwd["pf_extended  -> <br/> |-  phi  =>   |-  phi.total"]:::pass
-  tot --> bax["backward axiom replay<br/>(6/7 axiom cases)"]:::pass
-  bax --> f1["F1 * ax_q2_nom pullback<br/>total_subst_nom_pullback<br/>total_ax_q2_nom"]:::pass
-  f1 --> f2a["F2 * inventory + rename<br/>form_noms_in_base * eliminate_aliens"]:::pass
-  f2a --> f2b["F2 * all_noms_in_base_eliminate_aliens"]:::pass
-  f2b --> f3["F3 * inv_t pullback<br/>in_range_proof_back"]:::pass
-  f3 --> back["pf_extended  <- <br/> |-  phi.total  =>   |-  phi (N nonempty)"]:::pass
-  back --> sc["F * syntactic_conservativity<br/>Set.total Gamma  |-  phi.total  =>  Gamma  |-  phi"]:::pass
-  sc --> ct["I * consistent_total<br/>(Pass, N nonempty)"]:::pass
-  sat["sat_total / Model.ofTotal"]:::pass --> pull["pull satisfaction<br/>TotalSet  ->  Model N"]:::pass
-\end{verbatim}
+\lstinputlisting[style=leanbox]{lean-listings/snippet-002.txt}
 
 \emph{Figure 1b · G · witnessed Lindenbaum.} After \textbf{E} makes \texttt{odd\_noms} structural, \textbf{G} is a finiteness argument: each stage adds only finitely many formulas, so some even nominal remains fresh.
 
-\begin{verbatim}
-flowchart TD
-  E["E * odd_noms homomorphism"] --> fam["family_subset * lindenbaum_next_subset"]
-  fam --> fresh["fresh_even_dominating"]
-  fresh --> step["enough_noms_odd_step"]
-  step --> wit["LindenbaumWitnessed"]
-  wit --> ext["ExtendedLindenbaumLemma"]
-  wit --> wll["WitnessedLindenbaumLemma<br/>(enough_noms on seed)"]
-\end{verbatim}
+\lstinputlisting[style=leanbox]{lean-listings/snippet-003.txt}
 
 \emph{\texttt{WitnessedLindenbaumLemma}} (not \texttt{ExtendedLindenbaumLemma}) is what the \textbf{TL} diamond chain calls on the successor seed \texttt{\{ψ\}\ ∪\ \{□χ\ ∈\ Δ\}}.
 
 \emph{Figure 1c · TL · completed-model truth lemma.} Oltean's base cases and \texttt{truth\_ex} compile; \textbf{□} and \textbf{∀} are new. The \textbf{∀} case (\texttt{truth\_all}) is now \textbf{fully closed} for both free and non-free \texttt{x} (uniform proof, dual to \texttt{truth\_ex}); the \textbf{□ →} direction is closed and \textbf{□ ←} runs through the diamond-successor pipeline below (the witnessed ◇-successor existence lemma is now \textbf{complete} via the §TL-fix Henkin construction; the false \texttt{enough\_noms\_diamond\_seed} shortcut has been deleted). \textbf{TruthLemma} is assembled by well-founded recursion on \texttt{Form.depth}, which supplies \texttt{truth\_all}'s depth-indexed induction hypothesis. The whole truth lemma is now \texttt{sorry}-free.
 
-\begin{verbatim}
-flowchart TD
-  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
-  classDef partial fill:#fff3cd,stroke:#d28,color:#000
-  classDef open fill:#f8d7da,stroke:#c33,color:#000
-
-  base["truth_bttm * prop * nom * svar * impl * ex"]:::pass
-  succ["mcs_in_witnessed_succ * completed_to_witnessed * mcs_in_completed_succ"]:::pass
-
-  l313["l313 / l313' * witness_conditionals<br/>(Henkin witnesses, PROVEN)"]:::pass
-  cons["diamond_extension_consistent<br/>(set_family base, PROVEN)"]:::pass
-  reg["RegularLindenbaumLemma<br/>(NEW, step 1)"]:::open
-  sf["set_family / succesor_set<br/>(NEW crux, step 2 -- incl. witnessed Gamma')"]:::open
-  l313 --> sf
-  cons --> sf
-  reg --> sf
-  sf --> dsc["diamond_succ_mcs<br/>(rewire, step 3)"]:::partial
-  dsc --> rcs["restrict_canonical_succ<br/>(witnessed Delta' input)"]:::pass
-  rcs --> dcs["diamond_completed_succ"]:::partial
-  nnd["not_nec_to_diamond"]:::pass
-
-  base --> box["truth_box"]:::partial
-  succ --> box
-  dcs --> box
-  nnd --> box
-
-  ainf["all_iff_notfree"]:::pass
-  base --> allNF["truth_all<br/>(uniform: free + non-free x)"]:::pass
-  ainf --> allNF
-
-  base --> TLm["TruthLemma<br/>(WF recursion on depth)"]:::partial
-  box --> TLm
-  allNF --> TLm
-\end{verbatim}
+\lstinputlisting[style=leanbox]{lean-listings/snippet-004.txt}
 
 \emph{Figure 1d · I · model existence.}
 
 \emph{I · model existence (\texttt{Completeness.lean}).} \texttt{cons\_sat} is fully wired; execution still needs backward conservativity and the remaining TL rows below.
 
-\begin{verbatim}
-flowchart TD
-  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
-  classDef partial fill:#fff3cd,stroke:#d28,color:#000
-  classDef open fill:#f8d7da,stroke:#c33,color:#000
-
-  A["consistent Gamma"] --> B["consistent_total<br/>(Set.total Gamma)"]
-  B --> C["ExtendedLindenbaumLemma  ->  Theta"]:::pass
-  C --> D["TruthLemma at root Theta"]:::partial
-  D --> E["sat_odd_noms' + sat_total"]:::pass
-  E --> F["satisfiable Gamma"]
-  B -.->|"BLOCKED"| G["F * pf_extended  <- "]
-  D -.->|"BLOCKED"| H1["witnessed <> -successor existence<br/>(set_family / succesor_set -- STL-fix)"]
-\end{verbatim}
+\lstinputlisting[style=leanbox]{lean-listings/snippet-005.txt}
 
 \textbf{The incoming state: where the holes are.} What Oltean left open is concentrated in the freshness/witnessing layer (steps 2--3) and the pieces that depend on it (the completed model's truth lemma, the existence lemma, and the final assembly). Concretely, the inherited \texttt{sorry}/\texttt{admit} obligations fall into three quite different kinds, and conflating them is what makes ``there are a lot of holes'' sound more alarming than it is:
 
