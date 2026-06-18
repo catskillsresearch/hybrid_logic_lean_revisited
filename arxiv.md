@@ -1013,9 +1013,9 @@ The ported development with the completed completeness proof is at
 2. P. Blackburn, M. de Rijke, Y. Venema. *Modal Logic*. Cambridge University Press.
 3. A. Oltean. *A Formalization of Hybrid Logic in Lean*. BA thesis, University of
    Bucharest, 2023. Repository (archived, no explicit license):
-   `github.com/alexoltean61/hybrid_logic_lean`.
+   <https://github.com/alexoltean61/hybrid_logic_lean>.
 3b. Catskills Research. *hybrid_logic_lean_revisited* (this work).
-   `github.com/catskillsresearch/hybrid_logic_lean_revisited`.
+   <https://github.com/catskillsresearch/hybrid_logic_lean_revisited>.
 4. A. H. From. *An Isabelle/HOL Framework for Synthetic Completeness Proofs*. CPP 2025.
 4b. A. H. From. *Synthetic Completeness for a Terminating Seligman-Style Tableau System*.
    TYPES 2020, LIPIcs. (First formalized completeness proof for a hybrid-logic proof
@@ -1024,15 +1024,15 @@ The ported development with the completed completeness proof is at
 6. L. Henkin. *The Completeness of the First-Order Functional Calculus*. JSL, 1949.
 7. **[COPE24]** Committee on Publication Ethics (COPE). *Authorship and AI tools: COPE
    position statement*. 2024.
-   https://publicationethics.org/guidance/cope-position/authorship-and-ai-tools
+   <https://publicationethics.org/guidance/cope-position/authorship-and-ai-tools>
 8. **[Cur25]** Anysphere, Inc. *Cursor: AI-native code editor and agent environment*.
-   https://cursor.com (accessed 2026).
+   <https://cursor.com> (accessed 2026).
 9. **[Cmp25]** Anysphere, Inc. *Composer 2.5*. Model announcement and documentation,
-   https://cursor.com/blog/composer-2-5; pricing and model card as integrated in Cursor,
-   https://cursor.com/docs/models (accessed 2026).
+   <https://cursor.com/blog/composer-2-5>; pricing and model card as integrated in Cursor,
+   <https://cursor.com/docs/models> (accessed 2026).
 10. **[Gem25]** Google DeepMind. *Gemini model family*. Technical documentation and
-   model cards. https://ai.google.dev/gemini-api/docs/models
+   model cards. <https://ai.google.dev/gemini-api/docs/models>
 11. **[Ant26]** Anthropic. *Claude Opus 4.8* (high thinking/reasoning variant). System card
-   and announcement, https://www.anthropic.com/news/claude-opus-4-8; model documentation as
-   integrated in Cursor, https://cursor.com/docs/models/claude-opus-4-8 (accessed 2026).
+   and announcement, <https://www.anthropic.com/news/claude-opus-4-8>; model documentation as
+   integrated in Cursor, <https://cursor.com/docs/models/claude-opus-4-8> (accessed 2026).
 
