@@ -1,0 +1,315 @@
+#!/usr/bin/env python3
+r"""Convert arxiv_with_code.md to arxiv_with_code.tex (arXiv-ready, icon2lean-style).
+
+Pipeline:
+  1. Drop the GitHub-only navigation preamble (auto-gen note, document map, file index).
+  2. Lift the `## Abstract` section into a LaTeX \begin{abstract}.
+  3. Demote the Appendix-A structural headings so LaTeX numbers everything once.
+  4. Strip manual section numbers (any depth, e.g. `1.`, `1.3`, `5.1`) so LaTeX does
+     the numbering and we never get duplicates like "5.1 5.1".
+  5. Replace ```lean fences with ASCII-sanitized \lstinputlisting blocks (arXiv-safe).
+  6. pandoc → LaTeX, then splice the listing/math placeholders back in.
+"""
+
+from __future__ import annotations
+
+import re
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SCRIPTS = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPTS))
+from lean_listing_sanitize import (
+    chunk_line_ranges,
+    sanitize_lean_for_arxiv,
+)
+
+SRC = ROOT / "arxiv_with_code.md"
+OUT = ROOT / "arxiv_with_code.tex"
+PREAMBLE = SCRIPTS / "tex_preamble_arxiv.tex"
+LISTINGS_DIR = ROOT / "lean-listings"
+LISTING_CHUNK_LINES = 400
+
+TITLE = r"Finishing Oltean's Completeness Proof in Lean 4 for Hybrid Logic $L(\forall)$"
+
+GITHUB_INLINE_MATH = re.compile(r"\$`([^`\n]+?)`\$")
+HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+FENCE_RE = re.compile(r"^```([^\n]*)\n(.*?)^```\s*$", re.MULTILINE | re.DOTALL)
+# Markdown heading whose title begins with a manual number of any depth.
+MANUAL_SECTION_NUM = re.compile(r"^(#{1,6})[ \t]+\d+(?:\.\d+)*\.?[ \t]+", re.MULTILINE)
+LEAN_HEADER_RE = re.compile(r"^###\s+(Hybrid/[^\s{]+)\s*$", re.MULTILINE)
+NARRATIVE_MARKER = "# Narrative (from arxiv.md)"
+
+
+def github_math_to_tex(text: str) -> str:
+    return GITHUB_INLINE_MATH.sub(r"$\1$", text)
+
+
+def strip_html_comments(text: str) -> str:
+    return HTML_COMMENT.sub("", text)
+
+
+def strip_manual_section_numbers(text: str) -> str:
+    return MANUAL_SECTION_NUM.sub(r"\1 ", text)
+
+
+def drop_github_nav(text: str) -> str:
+    """Keep only the content after the `# Narrative (from arxiv.md)` divider."""
+    idx = text.find(NARRATIVE_MARKER)
+    if idx == -1:
+        return text
+    rest = text[idx + len(NARRATIVE_MARKER) :]
+    return rest.lstrip("\n")
+
+
+def normalize_appendix_headings(text: str) -> str:
+    """Appendix A becomes a top-level section; per-file `## `file`` become subsections."""
+    text = re.sub(
+        r"^#\s+Appendix A: Complete Lean source\s*$",
+        "## Appendix A: Complete Lean source",
+        text,
+        flags=re.MULTILINE,
+    )
+    # `## `Hybrid/Foo.lean`` -> `### Hybrid/Foo.lean`
+    text = re.sub(
+        r"^##\s+`(Hybrid(?:\.lean|/[^`]+))`\s*$",
+        r"### \1",
+        text,
+        flags=re.MULTILINE,
+    )
+    return text
+
+
+def extract_abstract(text: str) -> tuple[str, str]:
+    """Pull the `## Abstract` body out; return (abstract_md, body_without_abstract)."""
+    m = re.search(r"^##\s+Abstract\s*\n(.*?)(?=^##\s)", text, re.DOTALL | re.MULTILINE)
+    if not m:
+        return "", text
+    abstract_md = m.group(1).strip()
+    body = text[: m.start()] + text[m.end() :]
+    return abstract_md, body
+
+
+def escape_latex(text: str) -> str:
+    replacements = [
+        ("\\", r"\textbackslash{}"),
+        ("&", r"\&"),
+        ("%", r"\%"),
+        ("$", r"\$"),
+        ("#", r"\#"),
+        ("_", r"\_"),
+        ("{", r"\{"),
+        ("}", r"\}"),
+        ("~", r"\textasciitilde{}"),
+        ("^", r"\textasciicaret{}"),
+    ]
+    out = text
+    for old, new in replacements:
+        out = out.replace(old, new)
+    return out
+
+
+def lean_block_latex(code: str, listing_name: str) -> str:
+    LISTINGS_DIR.mkdir(parents=True, exist_ok=True)
+    sanitized = sanitize_lean_for_arxiv(code).rstrip("\n")
+    listing_path = LISTINGS_DIR / listing_name
+    listing_path.write_text(sanitized + "\n", encoding="ascii", errors="strict")
+    rel_path = listing_path.relative_to(ROOT).as_posix()
+    line_count = len(sanitized.splitlines()) if sanitized else 0
+    ranges = chunk_line_ranges(line_count, LISTING_CHUNK_LINES)
+
+    parts: list[str] = []
+    for first, last in ranges:
+        if first == 1 and last == line_count:
+            parts.append(
+                "\\vspace{0.5\\baselineskip}\n"
+                "\\noindent\\textcolor{green!40!black}{\\textbf{Lean 4 source}}"
+                "\\par\\vspace{0.25\\baselineskip}\n"
+                f"\\lstinputlisting[style=leanbox]{{{rel_path}}}\n"
+                "\\vspace{0.5\\baselineskip}\n\n"
+            )
+        else:
+            parts.append(
+                f"\\noindent\\textcolor{{green!40!black}}{{\\textbf{{Lean 4 source "
+                f"(lines {first}--{last})}}}}\\par\\vspace{{0.25\\baselineskip}}\n"
+                f"\\lstinputlisting[style=leanbox,firstline={first},lastline={last}]"
+                f"{{{rel_path}}}\n\n"
+            )
+    return "".join(parts)
+
+
+def extract_lean_titles(text: str) -> dict[str, str]:
+    titles: dict[str, str] = {}
+    lean_starts = [m.start() for m in re.finditer(r"^```lean\s*$", text, re.MULTILINE)]
+    for idx, pos in enumerate(lean_starts):
+        prefix = text[:pos].rstrip("\n")
+        module = None
+        for line in reversed(prefix.splitlines()[-4:]):
+            m = re.match(r"^###\s+(Hybrid/[^\s{]+|Hybrid\.lean)", line.strip())
+            if m:
+                module = m.group(1)
+                break
+        titles[f"LEANINCLUDE{idx:03d}"] = module or f"module-{idx + 1}"
+    return titles
+
+
+def replace_fences(text: str) -> tuple[str, dict[str, str]]:
+    lean_titles = extract_lean_titles(text)
+    placeholders: dict[str, str] = {}
+    lean_idx = 0
+    other_idx = 0
+
+    def repl(match: re.Match[str]) -> str:
+        nonlocal lean_idx, other_idx
+        lang = match.group(1).strip().lower()
+        body = match.group(2)
+        if lang == "lean":
+            key = f"LEANINCLUDE{lean_idx:03d}"
+            module = lean_titles.get(key, f"module-{lean_idx}")
+            lean_idx += 1
+            safe_name = module.replace("/", "-")
+            if not safe_name.endswith(".lean"):
+                safe_name += ".lean"
+            placeholders[key] = lean_block_latex(body, safe_name)
+            return f"\n\n{key}\n\n"
+        if lang == "math":
+            key = f"MATHINCLUDE{other_idx:03d}"
+            other_idx += 1
+            placeholders[key] = f"\\[\n{body.strip()}\n\\]\n"
+            return f"\n\n{key}\n\n"
+        # mermaid / plain / anything else -> verbatim (keeps the source visible).
+        # ASCII-sanitize so the block is safe under arXiv's pdfLaTeX (inputenc utf8).
+        key = f"CODEINCLUDE{other_idx:03d}"
+        other_idx += 1
+        safe_body = sanitize_lean_for_arxiv(body).rstrip()
+        placeholders[key] = f"\\begin{{verbatim}}\n{safe_body}\n\\end{{verbatim}}\n"
+        return f"\n\n{key}\n\n"
+
+    converted = FENCE_RE.sub(repl, text)
+    return converted, placeholders
+
+
+def pandoc_to_latex(markdown: str, shift: bool = True) -> str:
+    cmd = [
+        "pandoc",
+        "-f",
+        "markdown+tex_math_dollars+raw_tex+smart",
+        "-t",
+        "latex",
+        "--wrap=none",
+    ]
+    if shift:
+        cmd += ["--shift-heading-level-by=-1"]
+    proc = subprocess.run(cmd, input=markdown, text=True, capture_output=True, check=False)
+    if proc.returncode != 0:
+        print(proc.stderr, file=sys.stderr)
+        raise RuntimeError("pandoc failed")
+    return proc.stdout
+
+
+def inject_placeholders(latex: str, placeholders: dict[str, str]) -> str:
+    out = latex
+    for key, value in placeholders.items():
+        patterns = [
+            key,
+            f"\\emph{{{key}}}",
+            f"\\text{{{key}}}",
+            f"\\passthrough{{\\lstinline!{key}!}}",
+        ]
+        for pat in patterns:
+            if pat in out:
+                out = out.replace(pat, value)
+                break
+        else:
+            out = out.replace(key, value)
+    return out
+
+
+def cleanup_pandoc_latex(latex: str) -> str:
+    latex = latex.replace("\\pandocbounded{", "{")
+    latex = re.sub(r"\\tightlist\n", "", latex)
+    # Safety net: strip any manual numbers that survived into the headings.
+    for cmd in ("section", "subsection", "subsubsection", "paragraph"):
+        latex = re.sub(
+            rf"(\\{cmd}\{{)\d+(?:\.\d+)*\.?\s+",
+            r"\1",
+            latex,
+        )
+    latex = re.sub(r"\n{3,}", "\n\n", latex)
+    return latex
+
+
+def build_title_page(abstract_latex: str) -> str:
+    return textwrap.dedent(
+        f"""
+        \\title{{\\textbf{{{TITLE}}}}}
+
+        \\author[1]{{\\textbf{{Lars Warren Ericson}}}}
+        \\affil[1]{{Catskills Research Company}}
+        \\affil[1]{{\\texttt{{lars.ericson@catskillsresearch.com}}}}
+
+        \\date{{\\today}}
+
+        \\begin{{document}}
+
+        \\maketitle
+
+        \\begin{{center}}
+          \\small
+          \\textbf{{ORCID:}} 0000-0001-8299-9361 \\\\
+          \\textbf{{Primary Category:}} cs.LO (Logic in Computer Science) \\\\
+          \\textbf{{Secondary Category:}} math.LO (Logic) \\\\[0.5em]
+          \\textbf{{Lean~4 formalization:}} \\url{{https://github.com/catskillsresearch/hybrid\\_logic\\_lean\\_revisited}}
+        \\end{{center}}
+
+        \\begin{{abstract}}
+        {abstract_latex.strip()}
+        \\end{{abstract}}
+        """
+    ).strip()
+
+
+def main() -> int:
+    if not SRC.is_file():
+        print(f"error: missing {SRC}", file=sys.stderr)
+        return 1
+    if not PREAMBLE.is_file():
+        print(f"error: missing {PREAMBLE}", file=sys.stderr)
+        return 1
+
+    if LISTINGS_DIR.exists():
+        for path in LISTINGS_DIR.glob("*.lean"):
+            path.unlink()
+    LISTINGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    raw = SRC.read_text(encoding="utf-8")
+    body = drop_github_nav(raw)
+    body = strip_html_comments(body)
+    body = normalize_appendix_headings(body)
+    abstract_md, body = extract_abstract(body)
+    body = strip_manual_section_numbers(body)
+    body = github_math_to_tex(body)
+    body, placeholders = replace_fences(body)
+
+    latex_body = pandoc_to_latex(body, shift=True)
+    latex_body = inject_placeholders(latex_body, placeholders)
+    latex_body = cleanup_pandoc_latex(latex_body)
+
+    abstract_latex = pandoc_to_latex(github_math_to_tex(abstract_md), shift=False) if abstract_md else ""
+
+    preamble = PREAMBLE.read_text(encoding="utf-8")
+    title_page = build_title_page(abstract_latex)
+    document = (
+        preamble + "\n\n" + title_page + "\n\n" + latex_body + "\n\n\\end{document}\n"
+    )
+    OUT.write_text(document, encoding="utf-8")
+    n_listings = len(list(LISTINGS_DIR.glob("*.lean")))
+    print(f"wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size:,} bytes, {n_listings} lean listings)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

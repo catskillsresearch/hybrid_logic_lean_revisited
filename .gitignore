@@ -1,2 +1,15 @@
 # cache and other artifacts produced by Lean's Lake build tool
 .lake/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# LaTeX build artifacts (the .tex/.pdf deliverables are kept)
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.toc
+texput.log

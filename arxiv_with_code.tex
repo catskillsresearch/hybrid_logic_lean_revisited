@@ -1,0 +1,950 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{authblk}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{calc}
+\usepackage{newunicodechar}
+\usepackage{listings}
+\usepackage[colorlinks=true,linkcolor=blue!40!black,citecolor=blue!40!black,urlcolor=blue!40!black]{hyperref}
+
+% Long inlined Lean listings can exhaust pdfTeX main memory; build locally with
+% LuaLaTeX (see .latexmkrc).  arXiv's AutoTeX has the headroom for pdfLaTeX, and the
+% listings below are ASCII-sanitized so they compile under either engine.
+
+\lstdefinestyle{leanbox}{
+  basicstyle=\footnotesize\ttfamily,
+  columns=flexible,
+  breaklines=true,
+  breakatwhitespace=false,
+  keepspaces=true,
+  showstringspaces=false,
+  extendedchars=false,
+  inputencoding=utf8,
+}
+\lstset{style=leanbox}
+
+% --- Unicode used in the prose (pdfLaTeX needs every non-ASCII glyph declared) ---
+% Greek
+\newunicodechar{α}{\ensuremath{\alpha}}
+\newunicodechar{β}{\ensuremath{\beta}}
+\newunicodechar{σ}{\ensuremath{\sigma}}
+\newunicodechar{φ}{\ensuremath{\varphi}}
+\newunicodechar{χ}{\ensuremath{\chi}}
+\newunicodechar{ψ}{\ensuremath{\psi}}
+\newunicodechar{Γ}{\ensuremath{\Gamma}}
+\newunicodechar{Δ}{\ensuremath{\Delta}}
+% Blackboard
+\newunicodechar{ℕ}{\ensuremath{\mathbb{N}}}
+% Logical / modal operators
+\newunicodechar{∀}{\ensuremath{\forall}}
+\newunicodechar{∃}{\ensuremath{\exists}}
+\newunicodechar{¬}{\ensuremath{\neg}}
+\newunicodechar{∧}{\ensuremath{\wedge}}
+\newunicodechar{□}{\ensuremath{\square}}
+\newunicodechar{◇}{\ensuremath{\lozenge}}
+\newunicodechar{∼}{\ensuremath{\sim}}
+% Arrows
+\newunicodechar{→}{\ensuremath{\rightarrow}}
+\newunicodechar{←}{\ensuremath{\leftarrow}}
+\newunicodechar{↔}{\ensuremath{\leftrightarrow}}
+\newunicodechar{↦}{\ensuremath{\mapsto}}
+\newunicodechar{⇒}{\ensuremath{\Rightarrow}}
+\newunicodechar{⟶}{\ensuremath{\longrightarrow}}
+\newunicodechar{⟷}{\ensuremath{\longleftrightarrow}}
+\newunicodechar{⟹}{\ensuremath{\Longrightarrow}}
+\newunicodechar{⟺}{\ensuremath{\Longleftrightarrow}}
+% Relations / turnstiles
+\newunicodechar{∈}{\ensuremath{\in}}
+\newunicodechar{⊢}{\ensuremath{\vdash}}
+\newunicodechar{⊨}{\ensuremath{\vDash}}
+\newunicodechar{≠}{\ensuremath{\neq}}
+\newunicodechar{≅}{\ensuremath{\cong}}
+\newunicodechar{⊆}{\ensuremath{\subseteq}}
+\newunicodechar{⊇}{\ensuremath{\supseteq}}
+\newunicodechar{⊋}{\ensuremath{\supsetneq}}
+\newunicodechar{⊥}{\ensuremath{\bot}}
+% Sets / connectives
+\newunicodechar{∪}{\ensuremath{\cup}}
+\newunicodechar{⊕}{\ensuremath{\oplus}}
+\newunicodechar{×}{\ensuremath{\times}}
+% Angle brackets
+\newunicodechar{⟨}{\ensuremath{\langle}}
+\newunicodechar{⟩}{\ensuremath{\rangle}}
+% Sub/superscripts (avoid bare math subscript without a base)
+\newunicodechar{₀}{\textsubscript{0}}
+\newunicodechar{₁}{\textsubscript{1}}
+\newunicodechar{ₙ}{\textsubscript{n}}
+\newunicodechar{⁺}{\textsuperscript{+}}
+% Punctuation / misc
+\newunicodechar{·}{\textperiodcentered{}}
+\newunicodechar{—}{\textemdash{}}
+\newunicodechar{–}{\textendash{}}
+\newunicodechar{…}{\ldots}
+\newunicodechar{§}{\S}
+\newunicodechar{│}{\ensuremath{\mid}}
+\newunicodechar{✓}{\ensuremath{\checkmark}}
+\newunicodechar{æ}{\ae}
+\newunicodechar{ö}{\"o}
+
+
+\title{\textbf{Finishing Oltean's Completeness Proof in Lean 4 for Hybrid Logic $L(\forall)$}}
+
+        \author[1]{\textbf{Lars Warren Ericson}}
+        \affil[1]{Catskills Research Company}
+        \affil[1]{\texttt{lars.ericson@catskillsresearch.com}}
+
+        \date{\today}
+
+        \begin{document}
+
+        \maketitle
+
+        \begin{center}
+          \small
+          \textbf{ORCID:} 0000-0001-8299-9361 \\
+          \textbf{Primary Category:} cs.LO (Logic in Computer Science) \\
+          \textbf{Secondary Category:} math.LO (Logic) \\[0.5em]
+          \textbf{Lean~4 formalization:} \url{https://github.com/catskillsresearch/hybrid\_logic\_lean\_revisited}
+        \end{center}
+
+        \begin{abstract}
+        We complete the first machine-checked completeness theorem for the hybrid logic \emph{L(∀)} --- propositional modal logic enriched with nominals, the satisfaction-style universal binder ∀, and the box modality --- building directly on Alex Oltean's 2023 Lean 4 formalization. Oltean mechanized the syntax, semantics, Hilbert-style proof system, and \textbf{soundness} following Blackburn's \emph{Hybrid Completeness} (1998) and laid out a clear route to completeness, but left the theorem itself unfinished. Finishing it requires manufacturing fresh names at two structurally different points of the proof, and our central finding is that \textbf{the two points call for two different tools}. \emph{(1) The root witnessed maximal consistent set} --- the extended Lindenbaum construction --- needs, at each step, a nominal fresh for the whole set being built; the right tool is \emph{structural freshness}, extending the language so that an infinite supply of nominals is reserved \emph{by construction} and is automatically disjoint from anything in play. We survey the design space for this --- Oltean's odd/even encoding inside ℕ, the disjoint-sum (\texttt{N\ ⊕\ ℕ}) parameterization suggested by Bud Mishra, and Asta Halkjær From's abstract synthetic-completeness frameworks --- and explain the encoding we adopt. \emph{(2) The witnessed ◇-successor} of a maximal consistent set, by contrast, \textbf{cannot} be obtained this way: its canonical box-reduct provably mentions every nominal, so no reserved name is ever fresh for it. Here the correct tool is the one Oltean had already chosen but left incomplete --- an \emph{existence-lemma} Henkin construction that draws each witness from the predecessor's \emph{own} witnessedness through a fresh \emph{state variable} rather than a fresh nominal; we complete it with a data-carrying witness accumulator and a compactness argument. With both constructions in place the completeness theorem \texttt{Γ\ ⊨\ φ\ →\ Γ\ ⊢\ φ} is fully formalized: the development is \texttt{sorry}-free, and \texttt{\#print\ axioms\ Completeness} reports only \texttt{propext}, \texttt{Classical.choice}, and \texttt{Quot.sound}. We also port the development from Oltean's original June-2023 Lean nightly to Lean v4.30.0 / mathlib v4.30.0.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+        \end{abstract}
+
+\hypertarget{introduction}{%
+\section{Introduction}\label{introduction}}
+
+\hypertarget{hybrid-logic}{%
+\subsection{Hybrid logic}\label{hybrid-logic}}
+
+Modal logic extends propositional logic with operators □ (``necessarily'') and ◇ (``possibly'') interpreted over Kripke frames --- directed graphs of ``states'' or ``worlds''. \emph{Hybrid} logic, originating in Arthur Prior's work on the logic of time, augments modal logic with \textbf{nominals}: atomic symbols \texttt{i,\ j,\ k,\ …} each true at \emph{exactly one} state, so that a nominal acts as a \emph{name} for that state. This modest addition dramatically increases expressive power while retaining good logical behavior, and it makes hybrid languages natural for talking about relational structures --- a perspective that has made them attractive for, e.g., XML constraints, description logics, and the relationship to Matching Logic and the K framework.
+
+The system formalized here is \emph{L(∀)} (equivalently written \emph{H(∀)}): propositional hybrid logic with nominals, the box □, and the binder ∀x, where state variables \texttt{x} are simultaneously bindable variables and well-formed formulas. \texttt{∀x\ φ} quantifies over states; \texttt{∃x\ φ} abbreviates \texttt{¬∀x¬φ}. (This is the ``strong'' hybrid language with binding, as opposed to the weaker language whose only hybrid primitive is the satisfaction operator \texttt{@\_i}.)
+
+\hypertarget{soundness-completeness-and-what-was-left-open}{%
+\subsection{Soundness, completeness, and what was left open}\label{soundness-completeness-and-what-was-left-open}}
+
+Oltean's formalization (\texttt{oltean\_thesis.pdf}; repository archived at \texttt{github.com/alexoltean61/hybrid\_logic\_lean}) defines:
+
+\begin{itemize}
+\item
+  the syntax of \emph{L(∀)} and substitution machinery (\texttt{Form.lean}, \texttt{Substitutions.lean});
+\item
+  a Kripke semantics (\texttt{Truth.lean});
+\item
+  a Hilbert-style proof system (\texttt{Proof.lean});
+\item
+  and a proof of \textbf{soundness}, \texttt{Γ\ ⊢\ φ\ ⟹\ Γ\ ⊨\ φ} (\texttt{Soundness.lean}).
+\end{itemize}
+
+The converse, \textbf{completeness} (\texttt{Γ\ ⊨\ φ\ ⟹\ Γ\ ⊢\ φ}), was left as an open formalization problem. Oltean had already written much of the scaffolding --- the Lindenbaum construction, a notion of \emph{witnessed} set, the canonical/completed model, and the statements of the extended Lindenbaum lemma, the existence lemma, and the truth lemma --- but a number of key lemmas remained as \texttt{sorry}/\texttt{admit} placeholders.
+
+\hypertarget{an-anecdote-henkin-mishra-and-the-shape-of-the-difficulty}{%
+\subsection{An anecdote: Henkin, Mishra, and the shape of the difficulty}\label{an-anecdote-henkin-mishra-and-the-shape-of-the-difficulty}}
+
+Why was completeness left open at all, when the textbook proof is routine? The answer is a small but instructive collision between classical mathematics and type theory, and it is worth telling as motivation.
+
+The completeness proof is a \emph{Henkin construction}: one extends a consistent set to a maximal consistent set that is moreover \emph{witnessed} --- every existential \texttt{∃x\ φ} comes with a nominal \texttt{i} certifying it, \texttt{(∃x\ φ\ →\ φ{[}i/x{]})}. Each existential needs its \emph{own} witness, and to saturate an infinite set one needs an infinite reserve of nominals that do not already occur anywhere in play. In ordinary set-theoretic practice this is a non-issue: one simply says ``let \texttt{i₀,\ i₁,\ …} enumerate fresh nominals,'' because there is never a shortage of names. In Lean's dependent type theory the same sentence has no referent: a type \texttt{N} already contains \emph{all} of its inhabitants, and there is in general no \texttt{N\textquotesingle{}\ ⊋\ N} to draw new names from. Oltean could search a single formula for an unused nominal --- finitely many occur --- but witnessing the \emph{infinite} Lindenbaum union by repeated dynamic search turned out to be, in his words, prohibitively difficult. That is precisely where the formalization stalled.
+
+When we set out to revive the (by then archived) development, the natural first question was whether this obstacle was fundamental --- whether the ``easy'' textbook proof was simply not available in type theory, and whether one ought instead to adopt a heavier, more abstract machine, such as the transfinite synthetic-completeness frameworks that Asta Halkjær From has developed in Isabelle/HOL. The decisive nudge came anecdotally. In discussions around the problem, \textbf{Bud Mishra} suggested the remedy that, in hindsight, is the canonical one: do not \emph{search} for fresh names --- \emph{reserve} them structurally. Parameterize formulas by their nominal type \texttt{N} and, when it is time to run Lindenbaum, pass to the disjoint sum \texttt{N\ ⊕\ ℕ}, drawing every Henkin witness from the right summand \texttt{Sum.inr\ n}. Freshness then ceases to be a computation and becomes a fact of the sum type: a witness is distinct from every base nominal because it lives in a different injection. This is exactly Henkin's old idea --- expand the language with new constants --- rendered in a form that type theory accepts without complaint.
+
+Two realizations followed. First, \textbf{Oltean had already built this idea into his development}, in disguise: his \texttt{Form.odd\_noms} remaps every nominal \texttt{i\ ↦\ 2·i+1}, so that the image uses only odd nominals and \emph{all even nominals} are reserved as a fresh supply. The odd/even split inside ℕ is precisely \texttt{N\ ⊕\ ℕ} internalized (odds ≅ \texttt{Sum.inl}, evens ≅ \texttt{Sum.inr}). Indeed, From's Isabelle approach --- a fixed name type with a \texttt{fresh} operator returning an unused name --- is the same principle a third time over. So the structural-freshness idea is not a clever trick belonging to any one of these treatments; it is the shared, and essentially unavoidable, foundation of all of them. In that sense \textbf{Mishra's suggestion was not a ``bust,'' and there is no need to pivot wholesale to a Halkjær-style framework} to finish this particular proof: the right idea was already on the table, twice.
+
+Second, and more usefully, the realization reframes \emph{where the real difficulty lies}. It is not in the freshness principle but in its \textbf{encoding}. Oltean implements the odd/even remapping as \texttt{bulk\_subst} --- an iterated single-nominal substitution walked in lockstep over the formula's list of nominals --- and that list, for a compound formula, is a \emph{merged, deduplicated, sorted} list rather than the concatenation of its parts' lists. Consequently the apparently trivial homomorphism lemma \texttt{(φ\ →\ ψ).odd\_noms\ =\ φ.odd\_noms\ →\ ψ.odd\_noms} becomes a genuine fight with ordering and deduplication, and every later step (theorem-preservation under expansion, ``enough nominals,'' the witnessed Lindenbaum lemma) waits on it. The lesson --- which we develop in §7 --- is that the obstruction to finishing Oltean's proof is a \emph{representation} choice for the language expansion, not the Henkin/Mishra idea itself; replacing the list-substitution remapping with a plain structural map over the syntax tree makes the homomorphism lemmas immediate and lets most of Oltean's scaffolding go through. This is the thread the rest of the paper follows.
+
+A third realization, which became sharp only once the encoding was fixed and the rest of the development compiled, is that the proof invokes freshness in \textbf{two structurally different places}, and Mishra's reservation principle is decisive for one of them and simply inapplicable to the other. At the \textbf{root}, the extended Lindenbaum lemma must witness an \emph{infinite} consistent set, and there Mishra's structural reserve --- Oltean's \texttt{odd\_noms}, the \texttt{N\ ⊕\ ℕ} split internalized in ℕ --- is exactly the right and decisive tool; that part is complete. But the \textbf{truth lemma's ◇-case} must, for each \texttt{◇ψ\ ∈\ Δ}, produce a \emph{witnessed} successor MCS containing \texttt{ψ} together with the box-reduct \texttt{\{χ\ │\ □χ\ ∈\ Δ\}}, and here reservation does not help --- for a reason that has nothing to do with the size of the name supply. For \emph{every} nominal \texttt{j} whatsoever, \texttt{nom\ j\ ⟶\ nom\ j} is a tautology, so \texttt{□(nom\ j\ ⟶\ nom\ j)} is a theorem and lies in every MCS \texttt{Δ}; hence the box-reduct already mentions \emph{all} nominals, reserved ones included. No structural reserve can make a name fresh for that set. The shortcut that tried to force the successor through the same reserve-based Lindenbaum machinery (the lemma \texttt{enough\_noms\_diamond\_seed}) is therefore not merely unproved but \textbf{false}.
+
+The remedy for the successor step is \textbf{not} Mishra's, and it is precisely the direction \textbf{Oltean had already taken}: build the successor by an \emph{existence lemma} in the classical Henkin style, drawing each witness from \texttt{Δ}'s \emph{own} witnessedness through a fresh \emph{state variable} (\texttt{new\_var}) rather than a reserved nominal --- the (already proven) \texttt{l313}/\texttt{l313\textquotesingle{}} lemmas. Oltean's \texttt{set\_family} / \texttt{succesor\_set} scaffolding for this was left incomplete (as \texttt{admit}s), but the \emph{approach} was correct; what remained was to finish it, not to find more fresh names. So the honest division of credit is this: \textbf{Mishra's reservation idea is the right and decisive tool for the root Lindenbaum construction, while Oltean's existence-lemma construction is the right tool for the witnessed successor --- and the work that remained was to complete Oltean's construction, not to extend Mishra's to a place it does not reach.} That construction is now complete (§TL-fix): the accumulating witness family is re-typed to carry \emph{data}, a finite-bounding (compactness) argument over \texttt{diamond\_extension\_consistent} proves the seed consistent, and \texttt{RegularLindenbaumLemma} delivers the witnessed successor MCS. With this last step in place \textbf{the entire completeness theorem is formalized with no remaining \texttt{sorry}/\texttt{admit}.}
+
+\hypertarget{contribution}{%
+\subsection{Contribution}\label{contribution}}
+
+This paper:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{Ports} Oltean's development to a current toolchain (Lean v4.30.0 / mathlib v4.30.0), absorbing roughly two and a half years of mathlib API change.
+\item
+  \textbf{Closes the completeness gap}, completing the witnessed extended Lindenbaum lemma, the existence lemma for completed models, and the final completeness theorem.
+\item
+  \textbf{Clarifies the design space} for the freshness mechanism that the completeness proof hinges on, and documents the encoding choice that makes the formal proofs go through cleanly.
+\end{enumerate}
+
+\hypertarget{the-proof-blueprint-and-the-incoming-state-of-olteans-development}{%
+\subsection{The proof blueprint and the incoming state of Oltean's development}\label{the-proof-blueprint-and-the-incoming-state-of-olteans-development}}
+
+Because we are \emph{renovating} an existing, archived formalization rather than writing one from scratch, it is worth stating plainly what we inherited, what already works, and where the genuine difficulty sits --- so that the reader can follow the order in which we attack the problem and understand why some \texttt{admit}s are dispatched in a line while others force a redesign.
+
+\textbf{The blueprint.} Completeness for \emph{L(∀)} is the standard Henkin/canonical-model argument as adapted to hybrid logic by Blackburn (1998), and Oltean's development wires it up faithfully:
+
+\begin{verbatim}
+Gamma  |=  phi  ?  Gamma  |-  phi
+  +- via contraposition + Model Existence:  every consistent set is satisfiable
+       1. Lindenbaum:           consistent Gamma   -->   maximal consistent Gamma'      [compiles]
+       2. Language extension:   reserve an infinite supply of fresh nominals
+            +- odd_noms:   map the language into the ODD nominals (i  |->  2i+1)
+            +- pf_extended:  |-  phi  <->   |-  phi^+   (derivations survive the extension)
+       3. Witnessed Lindenbaum: an MCS that witnesses every <>  / exists 
+       4. Completed model + Truth lemma
+       5. Existence lemma:      <> -witnesses provide successor states
+       6. assemble   -->   Completeness
+\end{verbatim}
+
+This skeleton is sound; the question was never whether the mathematics works (Blackburn proved it on paper) but whether each step survives mechanization in dependent type theory. Soundness, the syntax and substitution machinery, the Kripke semantics, the Hilbert proof system, and ordinary (non-witnessed) Lindenbaum all elaborate and compile.
+
+The dependencies between the remaining deliverables are \textbf{not linear but a directed acyclic graph} (Figure 1): several independent foundations converge on the witnessed Lindenbaum lemma \textbf{G} and again on the final theorem \textbf{I}. Following the now-common practice of stating a Lean development as an explicit blueprint, we record that graph here; nodes are the deliverables of §1.6 (with the already-compiling pieces shaded), and an edge \texttt{X\ →\ Y} means \emph{Y uses X}.
+
+\begin{verbatim}
+flowchart TD
+    classDef done fill:#d8efd8,stroke:#3a3,color:#000;
+    classDef crux fill:#ffe9c7,stroke:#d28,color:#000;
+
+    SEM["Kripke semantics"]:::done
+    PS["Hilbert proof system"]:::done
+    SND["Soundness"]:::done
+    RL["Regular Lindenbaum"]:::done
+    ME["Model Existence"]:::done
+
+    B["B * Propositional tautologies"]
+    C["C * Formula countability / enumeration"]
+    D["D * Bound-variable renaming"]
+    E["E * odd_noms homomorphism<br/>(structural refactor)"]:::crux
+    F["F * Language extension<br/>(total_* + pf_extended)<br/>(Pass)"]:::done
+    G["G * Witnessed Lindenbaum<br/>(Pass)"]:::done
+    TL["TL * Completed-model truth lemma<br/>(partial: []  <-  * forall  free)"]
+    H["H * Existence lemma (l313')"]:::done
+    I["I * Completeness:  Gamma  |=  phi  ->  Gamma  |-  phi"]
+
+    B --> PS
+    C --> RL
+    RL --> G
+    E --> G
+    B --> F
+    B --> G
+    B --> H
+    B --> TL
+    D --> H
+    D --> TL
+    H --> TL
+    G --> I
+    TL --> I
+    ME --> I
+    F -.->|"conservativity"| I
+    SEM --> SND
+    SEM --> ME
+    SEM --> TL
+    SEM --> I
+    SND --> D
+    SND --> TL
+\end{verbatim}
+
+\textbf{Legend (node colors).} Figure 1 uses three node styles on the \emph{foundation} nodes:
+
+\begin{itemize}
+\item
+  \textbf{Green} --- pre-existing foundations that already compiled before this work and are \emph{not} deliverables of the completeness effort: Kripke semantics, the Hilbert proof system, Soundness, Regular Lindenbaum, and Model Existence. \textbf{G} is also green now that witnessed Lindenbaum is closed.
+\item
+  \textbf{Orange} --- the single encoding \emph{crux}, \textbf{E} (\texttt{odd\_noms} homomorphism), discharged by reorganizing the representation rather than by proving the inherited \texttt{admit}s as stated (§1.3).
+\item
+  \textbf{Blue} --- the deliverables this work closes or is still closing: \textbf{B, C, D, F, TL, H, I} ( \textbf{G} was blue while open; see above).
+\end{itemize}
+
+The \textbf{TL} and \textbf{I} subdiagrams (Figures 1a--1d) add \textbf{yellow} = partial / wired but blocked on upstream admits, and \textbf{red} = open \texttt{sorry}/\texttt{admit} rows.
+
+The shading is a snapshot of the \emph{incoming} state; live, per-deliverable status is tracked in the results table (§9).
+
+\emph{Figure 1. Dependency blueprint \ldots{} The two fan-in points, \textbf{G} (now closed) and \textbf{I}, are why the work is a tree rather than a chain.}
+
+\textbf{Module-level snapshots.} Figure 1 is deliberately coarse. Four load-bearing modules each have their own internal order; the diagrams below are sized to fit a single column and are meant to be read \emph{inside} the corresponding deliverable.
+
+\emph{F · language extension (\texttt{LanguageExtension.lean}).} Structural \texttt{total\_*} lemmas are largely independent of \textbf{G}; \textbf{\texttt{pf\_extended} ←} (conservativity) is what unlocks \texttt{consistent\_total} in \textbf{I}, not \texttt{ExtendedLindenbaumLemma}. The backward direction is \textbf{not} a structural induction on \texttt{Proof} (aliens may appear only in subformulas); it follows Blackburn: finitely many alien nominals in \texttt{proof\_noms} → global rename via \texttt{rename\_constants\_fwd} / \texttt{eliminate\_aliens} (F2) → pull back in-range proofs with \texttt{inv\_t} (F3). F1 supplies the \texttt{ax\_q2\_nom} reconstruction lemmas used inside F3.
+
+\emph{Figure 1a · F · language extension.}
+
+\begin{verbatim}
+flowchart LR
+  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
+  classDef partial fill:#fff3cd,stroke:#d28,color:#000
+  classDef open fill:#f8d7da,stroke:#c33,color:#000
+
+  tot["Form.total / odd_noms"]:::pass --> fwd["pf_extended  -> <br/> |-  phi  =>   |-  phi.total"]:::pass
+  tot --> bax["backward axiom replay<br/>(6/7 axiom cases)"]:::pass
+  bax --> f1["F1 * ax_q2_nom pullback<br/>total_subst_nom_pullback<br/>total_ax_q2_nom"]:::pass
+  f1 --> f2a["F2 * inventory + rename<br/>form_noms_in_base * eliminate_aliens"]:::pass
+  f2a --> f2b["F2 * all_noms_in_base_eliminate_aliens"]:::pass
+  f2b --> f3["F3 * inv_t pullback<br/>in_range_proof_back"]:::pass
+  f3 --> back["pf_extended  <- <br/> |-  phi.total  =>   |-  phi (N nonempty)"]:::pass
+  back --> sc["F * syntactic_conservativity<br/>Set.total Gamma  |-  phi.total  =>  Gamma  |-  phi"]:::pass
+  sc --> ct["I * consistent_total<br/>(Pass, N nonempty)"]:::pass
+  sat["sat_total / Model.ofTotal"]:::pass --> pull["pull satisfaction<br/>TotalSet  ->  Model N"]:::pass
+\end{verbatim}
+
+\emph{Figure 1b · G · witnessed Lindenbaum.} After \textbf{E} makes \texttt{odd\_noms} structural, \textbf{G} is a finiteness argument: each stage adds only finitely many formulas, so some even nominal remains fresh.
+
+\begin{verbatim}
+flowchart TD
+  E["E * odd_noms homomorphism"] --> fam["family_subset * lindenbaum_next_subset"]
+  fam --> fresh["fresh_even_dominating"]
+  fresh --> step["enough_noms_odd_step"]
+  step --> wit["LindenbaumWitnessed"]
+  wit --> ext["ExtendedLindenbaumLemma"]
+  wit --> wll["WitnessedLindenbaumLemma<br/>(enough_noms on seed)"]
+\end{verbatim}
+
+\emph{\texttt{WitnessedLindenbaumLemma}} (not \texttt{ExtendedLindenbaumLemma}) is what the \textbf{TL} diamond chain calls on the successor seed \texttt{\{ψ\}\ ∪\ \{□χ\ ∈\ Δ\}}.
+
+\emph{Figure 1c · TL · completed-model truth lemma.} Oltean's base cases and \texttt{truth\_ex} compile; \textbf{□} and \textbf{∀} are new. The \textbf{∀} case (\texttt{truth\_all}) is now \textbf{fully closed} for both free and non-free \texttt{x} (uniform proof, dual to \texttt{truth\_ex}); the \textbf{□ →} direction is closed and \textbf{□ ←} runs through the diamond-successor pipeline below (the witnessed ◇-successor existence lemma is now \textbf{complete} via the §TL-fix Henkin construction; the false \texttt{enough\_noms\_diamond\_seed} shortcut has been deleted). \textbf{TruthLemma} is assembled by well-founded recursion on \texttt{Form.depth}, which supplies \texttt{truth\_all}'s depth-indexed induction hypothesis. The whole truth lemma is now \texttt{sorry}-free.
+
+\begin{verbatim}
+flowchart TD
+  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
+  classDef partial fill:#fff3cd,stroke:#d28,color:#000
+  classDef open fill:#f8d7da,stroke:#c33,color:#000
+
+  base["truth_bttm * prop * nom * svar * impl * ex"]:::pass
+  succ["mcs_in_witnessed_succ * completed_to_witnessed * mcs_in_completed_succ"]:::pass
+
+  l313["l313 / l313' * witness_conditionals<br/>(Henkin witnesses, PROVEN)"]:::pass
+  cons["diamond_extension_consistent<br/>(set_family base, PROVEN)"]:::pass
+  reg["RegularLindenbaumLemma<br/>(NEW, step 1)"]:::open
+  sf["set_family / succesor_set<br/>(NEW crux, step 2 -- incl. witnessed Gamma')"]:::open
+  l313 --> sf
+  cons --> sf
+  reg --> sf
+  sf --> dsc["diamond_succ_mcs<br/>(rewire, step 3)"]:::partial
+  dsc --> rcs["restrict_canonical_succ<br/>(witnessed Delta' input)"]:::pass
+  rcs --> dcs["diamond_completed_succ"]:::partial
+  nnd["not_nec_to_diamond"]:::pass
+
+  base --> box["truth_box"]:::partial
+  succ --> box
+  dcs --> box
+  nnd --> box
+
+  ainf["all_iff_notfree"]:::pass
+  base --> allNF["truth_all<br/>(uniform: free + non-free x)"]:::pass
+  ainf --> allNF
+
+  base --> TLm["TruthLemma<br/>(WF recursion on depth)"]:::partial
+  box --> TLm
+  allNF --> TLm
+\end{verbatim}
+
+\emph{Figure 1d · I · model existence.}
+
+\emph{I · model existence (\texttt{Completeness.lean}).} \texttt{cons\_sat} is fully wired; execution still needs backward conservativity and the remaining TL rows below.
+
+\begin{verbatim}
+flowchart TD
+  classDef pass fill:#d8efd8,stroke:#3a3,color:#000
+  classDef partial fill:#fff3cd,stroke:#d28,color:#000
+  classDef open fill:#f8d7da,stroke:#c33,color:#000
+
+  A["consistent Gamma"] --> B["consistent_total<br/>(Set.total Gamma)"]
+  B --> C["ExtendedLindenbaumLemma  ->  Theta"]:::pass
+  C --> D["TruthLemma at root Theta"]:::partial
+  D --> E["sat_odd_noms' + sat_total"]:::pass
+  E --> F["satisfiable Gamma"]
+  B -.->|"BLOCKED"| G["F * pf_extended  <- "]
+  D -.->|"BLOCKED"| H1["witnessed <> -successor existence<br/>(set_family / succesor_set -- STL-fix)"]
+\end{verbatim}
+
+\textbf{The incoming state: where the holes are.} What Oltean left open is concentrated in the freshness/witnessing layer (steps 2--3) and the pieces that depend on it (the completed model's truth lemma, the existence lemma, and the final assembly). Concretely, the inherited \texttt{sorry}/\texttt{admit} obligations fall into three quite different kinds, and conflating them is what makes ``there are a lot of holes'' sound more alarming than it is:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \emph{Mechanical / decidable holes} --- not real mathematical content. The thirteen \texttt{Tautology.lean} truth-table lemmas (one decision-procedure pattern), the formula-countability encoding lemmas, the bound-variable renaming lemmas, and the \texttt{LanguageExtension.total\_*} structural inductions. Also in this bucket, though not \texttt{admit}s but \emph{broken proofs}, is the entire \texttt{CompletedModel} truth lemma: Oltean's proofs there are correct and merely need to be re-fitted to the current \texttt{simp} normal forms in order to compile. These genuinely yield to incremental, local work.
+\item
+  \emph{Load-bearing, but standard} --- the real Henkin content: witnessed Lindenbaum, the existence lemma, and the final assembly. These are not hard \emph{ideas}; they go through once the layer beneath them is clean.
+\item
+  \emph{Load-bearing, and an encoding trap} --- the \texttt{odd\_noms} freshness homomorphism (step 2). This is the one place where eliminating the \texttt{admit}s \emph{as stated} is the wrong move.
+\end{enumerate}
+
+\textbf{Why one cluster is a trap, and what we do about it.} As explained in §1.3, Oltean realizes structural freshness with \texttt{odd\_noms}, which maps every nominal \texttt{i\ ↦\ 2·i+1} (so the odd nominals carry the image and the even nominals are reserved as a fresh supply --- Mishra's \texttt{N\ ⊕\ ℕ} internalized in \texttt{ℕ}). The \emph{idea} is right. But the \emph{implementation} computes \texttt{odd\_noms\ φ} by collecting φ's nominals into a \textbf{merged, sorted, de-duplicated} list and \texttt{bulk\_subst}-ing along it. Against that representation the apparently trivial homomorphism \texttt{(φ\ ⟶\ ψ).odd\_noms\ =\ φ.odd\_noms\ ⟶\ ψ.odd\_noms} is a real fight with list ordering, deduplication, and no-op substitutions --- and it is precisely this lemma (and its siblings \texttt{odd\_box}, \texttt{odd\_bind}, \texttt{odd\_conj}) that the witnessed Lindenbaum lemma waits on. Discharging these \texttt{admit}s in place would mean proving hard statements about an awkward encoding. The productive move is instead to \textbf{reorganize}: redefine \texttt{odd\_noms} as a plain structural recursion over the syntax tree (\texttt{(φ\ ⟶\ ψ).odd\_noms\ :=\ φ.odd\_noms\ ⟶\ ψ.odd\_noms}, etc.), after which the homomorphism lemmas hold \emph{by definition} (\texttt{rfl}), the freshness property (``no even nominal occurs in \texttt{odd\_noms\ φ}'') becomes a one-line induction, and the supporting \texttt{descending} / \texttt{nocc\_bulk\_property} apparatus is no longer needed. This is the sense in which finishing the proof is partly an exercise in \emph{renovation}: the obstruction is a representation choice, not the construction, and the right response is to change the representation rather than to grind against it.
+
+\textbf{Plan of attack.} We work in the topological order of the blueprint (Figure 1), and where a stage offers a choice we take the \emph{easiest task first}. Concretely: restore the compile (A) so the whole library elaborates with holes marked; clear the decidable/mechanical leaves --- propositional tautologies (B), formula-countability (C), bound-variable renaming (D); carry out the \texttt{odd\_noms} reorganization (E), the one foundation that is a redesign rather than a proof; discharge the language-extension structural lemmas (\textbf{F}, the \texttt{total\_*} batch --- largely parallel to \textbf{E}); prove the witnessed Lindenbaum lemma (\textbf{G}), which in the code depends chiefly on \textbf{C}, \textbf{E}, and \textbf{B}; close the existence lemma (\textbf{H}), which depends on \textbf{B} and \textbf{D} only; discharge the language-extension structural lemmas (\textbf{F}, the \texttt{total\_*} batch --- parallel to \textbf{E}); finish \textbf{F}'s conservativity half (\texttt{pf\_extended} ←), which feeds \textbf{I} but not \textbf{G} or \textbf{H}; re-fit the completed-model truth lemma (\textbf{TL}), which waits on \textbf{H}; and assemble the final theorem (\textbf{I}). In §9, \textbf{G} and \textbf{H} are listed before \textbf{F} so \textbf{Pass} rows are not buried under \textbf{F}'s open conservativity substeps.
+
+\hypertarget{goal-and-major-steps}{%
+\subsection{Goal and major steps}\label{goal-and-major-steps}}
+
+\textbf{Goal.} Produce a fully \texttt{sorry}-free Lean 4 proof (under Lean v4.30.0 / mathlib v4.30.0) of the \textbf{completeness theorem} for \emph{L(∀)} --- \texttt{(Γ\ ⊨\ φ)\ →\ (Γ\ ⊢\ φ)} --- finishing the construction Oltean left open. Soundness, syntax, semantics, and most scaffolding already exist; the gap is the Henkin-style completeness argument and the ``freshness'' machinery it depends on.
+
+The work decomposes into the following major steps. Letter labels \textbf{A}--\textbf{I} follow Oltean's proof narrative; §9 lists \textbf{G} and \textbf{H} before \textbf{F} because those steps are \textbf{Pass} in the code and do not import \texttt{LanguageExtension} or wait on \texttt{pf\_extended} ← (only \textbf{I} does). Status is tracked in the results table (§9). of \texttt{sorry}/\texttt{admit} obligations \emph{inherited from Oltean's development}; we group them by the mathematical reason they exist. (We verified against the archived upstream sources that these holes are Oltean's own, not artifacts of our port --- for instance Oltean's original \texttt{Tautology.lean} already carries the thirteen \texttt{admit}s below.)
+
+\begin{itemize}
+\item
+  \textbf{A. Get the whole library compiling.} Fix roughly two and a half years of mathlib API churn module-by-module in dependency order so that \texttt{lake\ build} succeeds with the proof holes still marked \texttt{sorry}/\texttt{admit}. (Per-module status is tracked in §9; the larger re-fit of \texttt{CompletedModel}'s truth lemma is split out as its own step, \textbf{TL}, since it feeds the final assembly \textbf{I} in the blueprint.)
+\item
+  \textbf{B. Remove the propositional-tautology holes.} Discharge the \texttt{Tautology.lean} truth-table lemmas Oltean left as \texttt{admit} (\texttt{hs\_taut}, \texttt{neg\_intro}, \texttt{conj\_intro}, \texttt{conj\_intro\_hs}, \texttt{iff\_intro}, \texttt{iff\_elim\_l}, \texttt{iff\_elim\_r}, \texttt{iff\_rw}, \texttt{iff\_imp}, \texttt{disj\_intro\_l}, \texttt{disj\_intro\_r}, \texttt{disj\_elim}, \texttt{mp\_help}) plus \texttt{ProofUtils.iff\_subst}. All are decidable propositional facts.
+\item
+  \textbf{C. Remove the formula-countability holes.} \texttt{FormCountable}: \texttt{prime\_2\_3} (a number-theoretic fact, \texttt{3\^{}(n+1)\ ≠\ 2\^{}(m+1)}), \texttt{guns}, and \texttt{of\_brixton} --- injectivity bookkeeping for the Gödel-style encoding that makes \texttt{Form} countable (needed to enumerate formulas for Lindenbaum).
+\item
+  \textbf{D. Remove the bound-variable-renaming holes.} \texttt{RenameBound}: \texttt{replace\_neg}, \texttt{replace\_bound\_depth}, and \texttt{substable\_after\_replace} --- structural facts about α-renaming bound state variables.
+\item
+  \textbf{E. Remove the structural-freshness homomorphism holes (the crux).} \texttt{Substitutions}: \texttt{bulk\_subst\_impl}, \texttt{list\_noms\_impl\_r}, \texttt{list\_noms\_impl\_l}, \texttt{odd\_box}, \texttt{odd\_bind}, \texttt{List.to\_odd}, \texttt{List.odd\_to}, \texttt{odd\_conj}, \texttt{odd\_conj\_rev} --- that Oltean's \texttt{i\ ↦\ 2·i+1} remapping (\texttt{odd\_noms}) is a homomorphism for the connectives and conjunctions. This is where Oltean's \texttt{bulk\_subst}-over-sorted-lists encoding makes the ``obvious'' lemmas hard (§1.3), and everything downstream depends on it.
+\item
+  \textbf{G. Remove the witnessed-Lindenbaum holes.} \texttt{Lindenbaum}: \texttt{LindenbaumWitnessed} and \texttt{ExtendedLindenbaumLemma}. In the Lean graph this module imports \textbf{E} / countability / proof scaffolding only --- not \texttt{LanguageExtension}.
+\item
+  \textbf{H. Remove the existence-lemma hole.} \texttt{ExistenceLemma.l313\textquotesingle{}}: the diamond-witness property used to build successor states of the completed model. Depends on \textbf{B} and \textbf{D} only (Figure 1); does not use \textbf{F} or \textbf{G} (\texttt{l313\textquotesingle{}} is on base-language \texttt{Form\ N}, not \texttt{TotalSet} / \texttt{pf\_extended}).
+\item
+  \textbf{F. Remove the language-extension / theorem-preservation holes.} \texttt{LanguageExtension}: structural \texttt{total\_*} lemmas, \texttt{l416}, and \texttt{pf\_extended} (Prop. 4.1.7: derivations survive the language expansion). The \textbf{\texttt{total\_*} block is largely independent of }G** and \textbf{H}. \textbf{\texttt{pf\_extended} ←} (conservativity: F1 \texttt{ax\_q2\_nom} pullback, F2 alien elimination, F3 \texttt{inv\_t} pullback) is now \textbf{complete}, together with \texttt{syntactic\_conservativity} (the \texttt{Set.total\ Γ\ ⊢\ φ.total\ ⇒\ Γ\ ⊢\ φ} lift). This is load-bearing for \textbf{I} (\texttt{consistent\_total}), not for \texttt{ExtendedLindenbaumLemma} or \texttt{l313\textquotesingle{}}. This path is now \textbf{complete}: \texttt{consistent\_total} is proven and the \texttt{N}-nonempty hypothesis (needed to pick a base nominal for alien elimination) is threaded through \texttt{cons\_sat} / \texttt{Completeness}. The former last obstacle --- the \textbf{TL} witnessed ◇-successor existence lemma --- is now discharged by the §TL-fix Henkin construction (\texttt{enough\_noms\_diamond\_seed} was false and has been deleted), so the development is complete.
+\item
+  \textbf{TL. Re-fit the completed-model truth lemma.} \texttt{CompletedModel}: restore Oltean's truth-lemma cases (\texttt{truth\_bttm}, \texttt{truth\_prop}, \texttt{truth\_nom}, \texttt{truth\_svar}, \texttt{truth\_impl}, \texttt{truth\_ex}) and the supporting valuation lemmas to the current \texttt{simp} normal forms. \textbf{\texttt{truth\_box} and \texttt{truth\_all} are new} --- Oltean's archived development stops before the modal/binder cases. \texttt{TruthLemma} is assembled by well-founded recursion on \texttt{Form.depth}; the \texttt{bind} case delegates to \texttt{truth\_all}, now \textbf{fully closed} for both free and non-free \texttt{x} (uniform \texttt{has\_state\_symbol} split + depth-indexed \texttt{ih}, dual to \texttt{truth\_ex}). The \textbf{□ ←} witnessed ◇-successor existence lemma --- the former last obstacle --- is now closed by the \texttt{l313\textquotesingle{}}-based Henkin construction (\texttt{succ\_seed} + \texttt{RegularLindenbaumLemma}); the false \texttt{enough\_noms\_diamond\_seed} shortcut has been deleted. See \textbf{§TL-fix} for the disproof and the completed construction. Depends on \textbf{B}, \textbf{D}, \textbf{H} (and on Kripke semantics and Soundness).
+\item
+  \textbf{I. Remove the final-completeness hole.} \texttt{Completeness}: \texttt{cons\_sat} runs \texttt{consistent\_total} → \texttt{ExtendedLindenbaumLemma\ (Set.total\ Γ)} → \texttt{TruthLemma} at the root witnessed MCS → \texttt{sat\_odd\_noms\textquotesingle{}} / \texttt{sat\_total}; \texttt{Completeness} is then \texttt{ModelExistence} + contraposition. \textbf{\texttt{pf\_extended} forward is not on this path}; only backward conservativity feeds \texttt{consistent\_total}.
+\end{itemize}
+
+The substantive mathematics is concentrated in \textbf{E}--\textbf{I}; \textbf{B}--\textbf{D} are essentially mechanical leaf lemmas. \textbf{E} is the crux, for the encoding reasons discussed in §1.3.
+
+\hypertarget{tl-fix-the-witnessed--successor-existence-lemma-resolved}{%
+\subsection{§TL-fix · The witnessed ◇-successor existence lemma (resolved)}\label{tl-fix-the-witnessed--successor-existence-lemma-resolved}}
+
+\begin{quote}
+\textbf{Status: complete.} The construction below is fully formalized; \texttt{enough\_noms\_diamond\_seed} has been deleted and \texttt{diamond\_succ\_mcs} is rewired onto it. \texttt{\#print\ axioms\ Completeness} reports only \texttt{propext,\ Classical.choice,\ Quot.sound}. The step plan is retained as the record of how the last obstacle was discharged.
+\end{quote}
+
+\textbf{Why \texttt{enough\_noms\_diamond\_seed} is false (not just hard).} The lemma claims \texttt{enough\_noms\ (\{ψ\}\ ∪\ \{χ\ │\ □χ\ ∈\ Δ\})}, whose first conjunct (\texttt{enough\_noms}, \texttt{Lindenbaum.lean}) demands a nominal \texttt{i} occurring in \textbf{no} formula of the set. But for \emph{every} nominal \texttt{i}, \texttt{nom\ i\ ⟶\ nom\ i} is a tautology, so \texttt{⊢\ □(nom\ i\ ⟶\ nom\ i)} by necessitation, so \texttt{□(nom\ i\ ⟶\ nom\ i)\ ∈\ Δ} for any MCS \texttt{Δ}; hence \texttt{(nom\ i\ ⟶\ nom\ i)\ ∈\ \{χ\ │\ □χ\ ∈\ Δ\}} and \texttt{nom\_occurs\ i\ (nom\ i\ ⟶\ nom\ i)\ =\ true}. So \texttt{all\_nocc\ i} fails for \emph{every} \texttt{i}: the box-reduct of any MCS mentions all nominals, and there is no reserve to be had --- independent of how \texttt{Δ} was built. The \texttt{WitnessedLindenbaumLemma}-on-the-seed approach is therefore structurally unworkable; it requires a globally fresh nominal that provably does not exist.
+
+\textbf{The correct route (Oltean's intended Henkin construction).} Build the witnessed successor \emph{incrementally}, borrowing witnesses from \texttt{Δ}'s own witnessedness via \texttt{l313\textquotesingle{}} --- which uses a fresh \textbf{variable} (\texttt{new\_var}), not a fresh nominal. The hardest analytic lemma (\texttt{l313}/\texttt{l313\textquotesingle{}}) and the witness-conditional accumulator are \textbf{already proven} (\texttt{ExistenceLemma.lean}, live code), and \textbf{\texttt{RegularLindenbaumLemma} already exists} (\texttt{Lindenbaum.lean}, general over any \texttt{N}). A reconnaissance pass turned up the precise obstruction and a concrete plan:
+
+\textbf{The data-vs-\texttt{Prop} flaw.} \texttt{witness\_conditionals} currently returns \texttt{∃\ l,\ l\ ≠\ {[}{]}\ ∧\ ◇conjunction\textquotesingle{}\ l\ ∈\ Δ} --- a \textbf{\texttt{Prop}} --- and \texttt{succesor\_set}/\texttt{succesor\_set\textquotesingle{}} extract the list with \texttt{.choose}. Because \texttt{Exists} is proof-irrelevant, \texttt{.choose} returns \emph{some} list with that property, \textbf{not} the structured accumulating one the recursion built; the ``the witness conditional for \texttt{enum\ n} is in the list'' fact is then unrecoverable, and witnessedness cannot be proven. \emph{This is exactly why the commented \texttt{set\_family}/\texttt{succesor\_set} stalled.} The fix is to return \textbf{data} (a \texttt{Subtype}/\texttt{Sigma}), preserving the list.
+
+\textbf{How it was discharged (all steps done):}
+
+\begin{itemize}
+\item
+  \textbf{2.0 ✓} Re-typed the accumulator (\texttt{wcond} / \texttt{wcond\_step}, \texttt{ExistenceLemma.lean}) to \texttt{\{\ l\ :\ List\ (Form\ N)\ //\ l\ ≠\ {[}{]}\ ∧\ ◇conjunction\textquotesingle{}\ l\ ∈\ Δ\ \}}, preserving the recursion (\texttt{{[}ψ{]}} at the base, prepend \texttt{((ex\ x,σ)⟶σ{[}i//x{]})} from \texttt{l313\textquotesingle{}} at each existential step). The index \texttt{i} is \texttt{l313\textquotesingle{}}'s \texttt{.choose}; crucially the \emph{list} is now data, so its members are recoverable.
+\item
+  \textbf{2.1 ✓} \texttt{wcond\_succ\_mem} / \texttt{wcond\_mono} (stage membership is monotone in the index) and \texttt{wcond\_step\_mem} (\texttt{enum\ n\ =\ ex\ x,σ\ →\ ∃\ i,\ ((ex\ x,σ)⟶σ{[}i//x{]})\ ∈\ (wcond\ (n+1)).val}, proved by iota-reducing \texttt{wcond\_step} on the literal \texttt{ex\ x,σ}).
+\item
+  \textbf{2.2 ✓} \texttt{succ\_seed\ :=\ \{χ\ │\ □χ\ ∈\ Δ\}\ ∪\ \{χ\ │\ ∃\ n,\ χ\ ∈\ (wcond\ n).val\}} (so \texttt{ψ\ ∈\ succ\_seed} at stage 0, and \texttt{\{χ│□χ∈Δ\}\ ⊆\ succ\_seed}).
+\item
+  \textbf{2.3 ✓} \texttt{succ\_seed\_consistent} (\texttt{CompletedModel.lean}): \texttt{seed\_list\_bound} puts any finite \texttt{L\ ⊆\ succ\_seed} inside the box-reduct together with a single stage \texttt{wcond\ N} (\texttt{wcond\_mono}); then \texttt{box-reduct\ ∪\ \{conjunction\textquotesingle{}\ (wcond\ N).val\}} derives \texttt{conjunction\ succ\_seed\ L} (\texttt{conj\textquotesingle{}\_imp\_mem} for the conditionals, \texttt{Γ\_premise} for the box part), and since \texttt{◇conjunction\textquotesingle{}\ (wcond\ N).val\ ∈\ Δ}, \texttt{diamond\_extension\_consistent} (applied to that conjunction) closes it --- the same \texttt{box\_of\_consequence}/\texttt{MCS\_mp} finish as the base case.
+\item
+  \textbf{2.4 ✓} \texttt{RegularLindenbaumLemma\ succ\_seed} → MCS \texttt{Γ\textquotesingle{}\ ⊇\ succ\_seed}.
+\item
+  \textbf{2.5 ✓} Output properties: \textbf{\texttt{Canonical.R\ Δ\ Γ\textquotesingle{}}} (box-reduct ⊆ \texttt{Γ\textquotesingle{}}); \textbf{\texttt{ψ\ ∈\ Γ\textquotesingle{}}} (stage 0); \textbf{\texttt{witnessed\ Γ\textquotesingle{}}} --- \texttt{enum\ =\ f.invFun} is surjective (left inverse of the injection from \texttt{exists\_injective\_nat}), so any \texttt{ex\ x,σ\ ∈\ Γ\textquotesingle{}} is \texttt{enum\ (f\ (ex\ x,σ))}; its conditional is in \texttt{wcond\ (·+1)\ ⊆\ succ\_seed\ ⊆\ Γ\textquotesingle{}}, and \texttt{MCS\_mp} yields \texttt{σ{[}i//x{]}\ ∈\ Γ\textquotesingle{}}. \emph{(This is the milestone Oltean stalled on; with the data refactor it reduces to \texttt{MCS\_mp} + surjectivity.)}
+\item
+  \textbf{2.6 ✓ (Step 3)} \texttt{diamond\_succ\_mcs} now returns \texttt{⟨Γ\textquotesingle{},\ Canonical.R\ Δ\ Γ\textquotesingle{},\ ψ∈Γ\textquotesingle{},\ MCS\ Γ\textquotesingle{},\ \ \ witnessed\ Γ\textquotesingle{}⟩} from this construction; \texttt{enough\_noms\_diamond\_seed} is \textbf{deleted} (\texttt{diamond\_extension\_consistent} is retained --- it powers 2.3).
+\end{itemize}
+
+Steps 2.0--2.6 turned the TL \texttt{Partial} rows and the two I \texttt{Partial} rows (\texttt{cons\_sat}, \texttt{Completeness}) green, finishing the whole development. The decisive new technical content was the data refactor (2.0--2.1) and the compactness bookkeeping (2.3); no fundamental wall remained (the box-leak that kills \texttt{enough\_noms} does not affect this route).
+
+\emph{Attribution (cf.~§1.3).} This step is \textbf{not} an application of Mishra's structural-freshness suggestion --- that idea is decisive at the \emph{root} Lindenbaum construction but inapplicable here, since the box-reduct \texttt{\{χ\ │\ □χ\ ∈\ Δ\}} mentions every nominal (\texttt{□(nom\ j\ ⟶\ nom\ j)\ ∈\ Δ} for all \texttt{j}). The witnessed successor is instead built by \textbf{Oltean's existence-lemma direction} (\texttt{l313\textquotesingle{}}, fresh \emph{variable} + \texttt{Δ}'s witnessedness), which was correct but left incomplete; the work here was to finish it --- now done.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{background-the-logic-l}{%
+\section{\texorpdfstring{Background: the logic \emph{L(∀)}}{Background: the logic L(∀)}}\label{background-the-logic-l}}
+
+\emph{(Condensed; full definitions follow Blackburn 1998 and Oltean's thesis.)}
+
+\textbf{Signature.} A hybrid signature is a triple ⟨PROP, SVAR, NOM⟩ of denumerable sets of propositional symbols, state variables, and nominals.
+
+\textbf{Formulas.} \texttt{φ\ ::=\ ⊥\ \textbar{}\ a\ \textbar{}\ φ\ →\ φ\ \textbar{}\ □φ\ \textbar{}\ ∀x\ φ}, where \texttt{a} ranges over atomic symbols (propositions, state variables, nominals) and \texttt{x} over state variables. Negation, conjunction, ◇, and ∃ are defined as usual.
+
+\textbf{Semantics.} A model \texttt{M\ =\ ⟨W,\ R,\ V⟩} is a Kripke frame with a valuation; an assignment \texttt{g} sends each state variable to a single state. Nominals and state variables denote singletons. Satisfaction \texttt{M,\ s,\ g\ ⊨\ φ} is standard, with \texttt{M,\ s,\ g\ ⊨\ x} iff \texttt{g(x)\ =\ \{s\}} and \texttt{M,\ s,\ g\ ⊨\ ∀x\ φ} iff φ holds at \texttt{s} under every \texttt{x}-variant of \texttt{g}.
+
+\textbf{Proof system.} A Hilbert system with classical tautologies, axiom K, the quantifier axioms (Q1, Q2 for variables and nominals), Name, Nom, Barcan, and the rules modus ponens, generalization, and necessitation. \texttt{Γ\ ⊢\ φ} is syntactic consequence.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{completeness-via-witnessed-maximal-consistent-sets}{%
+\section{Completeness via witnessed maximal consistent sets}\label{completeness-via-witnessed-maximal-consistent-sets}}
+
+The completeness proof follows the Henkin/canonical-model method as adapted to hybrid logic by Blackburn (1998):
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{Lindenbaum's lemma.} Every consistent set extends to a maximal consistent set (MCS).
+\item
+  \textbf{Witnessed MCSs.} An MCS Δ is \emph{witnessed} if whenever \texttt{∃x\ φ\ ∈\ Δ} there is a nominal \texttt{i} with \texttt{(∃x\ φ\ →\ φ{[}i/x{]})\ ∈\ Δ}. Existence of witnessed MCSs requires \emph{enough nominals}: each existential needs its own witness, and to extend an \emph{infinite} consistent set we need an infinite reserve of nominals that do not already occur.
+\item
+  \textbf{Language expansion.} To guarantee enough witnesses, expand the language with a denumerable set of new nominals (\texttt{L(∀)\ ⊆\ L⁺(∀)}). Expansion is truth-preserving (semantically obvious) and theorem-preserving (Prop. 4.1.7 in the thesis: a derivation using extra nominals can be replayed with those nominals replaced by fresh variables).
+\item
+  \textbf{Canonical / completed model.} Build the canonical model from MCSs; restrict to a generated, witnessed submodel so that state symbols name uniquely; ``glue on'' a dummy state only when needed to make the model standard.
+\item
+  \textbf{Truth lemma + existence lemma}, yielding completeness via the model-existence theorem.
+\end{enumerate}
+
+\hypertarget{the-freshness-obstacle}{%
+\subsection{The freshness obstacle}\label{the-freshness-obstacle}}
+
+Steps 2--3 are where the formalization stalls. Mathematically one simply says ``let \texttt{i₀,\ i₁,\ …} enumerate the new nominals'' and uses \texttt{iₙ} as the witness at step \texttt{n}. In \textbf{set theory} there is never a shortage of fresh names. In \textbf{dependent type theory}, a type already contains \emph{all} its inhabitants: given \texttt{N\ :\ Type}, there is in general no \texttt{N\textquotesingle{}\ ⊋\ N}. One can dynamically search for an unused nominal of a formula (finitely many occur), but to witness an \emph{infinite} Lindenbaum union one must reserve infinitely many nominals \emph{globally} and prove they never occur --- and doing that bookkeeping by dynamic search is exactly what Oltean found ``prohibitively difficult''.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{structural-freshness}{%
+\section{Structural freshness}\label{structural-freshness}}
+
+The resolution is to make freshness \textbf{structural} rather than computed: arrange the language so that an infinite family of nominals is, by construction, disjoint from the nominals any formula of the base language can use. Three concrete realizations:
+
+\begin{itemize}
+\item
+  \textbf{Disjoint sum (Mishra).} Parameterize formulas by a nominal type and extend it to \texttt{N\ ⊕\ ℕ}. Witnesses are drawn exclusively from the right summand \texttt{Sum.inr\ n}, which is \emph{structurally} distinct from every base nominal \texttt{Sum.inl\ \_}. Freshness is then a triviality of the sum type, never a search.
+\item
+  \textbf{Odd/even split inside ℕ (Oltean).} Take a single nominal type \texttt{TotalSet\ ≅\ ℕ} and remap every nominal \texttt{i\ ↦\ 2·i+1} (\texttt{Form.odd\_noms}). The image uses only \emph{odd} nominals, so \emph{all even} nominals are reserved as a fresh supply. This is the same disjoint-sum idea, internalized in ℕ (odds ≅ \texttt{Sum.inl}, evens ≅ \texttt{Sum.inr}), and is the route taken in the existing development.
+\item
+  \textbf{Abstract name supply (From).} Work over a fixed type with an infinite set of names plus an abstract \texttt{fresh\ :\ Finset\ Name\ →\ Name} returning an unused name, and factor the witnessing into a reusable, logic-generic Lindenbaum/saturation lemma.
+\end{itemize}
+
+These are not competitors at the conceptual level --- all three reserve an infinite disjoint supply of names. They differ in \emph{how the reservation is encoded}, and that choice determines how painful the surrounding lemmas are.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{related-work}{%
+\section{Related work}\label{related-work}}
+
+\begin{itemize}
+\item
+  \textbf{Asta Halkjær From}, \emph{An Isabelle/HOL Framework for Synthetic Completeness Proofs} (CPP 2025) and related papers, mechanize strong completeness for several logics --- including hybrid logic --- using an abstract, transfinite Lindenbaum construction and a synthetic canonical-model framework in Isabelle/HOL. This is the closest existing mechanization of witnessed/named MCSs for hybrid logic and the state of the art for reusable completeness infrastructure.
+\item
+  Earlier Lean modal-logic formalizations: a Henkin-style completeness proof for \textbf{S5} (Bentzen 2021), \textbf{Public Announcement Logic / PAL-S5} (Li 2020), and \textbf{Matching Logic} in Lean (Cheval \& Macovei 2023). We are not aware of a prior completeness formalization for a \emph{binding} hybrid logic in Lean.
+\item
+  The mathematics followed throughout is \textbf{Blackburn}, \emph{Hybrid Completeness} (1998).
+\end{itemize}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{the-lean-4-development}{%
+\section{The Lean 4 development}\label{the-lean-4-development}}
+
+\emph{(To be completed.)} Module structure (dependency order): \texttt{Util}, \texttt{Form}, \texttt{Tautology}, \texttt{Substitutions}, \texttt{FormCountable}, \texttt{Proof}, \texttt{ListUtils}, \texttt{Truth}, \texttt{ProofUtils}, \texttt{Soundness}, \texttt{RenameBound}, \texttt{Lindenbaum}, \texttt{LanguageExtension}, \texttt{ExistenceLemma}, \texttt{CompletedModel}, \texttt{Completeness}.
+
+Toolchain: Lean v4.30.0, mathlib v4.30.0.
+
+\begin{quote}
+\emph{{[}Describe the closed lemmas: \texttt{odd\_impl}/\texttt{pf\_odd\_noms\_set}, \texttt{ExtendedLindenbaumLemma}, \texttt{LindenbaumWitnessed}, the existence lemma, and \texttt{Completeness}, once finished.{]}}
+\end{quote}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{discussion-encoding-choices}{%
+\section{Discussion: encoding choices}\label{discussion-encoding-choices}}
+
+\emph{(To be completed once the proof is closed --- this section will argue which encoding of structural freshness minimized the formalization effort, and quantify the porting cost from the 2023 nightly to mathlib v4.30.0.)}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{conclusion-and-further-work}{%
+\section{Conclusion and further work}\label{conclusion-and-further-work}}
+
+\emph{(To be completed.)} Directions: finite nominal sets; generalization to the many-sorted polyadic hybrid logics related to Matching Logic; extraction of a reusable Lean completeness framework in the spirit of From's Isabelle work.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{results}{%
+\section{Results}\label{results}}
+
+Status legend: \textbf{Pass} --- done and compiling; \textbf{Fail} --- attempted, currently broken; \textbf{Not Yet} --- not yet attempted. Step \textbf{A} is broken out into one row per module (in the \texttt{Hybrid.lean} dependency order in which they are converted); steps \textbf{B}--\textbf{I} are broken out into one row per \texttt{sorry}/\texttt{admit} declaration to be removed (``remove Oltean's \texttt{admit}/\texttt{sorry} for \emph{X}''). After \textbf{E}, \textbf{G} and \textbf{H} precede \textbf{F} in the table: they are \textbf{Pass} and do not depend on \texttt{pf\_extended} ← (Figure 1); letter labels still match Oltean's narrative. Step \textbf{A} is \textbf{Pass} once every module in that list elaborates under the pinned toolchain (remaining proof holes are tracked under \textbf{B}--\textbf{I}, not under \textbf{A}). Parent rows (\textbf{F}, \textbf{G}, \ldots) summarize their substeps: a parent can be \textbf{Partial} while an earlier-numbered step is \textbf{Pass} when the open substeps are not on that step's critical path (e.g.~\textbf{G} and \textbf{H} \textbf{Pass} while \textbf{F} awaits \texttt{pf\_extended} ← for \textbf{I} only).
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Step
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Deliverable
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Status
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\textbf{A} & \textbf{Get the whole library compiling} (per module) & \textbf{Pass} \\
+A · \texttt{Util.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{Form.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{Tautology.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{Substitutions.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{Proof.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{Truth.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{ListUtils.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{ProofUtils.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{Soundness.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{RenameBound.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{FormCountable.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{Lindenbaum.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{LanguageExtension.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{ExistenceLemma.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{CompletedModel.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+A · \texttt{Completeness.lean} & Port to Lean v4.30.0 / mathlib v4.30.0 & Pass \\
+\textbf{B} & \textbf{Propositional-tautology holes} & \textbf{Pass} \\
+B · \texttt{Tautology} (×13) & \texttt{hs\_taut}, \texttt{neg\_intro}, \texttt{conj\_intro}, \texttt{conj\_intro\_hs}, \texttt{iff\_intro}, \texttt{iff\_elim\_l}, \texttt{iff\_elim\_r}, \texttt{iff\_rw}, \texttt{iff\_imp}, \texttt{disj\_intro\_l}, \texttt{disj\_intro\_r}, \texttt{disj\_elim}, \texttt{mp\_help} & Pass \\
+B · \texttt{ProofUtils.iff\_subst} & Tautology \texttt{(φ⟷ψ)⟶(ψ⟷χ)⟶(φ⟷χ)} & Pass \\
+\textbf{C} & \textbf{Formula-countability holes} & \textbf{Pass} \\
+C · \texttt{FormCountable.prime\_2\_3} & \texttt{3\^{}(n+1)\ ≠\ 2\^{}(m+1)} & Pass \\
+C · \texttt{FormCountable.guns} & \texttt{x\ ∈\ pow2list\ a\ →\ ∃\ n,\ x.fst\ =\ 2\^{}(n+1)} & Pass \\
+C · \texttt{FormCountable.of\_brixton} & \texttt{(h::t).isSuffixOf\ a\ →\ h\ ∈\ a} & Pass \\
+\textbf{D} & \textbf{Bound-variable-renaming holes} & \textbf{Pass} \\
+D · \texttt{RenameBound.replace\_neg} & \texttt{(∼φ).replace\_bound\ x\ =\ ∼(φ.replace\_bound\ x)} & Pass \\
+D · \texttt{RenameBound.replace\_bound\_depth} & \texttt{(φ.replace\_bound\ x).depth\ =\ φ.depth} & Pass \\
+D · \texttt{RenameBound.substable\_after\_replace} & \texttt{is\_substable\ (φ.replace\_bound\ y)\ y\ x} & Pass \\
+\textbf{E} & \textbf{Structural-freshness homomorphism holes (crux)} & \textbf{Pass} \\
+E · \texttt{Substitutions.bulk\_subst\_impl} & \texttt{bulk\_subst} distributes over \texttt{⟶} & Pass \\
+E · \texttt{Substitutions.list\_noms\_impl\_r} & \texttt{list\_noms} merge identity (right) & Pass \\
+E · \texttt{Substitutions.list\_noms\_impl\_l} & \texttt{list\_noms} merge identity (left) & Pass \\
+E · \texttt{Substitutions.odd\_box} & \texttt{(□φ).odd\_noms\ =\ □(φ.odd\_noms)} & Pass \\
+E · \texttt{Substitutions.odd\_bind} & \texttt{(all\ x,\ φ).odd\_noms\ =\ all\ x,\ φ.odd\_noms} & Pass \\
+E · \texttt{Substitutions.List.to\_odd} & list lift \texttt{List\ Γ\ →\ List\ Γ.odd\_noms} & Pass \\
+E · \texttt{Substitutions.List.odd\_to} & list lift \texttt{List\ Γ.odd\_noms\ →\ List\ Γ} & Pass \\
+E · \texttt{Substitutions.odd\_conj} & \texttt{odd\_noms} distributes over conjunction & Pass \\
+E · \texttt{Substitutions.odd\_conj\_rev} & \texttt{odd\_noms} distributes over conjunction (rev) & Pass \\
+\textbf{G} & \textbf{Witnessed-Lindenbaum holes} & \textbf{Pass} \\
+G · \texttt{Lindenbaum.LindenbaumWitnessed} & Lindenbaum union with enough nominals is witnessed & Pass \\
+G · \texttt{Lindenbaum.witness\_in\_next} / \texttt{witness\_at\_step} & per-step witness extraction & Pass \\
+G · \texttt{Lindenbaum.zero\_nocc\_odd} / \texttt{even\_nocc\_odd} / \texttt{enough\_noms\_odd\_base} & even nominals fresh for the odd-only base & Pass \\
+G · \texttt{Lindenbaum.lindenbaum\_next\_subset} / \texttt{family\_subset} / \texttt{fresh\_even\_dominating} & each finite stage adds finitely many formulas, so an even nominal survives & Pass \\
+G · \texttt{Lindenbaum.ExtendedLindenbaumLemma} & consistent ⟹ witnessed MCS in expanded language & Pass \\
+G · \texttt{Lindenbaum.enough\_noms\_odd\_step} & per-stage structural freshness (finiteness argument) & Pass \\
+\textbf{H} & \textbf{Existence-lemma hole} & \textbf{Pass} \\
+H · \texttt{Substitutions.subst\_nom\_noop} / \texttt{rename\_svar\_nom} & freshness rewrite lemmas & Pass \\
+H · \texttt{ExistenceLemma.l313\textquotesingle{}} & diamond-witness property for successor states & Pass \\
+\textbf{F} & \textbf{Language-extension / theorem-preservation holes} & \textbf{Pass} \\
+F · \texttt{LanguageExtension.total\_subst\_svar} & \texttt{total} inverts svar substitution & Pass \\
+F · \texttt{LanguageExtension.total\_tautology} & \texttt{Tautology\ φ\ ↔\ Tautology\ φ.total} & Pass \\
+F · \texttt{LanguageExtension.total\_subst\_svar\textquotesingle{}} & \texttt{total} commutes with svar subst & Pass \\
+F · \texttt{LanguageExtension.total\_subst\_nom} & \texttt{total} commutes with nom subst & Pass \\
+F · \texttt{LanguageExtension.total\_iterate\_pos} & \texttt{total} commutes with \texttt{iterate\_pos} & Pass \\
+F · \texttt{LanguageExtension.total\_iterate\_nec} & \texttt{total} commutes with \texttt{iterate\_nec} & Pass \\
+F · \texttt{LanguageExtension.total\_is\_free} / \texttt{total\_is\_substable} & \texttt{total} preserves \texttt{is\_free} / \texttt{is\_substable} & Pass \\
+F · \texttt{LanguageExtension.total\_eq\_impl/box/bind} / \texttt{total\_in\_range} & peel \texttt{total} through connectives; right-inverse on range & Pass \\
+F · \texttt{LanguageExtension.total\_ax\_name/brcn/nom} & reconstruction lemmas for the remaining axioms & Pass \\
+F · \texttt{LanguageExtension.l416} & fresh-variable substitution into a proof (via \texttt{generalize\_constants}) & Pass \\
+F · \texttt{LanguageExtension.pf\_extended} (→) & \texttt{⊢\ φ\ →\ ⊢\ φ.total} (totalize a derivation) & Pass \\
+F · \texttt{LanguageExtension.pf\_extended} (←), axiom cases & 6/7 backward axiom cases (\texttt{ax\_k/q1/q2\_svar/name/nom/brcn}) & Pass \\
+F · \texttt{LanguageExtension.nom\_in\_base} / \texttt{form\_noms\_in\_base} / \texttt{range\_of\_form} / \texttt{inv\_t\_eq\_of\_range\textquotesingle{}} & in-range nominal vocabulary; \texttt{inv\_t} right-inverse on range & Pass \\
+F · \texttt{LanguageExtension.NOM.fromTotal} / \texttt{subst\_nom\_toTotal} & embed base nominals; align \texttt{total} with nom subst & Pass \\
+F · \texttt{LanguageExtension.total\_subst\_nom\_pullback} & pull \texttt{Form.total} back through nom substitution & Pass \\
+F · \texttt{LanguageExtension.total\_ax\_q2\_nom} / \texttt{total\_ax\_q2\_nom\_end} & reconstruct \texttt{ax\_q2\_nom} when subformulas are in-range & Pass \\
+F · \texttt{LanguageExtension.form\_noms\_in\_base\_total} / \texttt{Proof.proof\_noms} / \texttt{Proof.all\_noms\_in\_base} & root + derivation nominal inventory (\texttt{formulasIn}) & Pass \\
+F · \texttt{LanguageExtension.nom\_occurs\_false\_of\_form\_noms\_in\_base} & alien letters absent from in-range formulas & Pass \\
+F · \texttt{LanguageExtension.nom\_subst\_nom\_nocc} & \texttt{nom\_subst\_nom\ ψ\ new\ old\ =\ ψ} when \texttt{nom\_occurs\ old\ ψ\ =\ false} (replace \texttt{old} with \texttt{new}) & Pass \\
+F · \texttt{LanguageExtension.Proof.eliminate\_one\_alien} / \texttt{Proof.eliminate\_aliens} & Blackburn rename alien \texttt{j} ↦ \texttt{base} via \texttt{rename\_constants\_fwd\ base\ j} & Pass \\
+F · \texttt{LanguageExtension.Proof.all\_noms\_in\_base\_eliminate\_aliens} & after alien loop, every \texttt{proof\_noms} letter lies in \texttt{N} & Pass \\
+F · \texttt{LanguageExtension.inv\_t\_impl} / \texttt{inv\_t\_box} / \texttt{inv\_t\_bind} & \texttt{inv\_t} commutes with connectives on in-range formulas & Pass \\
+F · \texttt{LanguageExtension.in\_range\_proof\_back} (axiom replay) & \texttt{inv\_t} pullback: tautology + \texttt{ax\_k/q1/name/nom}/\texttt{ax\_brcn}/\texttt{ax\_q2\_svar}/\texttt{ax\_q2\_nom} (split on vanishing alien) & Pass \\
+F · \texttt{LanguageExtension.in\_range\_proof\_back} (\texttt{mp} / \texttt{general} / \texttt{necess}) & structural induction on \texttt{Proof} (deduction rules via \texttt{inv\_t\_impl/box/bind}) & Pass \\
+F · \texttt{LanguageExtension.pf\_extended} (←) & wire F2 → F3: \texttt{eliminate\_aliens} then \texttt{in\_range\_proof\_back} (needs \texttt{N} nonempty) & Pass \\
+F · \texttt{LanguageExtension.syntactic\_conservativity} & lift \texttt{Set.total\ Γ\ ⊢\ φ.total} back to \texttt{Γ\ ⊢\ φ} via \texttt{pf\_extended} ← + \texttt{base\_conjunction} & Pass \\
+F · \texttt{LanguageExtension.sat\_total} / \texttt{Model.ofTotal} & \texttt{TotalSet} satisfaction → \texttt{Model\ N} & Pass \\
+F · \texttt{LanguageExtension.Set.total} & base-language image under \texttt{Form.total} & Pass \\
+\textbf{TL} & \textbf{Canonical-model truth lemma (\texttt{CompletedModel.lean})} --- \textbf{now fully closed}. The former root obstacle (witnessed ◇-successor existence) is discharged by the §TL-fix Henkin construction; \texttt{enough\_noms\_diamond\_seed} (false as stated) has been deleted. & \textbf{Pass} \\
+TL · \texttt{CompletedModel.truth\_*} (base) & \texttt{truth\_bttm}/\texttt{prop}/\texttt{nom}/\texttt{svar}/\texttt{impl}/\texttt{ex} & Pass \\
+TL · \texttt{CompletedModel.mcs\_in\_*\_succ} & \texttt{mcs\_in\_witnessed\_succ} / \texttt{completed\_to\_witnessed} / \texttt{mcs\_in\_completed\_succ} & Pass \\
+TL · \texttt{CompletedModel.restrict\_canonical\_succ} & extend witnessed path along \texttt{Canonical.R} & Pass \\
+TL · \texttt{CompletedModel.diamond\_extension\_consistent} & \texttt{\{ψ\}∪\{□χ∈Δ\}} consistent (via \texttt{box\_of\_consequence} + \texttt{nec\_mono}/\texttt{box\_conj\_mem}); also powers the compactness step in \texttt{succ\_seed\_consistent} & Pass \\
+TL · \texttt{ExistenceLemma.l313} / \texttt{l313\textquotesingle{}} & push a witness conditional \texttt{((ex\ x,χ)⟶χ{[}i//x{]})} through \texttt{◇} using a fresh \textbf{variable} + \texttt{Δ}'s own witnessedness (no fresh nominal needed) & Pass \\
+TL · \texttt{ExistenceLemma.wcond} / \texttt{wcond\_step} & \textbf{NEW} --- accumulating witness-conditional family, returning \textbf{data} (\texttt{Subtype} carrying the list), with \texttt{◇conjunction\textquotesingle{}\ l\ ∈\ Δ} invariant & Pass \\
+TL · \texttt{ExistenceLemma.wcond\_mono} / \texttt{wcond\_step\_mem} & \textbf{NEW} --- stage monotonicity + per-step Henkin witness membership & Pass \\
+TL · \texttt{Lindenbaum.RegularLindenbaumLemma} & plain MCS extension \texttt{consistent\ Γ\ →\ ∃\ Γ\textquotesingle{},\ Γ\ ⊆\ Γ\textquotesingle{}\ ∧\ MCS\ Γ\textquotesingle{}} (general over any \texttt{N}) & Pass \\
+TL · \texttt{ExistenceLemma.succ\_seed} / \texttt{seed\_list\_bound} & \textbf{NEW} --- witnessed ◇-successor seed (box-reduct ∪ witness conditionals) + finite-bounding (compactness) lemma & Pass \\
+TL · \texttt{CompletedModel.succ\_seed\_consistent} & \textbf{NEW} --- consistency of \texttt{succ\_seed} via compactness + \texttt{diamond\_extension\_consistent} & Pass \\
+TL · \texttt{CompletedModel.diamond\_succ\_mcs} & \textbf{rewired} onto \texttt{succ\_seed} + \texttt{RegularLindenbaumLemma}: yields \texttt{Canonical.R\ Δ\ Γ\textquotesingle{}\ ∧\ ψ∈Γ\textquotesingle{}\ ∧\ MCS\ Γ\textquotesingle{}\ ∧\ witnessed\ Γ\textquotesingle{}} (witnessed via \texttt{MCS\_mp} + \texttt{enum} surjectivity) & Pass \\
+TL · \texttt{CompletedModel.diamond\_completed\_succ} & ◇ successor pipeline via \texttt{diamond\_succ\_mcs} & Pass \\
+TL · \texttt{Proof.not\_nec\_to\_diamond} & \texttt{∼(□φ)\ ⟶\ ◇∼φ} for MCS maximality step & Pass \\
+TL · \texttt{CompletedModel.truth\_box} & □ case: → via \texttt{R\_nec} on witnessed/canonical successors; ← via MCS maximality + \texttt{diamond\_completed\_succ} & Pass \\
+TL · \texttt{Proof.all\_iff\_notfree} & \texttt{(all\ x,\ ψ)\ ⟷\ ψ} when \texttt{x} not free (Q1 + \texttt{ax\_q2}) & Pass \\
+TL · \texttt{CompletedModel.truth\_all} & uniform proof (free + non-free \texttt{x}): nominal/svar symbol split + depth-indexed \texttt{ih}; forward via \texttt{ax\_q2\_nom}/\texttt{ax\_q2\_svar}, backward via \texttt{witnessed} on \texttt{ex\ x,\ ∼ψ} (\texttt{bind\_dual}) & Pass \\
+TL · \texttt{CompletedModel.TruthLemma} & structural assembly via well-founded recursion on \texttt{Form.depth} (supplies \texttt{truth\_all}'s depth-\texttt{ih}) & Pass \\
+\textbf{I} & \textbf{Final-completeness} --- fully closed; depends on TL (\texttt{TruthLemma}), now complete & \textbf{Pass} \\
+I · \texttt{Completeness.consistent\_total} & \texttt{consistent\ Γ\ →\ consistent\ (Set.total\ Γ)} via \texttt{syntactic\_conservativity} (needs \texttt{N} nonempty, threaded through \texttt{cons\_sat}/\texttt{Completeness}) & Pass \\
+I · \texttt{Completeness.cons\_sat} & model-existence pipeline & Pass \\
+I · \texttt{Completeness.ModelExistence} & completeness ⟺ every consistent set is satisfiable & Pass \\
+I · \texttt{Completeness.Completeness} & \texttt{Γ\ ⊨\ φ\ →\ Γ\ ⊢\ φ} (assembled from \texttt{cons\_sat} + \texttt{ModelExistence}; takes \texttt{N} nonempty) --- \textbf{the development is now \texttt{sorry}-free; \texttt{\#print\ axioms\ Completeness} = \texttt{propext,\ Classical.choice,\ Quot.sound}} & Pass \\
+\end{longtable}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{acknowledgments}{%
+\section{Acknowledgments}\label{acknowledgments}}
+
+\begin{itemize}
+\item
+  \textbf{Alex Oltean} --- the original formalization, proof architecture, and thesis, on which this work directly builds; in particular the \emph{existence-lemma} direction for the witnessed ◇-successor (\texttt{l313}/\texttt{l313\textquotesingle{}}, fresh-variable Henkin witnessing) is the correct approach for the truth lemma's modal case and is the route we complete (see §TL-fix).
+\item
+  \textbf{Patrick Blackburn} --- \emph{Hybrid Completeness} (1998), the mathematical source.
+\item
+  \textbf{Bud Mishra} --- for suggesting the disjoint-sum (\texttt{N\ ⊕\ ℕ}) structural-freshness Henkin construction, which is the decisive tool for the \textbf{root} extended Lindenbaum lemma (witnessing an infinite consistent set). It does not, and is not meant to, address the separate ◇-successor step, whose obstruction is not a freshness problem (see §1.3).
+\item
+  The theorem-proving community, and in particular \textbf{Asta Halkjær From}, for recent Isabelle/HOL work on synthetic completeness for hybrid and modal logics.
+\end{itemize}
+
+\hypertarget{ai-assisted-development}{%
+\subsection{AI-assisted development}\label{ai-assisted-development}}
+
+The human author(s) retain sole responsibility for the mathematical content, the choice of logic and proof system, and every formal claim in this work. Following standard publisher practice (e.g., COPE guidance on authorship and AI tools {[}COPE24{]}), \textbf{no large language model is listed as a co-author} --- authorship implies an accountability that automated systems cannot bear.
+
+We gratefully acknowledge assistance from the following tools:
+
+\begin{itemize}
+\item
+  \textbf{Cursor} ({[}Cur25{]}): agent-assisted editing in the Cursor IDE. These agents helped port Oltean's Lean 4 development from its original 2023 nightly to Lean v4.30.0 / mathlib v4.30.0, repair mathlib API churn, suggest proof and refactoring strategies, debug \texttt{lake} and type-class errors, and draft the narrative in this document. Generated Lean was treated as provisional until it compiled under the pinned toolchain; no result was accepted on the basis of an LLM's assertion alone.
+\item
+  \textbf{Cursor Composer 2.5} ({[}Cmp25{]}): Cursor's agentic coding model (built on the Kimi K2.5 checkpoint), used for routine agent work --- dependency-ordered porting, \texttt{lake\ build} repair loops, scaffolding and documentation (\texttt{arxiv.md}), and closing mechanical proof obligations where the strategy was already fixed. Per the model card, Composer 2.5 is optimized for multi-step tool use and codebase navigation rather than open-ended mathematical research; accordingly, novel proof design (e.g. conservativity of the language extension) was not delegated to it alone.
+\item
+  \textbf{Anthropic Claude Opus 4.8, High reasoning} ({[}Ant26{]}): the large language model underlying the Cursor agent for the bulk of the proof-repair and porting work reported here --- closing the existence lemma (\texttt{l313\textquotesingle{}}), the witnessed-Lindenbaum induction (\texttt{LindenbaumWitnessed}), the structural-freshness base case, and the re-fit of the canonical-model truth lemma and final assembly so that the development compiles under the pinned toolchain. Per the model card, the system is a general-purpose reasoning model with no formal soundness guarantee; accordingly, every emitted proof term was checked by the Lean kernel, and the remaining \texttt{sorry}/\texttt{admit} obligations are reported honestly rather than papered over.
+\item
+  \textbf{Google Gemini} ({[}Gem25{]}): exploratory discussion of the completeness gap and candidate repair strategies. It was in one such discussion that Bud Mishra's disjoint-sum (\texttt{N\ ⊕\ ℕ}) Henkin construction was surfaced and connected to the problem; the recommendations informed, but did not dictate, the human-directed design choices (in particular, the decision to retain Oltean's odd/even encoding of structural freshness rather than re-parameterize the syntax).
+\end{itemize}
+
+All definitions, axiom choices, remaining \texttt{sorry}/\texttt{admit} obligations, and final prose were reviewed by the human author(s), who take full responsibility for them. The original \texttt{Hybrid/} formalization is the work of Alex Oltean and was published upstream without an explicit license; it is used and modified here in good faith for non-commercial academic research, with attribution, and no rights over the original work are claimed. The modifications and new files contributed in this work are offered under the Apache License, Version 2.0.
+
+\hypertarget{artifact-availability}{%
+\subsection{Artifact availability}\label{artifact-availability}}
+
+The original formalization is archived at \href{https://github.com/alexoltean61/hybrid_logic_lean}{\texttt{github.com/alexoltean61/hybrid\_logic\_lean}}. The ported development with the completed completeness proof is at \href{https://github.com/catskillsresearch/hybrid_logic_lean_revisited}{\texttt{github.com/catskillsresearch/hybrid\_logic\_lean\_revisited}}.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{references}{%
+\section{References}\label{references}}
+
+\emph{(To be formatted; see \texttt{oltean\_thesis.pdf} bibliography for the underlying sources.)}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  P. Blackburn. \emph{Hybrid Completeness}. Logic Journal of the IGPL, 6(4):625--650, 1998.
+\item
+  P. Blackburn, M. de Rijke, Y. Venema. \emph{Modal Logic}. Cambridge University Press.
+\item
+  A. Oltean. \emph{A Formalization of Hybrid Logic in Lean}. BA thesis, University of Bucharest, 2023. Repository (archived, no explicit license): \texttt{github.com/alexoltean61/hybrid\_logic\_lean}. 3b. Catskills Research. \emph{hybrid\_logic\_lean\_revisited} (this work). \texttt{github.com/catskillsresearch/hybrid\_logic\_lean\_revisited}.
+\item
+  A. H. From. \emph{An Isabelle/HOL Framework for Synthetic Completeness Proofs}. CPP 2025.
+\item
+  B. Bentzen. \emph{A Henkin-Style Completeness Proof for the Modal Logic S5}. 2021.
+\item
+  L. Henkin. \emph{The Completeness of the First-Order Functional Calculus}. JSL, 1949.
+\item
+  \textbf{{[}COPE24{]}} Committee on Publication Ethics (COPE). \emph{Authorship and AI tools: COPE position statement}. 2024. https://publicationethics.org/guidance/cope-position/authorship-and-ai-tools
+\item
+  \textbf{{[}Cur25{]}} Anysphere, Inc.~\emph{Cursor: AI-native code editor and agent environment}. https://cursor.com (accessed 2026).
+\item
+  \textbf{{[}Cmp25{]}} Anysphere, Inc.~\emph{Composer 2.5}. Model announcement and documentation, https://cursor.com/blog/composer-2-5; pricing and model card as integrated in Cursor, https://cursor.com/docs/models (accessed 2026).
+\item
+  \textbf{{[}Gem25{]}} Google DeepMind. \emph{Gemini model family}. Technical documentation and model cards. https://ai.google.dev/gemini-api/docs/models
+\item
+  \textbf{{[}Ant26{]}} Anthropic. \emph{Claude Opus 4.8} (high thinking/reasoning variant). System card and announcement, https://www.anthropic.com/news/claude-opus-4-8; model documentation as integrated in Cursor, https://cursor.com/docs/models/claude-opus-4-8 (accessed 2026).
+\end{enumerate}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{appendix-a-complete-lean-source}{%
+\section{Appendix A: Complete Lean source}\label{appendix-a-complete-lean-source}}
+
+Files appear in \texttt{Hybrid.lean} import order. Each block is a verbatim copy of the repository file at generation time.
+
+\hypertarget{hybrid.lean}{%
+\subsection{Hybrid.lean}\label{hybrid.lean}}
+
+\emph{16 lines.}
+
+\vspace{0.5\baselineskip}
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox]{lean-listings/Hybrid.lean}
+\vspace{0.5\baselineskip}
+
+\hypertarget{hybridutil.lean}{%
+\subsection{Hybrid/Util.lean}\label{hybridutil.lean}}
+
+\emph{198 lines.}
+
+\vspace{0.5\baselineskip}
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox]{lean-listings/Hybrid-Util.lean}
+\vspace{0.5\baselineskip}
+
+\hypertarget{hybridform.lean}{%
+\subsection{Hybrid/Form.lean}\label{hybridform.lean}}
+
+\emph{402 lines.}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 1--400)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=1,lastline=400]{lean-listings/Hybrid-Form.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 401--402)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=401,lastline=402]{lean-listings/Hybrid-Form.lean}
+
+\hypertarget{hybridtautology.lean}{%
+\subsection{Hybrid/Tautology.lean}\label{hybridtautology.lean}}
+
+\emph{230 lines.}
+
+\vspace{0.5\baselineskip}
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox]{lean-listings/Hybrid-Tautology.lean}
+\vspace{0.5\baselineskip}
+
+\hypertarget{hybridsubstitutions.lean}{%
+\subsection{Hybrid/Substitutions.lean}\label{hybridsubstitutions.lean}}
+
+\emph{1228 lines.}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 1--400)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=1,lastline=400]{lean-listings/Hybrid-Substitutions.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 401--800)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=401,lastline=800]{lean-listings/Hybrid-Substitutions.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 801--1200)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=801,lastline=1200]{lean-listings/Hybrid-Substitutions.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 1201--1228)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=1201,lastline=1228]{lean-listings/Hybrid-Substitutions.lean}
+
+\hypertarget{hybridproof.lean}{%
+\subsection{Hybrid/Proof.lean}\label{hybridproof.lean}}
+
+\emph{111 lines.}
+
+\vspace{0.5\baselineskip}
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox]{lean-listings/Hybrid-Proof.lean}
+\vspace{0.5\baselineskip}
+
+\hypertarget{hybridtruth.lean}{%
+\subsection{Hybrid/Truth.lean}\label{hybridtruth.lean}}
+
+\emph{331 lines.}
+
+\vspace{0.5\baselineskip}
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox]{lean-listings/Hybrid-Truth.lean}
+\vspace{0.5\baselineskip}
+
+\hypertarget{hybridlistutils.lean}{%
+\subsection{Hybrid/ListUtils.lean}\label{hybridlistutils.lean}}
+
+\emph{212 lines.}
+
+\vspace{0.5\baselineskip}
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox]{lean-listings/Hybrid-ListUtils.lean}
+\vspace{0.5\baselineskip}
+
+\hypertarget{hybridproofutils.lean}{%
+\subsection{Hybrid/ProofUtils.lean}\label{hybridproofutils.lean}}
+
+\emph{961 lines.}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 1--400)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=1,lastline=400]{lean-listings/Hybrid-ProofUtils.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 401--800)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=401,lastline=800]{lean-listings/Hybrid-ProofUtils.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 801--961)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=801,lastline=961]{lean-listings/Hybrid-ProofUtils.lean}
+
+\hypertarget{hybridsoundness.lean}{%
+\subsection{Hybrid/Soundness.lean}\label{hybridsoundness.lean}}
+
+\emph{421 lines.}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 1--400)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=1,lastline=400]{lean-listings/Hybrid-Soundness.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 401--421)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=401,lastline=421]{lean-listings/Hybrid-Soundness.lean}
+
+\hypertarget{hybridrenamebound.lean}{%
+\subsection{Hybrid/RenameBound.lean}\label{hybridrenamebound.lean}}
+
+\emph{146 lines.}
+
+\vspace{0.5\baselineskip}
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox]{lean-listings/Hybrid-RenameBound.lean}
+\vspace{0.5\baselineskip}
+
+\hypertarget{hybridformcountable.lean}{%
+\subsection{Hybrid/FormCountable.lean}\label{hybridformcountable.lean}}
+
+\emph{220 lines.}
+
+\vspace{0.5\baselineskip}
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox]{lean-listings/Hybrid-FormCountable.lean}
+\vspace{0.5\baselineskip}
+
+\hypertarget{hybridlindenbaum.lean}{%
+\subsection{Hybrid/Lindenbaum.lean}\label{hybridlindenbaum.lean}}
+
+\emph{551 lines.}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 1--400)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=1,lastline=400]{lean-listings/Hybrid-Lindenbaum.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 401--551)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=401,lastline=551]{lean-listings/Hybrid-Lindenbaum.lean}
+
+\hypertarget{hybridlanguageextension.lean}{%
+\subsection{Hybrid/LanguageExtension.lean}\label{hybridlanguageextension.lean}}
+
+\emph{975 lines.}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 1--400)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=1,lastline=400]{lean-listings/Hybrid-LanguageExtension.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 401--800)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=401,lastline=800]{lean-listings/Hybrid-LanguageExtension.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 801--975)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=801,lastline=975]{lean-listings/Hybrid-LanguageExtension.lean}
+
+\hypertarget{hybridexistencelemma.lean}{%
+\subsection{Hybrid/ExistenceLemma.lean}\label{hybridexistencelemma.lean}}
+
+\emph{183 lines.}
+
+\vspace{0.5\baselineskip}
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox]{lean-listings/Hybrid-ExistenceLemma.lean}
+\vspace{0.5\baselineskip}
+
+\hypertarget{hybridcompletedmodel.lean}{%
+\subsection{Hybrid/CompletedModel.lean}\label{hybridcompletedmodel.lean}}
+
+\emph{954 lines.}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 1--400)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=1,lastline=400]{lean-listings/Hybrid-CompletedModel.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 401--800)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=401,lastline=800]{lean-listings/Hybrid-CompletedModel.lean}
+
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source (lines 801--954)}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox,firstline=801,lastline=954]{lean-listings/Hybrid-CompletedModel.lean}
+
+\hypertarget{hybridcompleteness.lean}{%
+\subsection{Hybrid/Completeness.lean}\label{hybridcompleteness.lean}}
+
+\emph{109 lines.}
+
+\vspace{0.5\baselineskip}
+\noindent\textcolor{green!40!black}{\textbf{Lean 4 source}}\par\vspace{0.25\baselineskip}
+\lstinputlisting[style=leanbox]{lean-listings/Hybrid-Completeness.lean}
+\vspace{0.5\baselineskip}
+
+
+
+\end{document}

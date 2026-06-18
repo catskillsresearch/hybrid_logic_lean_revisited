@@ -9,30 +9,31 @@
 ## Abstract
 
 We complete the first machine-checked completeness theorem for the hybrid logic
-*L(∀)* (a propositional modal logic enriched with nominals, the satisfaction-style
-universal binder ∀, and the box modality), building directly on Alex Oltean's 2023
+*L(∀)* — propositional modal logic enriched with nominals, the satisfaction-style
+universal binder ∀, and the box modality — building directly on Alex Oltean's 2023
 Lean 4 formalization. Oltean mechanized the syntax, semantics, Hilbert-style proof
-system, and **soundness** of *L(∀)* following Blackburn's *Hybrid Completeness*
-(1998), and laid out a clear route to completeness, but left the completeness theorem
-itself unfinished: the construction of a *witnessed* (Henkin) maximal consistent set
-requires, at each step of Lindenbaum's lemma, a **fresh nominal**, and computing
-freshness dynamically inside dependent type theory proved intractable. We close this
-gap. The conceptual key is *structural freshness*: rather than searching for an unused
-nominal, the language is extended so that an infinite supply of nominals is reserved
-*by construction* and is therefore disjoint from anything in play. We discuss the
-design space for realizing this idea in a proof assistant — Oltean's odd/even
-encoding inside ℕ, the disjoint-sum (`N ⊕ ℕ`) parameterization suggested by Bud
-Mishra, and the abstract synthetic-completeness frameworks of Asta Halkjær From — and
-explain the encoding choice that makes the remaining proofs tractable. Structural
-freshness is decisive for the *root* maximal-consistent-set construction; the separate
-witnessed ◇-*successor* step is closed not by freshness (the canonical box-reduct of an
-MCS mentions every nominal) but by completing Oltean's existence-lemma route — an
-incremental Henkin construction that draws each witness from the predecessor's own
-witnessedness through a fresh *state variable*. With both in place the completeness
-theorem `Γ ⊨ φ → Γ ⊢ φ` is fully formalized: the development is `sorry`-free, and
-`#print axioms Completeness` reports only `propext`, `Classical.choice`, and `Quot.sound`.
-We also port the development from Oltean's original June-2023 Lean nightly to Lean
-v4.30.0 / mathlib v4.30.0.
+system, and **soundness** following Blackburn's *Hybrid Completeness* (1998) and laid
+out a clear route to completeness, but left the theorem itself unfinished. Finishing it
+requires manufacturing fresh names at two structurally different points of the proof,
+and our central finding is that **the two points call for two different tools**.
+*(1) The root witnessed maximal consistent set* — the extended Lindenbaum construction —
+needs, at each step, a nominal fresh for the whole set being built; the right tool is
+*structural freshness*, extending the language so that an infinite supply of nominals is
+reserved *by construction* and is automatically disjoint from anything in play. We survey
+the design space for this — Oltean's odd/even encoding inside ℕ, the disjoint-sum
+(`N ⊕ ℕ`) parameterization suggested by Bud Mishra, and Asta Halkjær From's abstract
+synthetic-completeness frameworks — and explain the encoding we adopt. *(2) The witnessed
+◇-successor* of a maximal consistent set, by contrast, **cannot** be obtained this way:
+its canonical box-reduct provably mentions every nominal, so no reserved name is ever
+fresh for it. Here the correct tool is the one Oltean had already chosen but left
+incomplete — an *existence-lemma* Henkin construction that draws each witness from the
+predecessor's *own* witnessedness through a fresh *state variable* rather than a fresh
+nominal; we complete it with a data-carrying witness accumulator and a compactness
+argument. With both constructions in place the completeness theorem `Γ ⊨ φ → Γ ⊢ φ` is
+fully formalized: the development is `sorry`-free, and `#print axioms Completeness`
+reports only `propext`, `Classical.choice`, and `Quot.sound`. We also port the
+development from Oltean's original June-2023 Lean nightly to Lean v4.30.0 /
+mathlib v4.30.0.
 
 ---
 

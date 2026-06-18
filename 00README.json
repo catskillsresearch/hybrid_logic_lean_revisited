@@ -1,0 +1,79 @@
+{
+  "process": {
+    "compiler": "pdflatex"
+  },
+  "sources": [
+    {
+      "filename": "arxiv_with_code.tex",
+      "usage": "toplevel"
+    },
+    {
+      "filename": "lean-listings/Hybrid-CompletedModel.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-Completeness.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-ExistenceLemma.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-Form.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-FormCountable.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-LanguageExtension.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-Lindenbaum.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-ListUtils.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-Proof.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-ProofUtils.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-RenameBound.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-Soundness.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-Substitutions.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-Tautology.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-Truth.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid-Util.lean",
+      "usage": "include"
+    },
+    {
+      "filename": "lean-listings/Hybrid.lean",
+      "usage": "include"
+    }
+  ]
+}
