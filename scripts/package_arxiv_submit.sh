@@ -58,6 +58,6 @@ echo "wrote $ZIP ($(du -h "$ZIP" | cut -f1))"
 echo "Contents:"
 zipinfo -1 "$ZIP" | sed 's/^/  /' | head -40
 echo
-echo "Upload $ZIP to arXiv (pdfLaTeX; Lean listings are ASCII-sanitized for AutoTeX)."
+echo "Upload $ZIP to arXiv (pdfLaTeX; UTF-8 Lean listings render via the listings literate table)."
 echo "On arXiv Add Files: Delete All before uploading (uploads merge, they do not replace)."
 echo "On arXiv Review Files: if any lean-listings/*.lean are marked for deletion, UNCHECK them."

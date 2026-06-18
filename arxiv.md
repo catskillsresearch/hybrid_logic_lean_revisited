@@ -8,10 +8,13 @@
 
 ## Abstract
 
-We complete the first machine-checked completeness theorem for the hybrid logic
-*L(∀)* — propositional modal logic enriched with nominals, the satisfaction-style
-universal binder ∀, and the box modality — building directly on Alex Oltean's 2023
-Lean 4 formalization. Oltean mechanized the syntax, semantics, Hilbert-style proof
+We present the first machine-checked completeness theorem for hybrid logic in
+**Lean 4**, and — to our knowledge — the first in any proof assistant for a *binding*
+hybrid logic: the system *L(∀)*, propositional modal logic enriched with nominals, the
+satisfaction-style universal binder ∀, and the box modality. (Machine-checked
+completeness for *basic* hybrid logic — nominals and satisfaction operators, without
+binders — was pioneered by Asta Halkjær From in Isabelle/HOL.) We build directly on
+Alex Oltean's 2023 Lean 4 formalization. Oltean mechanized the syntax, semantics, Hilbert-style proof
 system, and **soundness** following Blackburn's *Hybrid Completeness* (1998) and laid
 out a clear route to completeness, but left the theorem itself unfinished. Finishing it
 requires manufacturing fresh names at two structurally different points of the proof,
@@ -687,16 +690,24 @@ choice determines how painful the surrounding lemmas are.
 
 ## 5. Related work
 
-- **Asta Halkjær From**, *An Isabelle/HOL Framework for Synthetic Completeness Proofs*
-  (CPP 2025) and related papers, mechanize strong completeness for several logics —
-  including hybrid logic — using an abstract, transfinite Lindenbaum construction and a
-  synthetic canonical-model framework in Isabelle/HOL. This is the closest existing
+- **Asta Halkjær From** gave the *first* machine-checked completeness proof for any
+  hybrid logic — a Seligman-style tableau system for **basic** hybrid logic (nominals
+  and satisfaction operators `@`, *no binders*) in Isabelle/HOL (TYPES 2020) — and
+  later an abstract, transfinite synthetic-completeness *framework* (*An Isabelle/HOL
+  Framework for Synthetic Completeness Proofs*, CPP 2025) instantiated to propositional,
+  first-order, modal, and (basic) hybrid logic. This is the closest existing
   mechanization of witnessed/named MCSs for hybrid logic and the state of the art for
-  reusable completeness infrastructure.
+  reusable completeness infrastructure. Our target differs in the *object logic*:
+  *L(∀)* is a **binding** hybrid logic (the satisfaction-style universal binder ∀),
+  proved complete here via a Hilbert system rather than a tableau or natural-deduction
+  calculus. We make no priority claim over From for hybrid logic in general; our claim
+  is the first mechanized completeness for a *binding* hybrid logic, and the first for
+  any hybrid logic in Lean.
 - Earlier Lean modal-logic formalizations: a Henkin-style completeness proof for **S5**
   (Bentzen 2021), **Public Announcement Logic / PAL-S5** (Li 2020), and **Matching
   Logic** in Lean (Cheval & Macovei 2023). We are not aware of a prior completeness
-  formalization for a *binding* hybrid logic in Lean.
+  formalization for a *binding* hybrid logic in any proof assistant, nor of any prior
+  hybrid-logic completeness formalization in Lean.
 - The mathematics followed throughout is **Blackburn**, *Hybrid Completeness* (1998).
 
 ---
@@ -933,6 +944,9 @@ The ported development with the completed completeness proof is at
 3b. Catskills Research. *hybrid_logic_lean_revisited* (this work).
    `github.com/catskillsresearch/hybrid_logic_lean_revisited`.
 4. A. H. From. *An Isabelle/HOL Framework for Synthetic Completeness Proofs*. CPP 2025.
+4b. A. H. From. *Synthetic Completeness for a Terminating Seligman-Style Tableau System*.
+   TYPES 2020, LIPIcs. (First formalized completeness proof for a hybrid-logic proof
+   system; basic hybrid logic, Isabelle/HOL.)
 5. B. Bentzen. *A Henkin-Style Completeness Proof for the Modal Logic S5*. 2021.
 6. L. Henkin. *The Completeness of the First-Order Functional Calculus*. JSL, 1949.
 7. **[COPE24]** Committee on Publication Ethics (COPE). *Authorship and AI tools: COPE
