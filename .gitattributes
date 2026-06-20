@@ -1,0 +1,12 @@
+# Treat all Python files as documentation or vendored code so they don't count toward language stats
+*.py linguist-documentation
+# Or use linguist-vendored if they are third-party helper tools
+# *.py linguist-vendored
+
+# Treat all LaTeX / TeX files as documentation
+*.tex linguist-documentation
+*.toc linguist-documentation
+*.sty linguist-documentation
+
+# Ensure Lean files are explicitly counted as the primary code element
+*.lean linguist-detectable=true
