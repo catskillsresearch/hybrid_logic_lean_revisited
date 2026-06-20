@@ -1,4 +1,5 @@
-[![CI](https://github.com/catskillsresearch/hybrid_logic_lean_revisited/actions/workflows/build.yml/badge.svg)](https://github.com/catskillsresearch/hybrid_logic_lean_revisited/actions/workflows/build.yml)
+[![Lean 4](https://img.shields.io/github/actions/workflow/status/catskillsresearch/hybrid_logic_lean_revisited/build.yml?label=Lean%204)](https://github.com/catskillsresearch/hybrid_logic_lean_revisited/actions/workflows/build.yml)
+
 # hybrid_logic_lean_revisited
 
 Completing the **completeness theorem** for Alex Oltean's Lean 4 formalization of the
