@@ -19,12 +19,8 @@ jobs:
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
 
-      - name: Get Lean toolchain
-        run: elan toolchain install
-
       - name: Configure Lake cache
         # This speeds up the build by fetching pre-compiled Mathlib binaries 
-        # so GitHub doesn't have to compile all of Mathlib from scratch.
         run: |
           lake exe cache get || true
 
